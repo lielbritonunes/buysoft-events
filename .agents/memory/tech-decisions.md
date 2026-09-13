@@ -25,4 +25,8 @@ updated: 2026-07-18
     - Automação de E-mails com 4 gatilhos (Confirmação imediata, Lembrete 24h, Lembrete 1h, Replay pós-evento), modal de preview fiel com visual corporativo Buysoft Events, editor de assunto, métricas de abertura e envio de teste.
     - Dashboard Executivo de Analytics com KPIs (Inscritos Totais, Show-up Rate estimado, Interações na sala, Satisfação com nota 4.9/5), tabela de leads com busca em tempo real, visualizador de respostas e exportação de base em CSV (compatível com Excel Windows via UTF-8 BOM).
     - Gestão de Gravações e Replay com player simulado em 1080p, toggle de publicação pública do link do replay e download de slides em PDF.
+  - Fase 5: Estúdio StreamYard/RingCentral com LiveKit Cloud & Transmissão Direta YouTube Live.
+    - Criação automática de Live não listada no canal YouTube da organização via Google OAuth 2.0 e YouTube Data API v3.
+    - Codificador nativo no navegador via LiveKit Cloud (`livekit-client`, `livekit-server-sdk`) com Egress direto para o RTMP do YouTube (1-click "Iniciar Transmissão Ao Vivo").
+    - Personalização do Estúdio: Modos de Layout (Solo, Grade, Split lado-a-lado, PiP Picture-in-Picture), Lower Thirds com identificação do palestrante, Letreiro de Rodapé (Ticker Tape), Banner de Destaque, Plano de Fundo personalizável com presets e Reprodutor de Vídeos/Vinhetas direto no estúdio sem precisar compartilhar tela.
   - Próxima etapa: Fase X (Verificação Final de Ponta a Ponta, Checklist e Entrega do MVP).
