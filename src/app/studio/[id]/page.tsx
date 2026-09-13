@@ -195,23 +195,27 @@ export default function StudioPage({ params, searchParams }: Props) {
         livekitRoomRef.current = room;
         setIsLiveKitConnected(true);
 
-        // Publish existing local camera/mic tracks if on stage
-        if (localStream && isOnStage) {
-          const vt = localStream.getVideoTracks()[0];
-          const at = localStream.getAudioTracks()[0];
-          if (vt) {
-            await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera });
+        // Publish local camera/mic tracks if on stage
+        if (isOnStage) {
+          const vt = localStream?.getVideoTracks()[0];
+          const at = localStream?.getAudioTracks()[0];
+          if (vt && vt.readyState === "live") {
+            await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera }).catch(() => {});
+          } else if (isCamOn) {
+            await room.localParticipant.setCameraEnabled(true).catch(() => {});
           }
-          if (at) {
-            await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone });
+          if (at && at.readyState === "live") {
+            await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone }).catch(() => {});
+          } else if (isMicOn) {
+            await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
           }
         }
 
         // Publish existing screen share if active
         if (screenStream) {
           const st = screenStream.getVideoTracks()[0];
-          if (st) {
-            await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare });
+          if (st && st.readyState === "live") {
+            await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare }).catch(() => {});
           }
         }
       } catch (err) {
@@ -229,7 +233,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         setIsLiveKitConnected(false);
       }
     };
-  }, [hasJoinedLobby, eventId, userRole]);
+  }, [hasJoinedLobby, eventId, userRole, isOnStage, isCamOn, isMicOn]);
 
   // Sync local camera & mic tracks with LiveKit
   useEffect(() => {
@@ -258,10 +262,13 @@ export default function StudioPage({ params, searchParams }: Props) {
         const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
           (p) => p.source === Track.Source.Camera || p.trackName === "camera"
         );
-        if (vt && !existingVideoPub) {
-          await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera });
-        } else if (!vt && existingVideoPub?.track) {
-          await room.localParticipant.unpublishTrack(existingVideoPub.track);
+        if (existingVideoPub?.track && (!vt || (existingVideoPub.track as any).mediaStreamTrack !== vt)) {
+          await room.localParticipant.unpublishTrack(existingVideoPub.track).catch(() => {});
+        }
+        if (vt && vt.readyState === "live" && (!existingVideoPub || (existingVideoPub.track as any)?.mediaStreamTrack !== vt)) {
+          await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera }).catch(() => {});
+        } else if (!existingVideoPub && isCamOn) {
+          await room.localParticipant.setCameraEnabled(true).catch(() => {});
         }
 
         // Audio track
@@ -269,10 +276,13 @@ export default function StudioPage({ params, searchParams }: Props) {
         const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
           (p) => p.source === Track.Source.Microphone || p.trackName === "microphone"
         );
-        if (at && !existingAudioPub) {
-          await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone });
-        } else if (!at && existingAudioPub?.track) {
-          await room.localParticipant.unpublishTrack(existingAudioPub.track);
+        if (existingAudioPub?.track && (!at || (existingAudioPub.track as any).mediaStreamTrack !== at)) {
+          await room.localParticipant.unpublishTrack(existingAudioPub.track).catch(() => {});
+        }
+        if (at && at.readyState === "live" && (!existingAudioPub || (existingAudioPub.track as any)?.mediaStreamTrack !== at)) {
+          await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone }).catch(() => {});
+        } else if (!existingAudioPub && isMicOn) {
+          await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
         }
       } catch (e) {
         console.warn("Track sync warning with LiveKit:", e);
@@ -280,7 +290,7 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
 
     syncTracks();
-  }, [localStream, isOnStage, isLiveKitConnected]);
+  }, [localStream, isOnStage, isLiveKitConnected, isCamOn, isMicOn]);
 
   // Sync screen share track with LiveKit
   useEffect(() => {
@@ -293,10 +303,23 @@ export default function StudioPage({ params, searchParams }: Props) {
         const existingScreenPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
           (p) => p.source === Track.Source.ScreenShare || p.trackName === "screen"
         );
-        if (st && !existingScreenPub) {
-          await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare });
-        } else if (!st && existingScreenPub?.track) {
-          await room.localParticipant.unpublishTrack(existingScreenPub.track);
+        if (existingScreenPub?.track && (!st || (existingScreenPub.track as any).mediaStreamTrack !== st)) {
+          await room.localParticipant.unpublishTrack(existingScreenPub.track).catch(() => {});
+        }
+        if (st && st.readyState === "live" && (!existingScreenPub || (existingScreenPub.track as any)?.mediaStreamTrack !== st)) {
+          await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare }).catch(() => {});
+        }
+
+        // Screen Audio (if sharing browser tab or system sound)
+        const sa = screenStream?.getAudioTracks()[0];
+        const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+          (p) => p.trackName === "screen-audio"
+        );
+        if (existingAudioPub?.track && (!sa || (existingAudioPub.track as any).mediaStreamTrack !== sa)) {
+          await room.localParticipant.unpublishTrack(existingAudioPub.track).catch(() => {});
+        }
+        if (sa && sa.readyState === "live" && (!existingAudioPub || (existingAudioPub.track as any)?.mediaStreamTrack !== sa)) {
+          await room.localParticipant.publishTrack(sa, { name: "screen-audio", source: Track.Source.ScreenShareAudio }).catch(() => {});
         }
       } catch (e) {
         console.warn("Screen track sync warning with LiveKit:", e);
@@ -462,22 +485,28 @@ export default function StudioPage({ params, searchParams }: Props) {
       }
     } else {
       try {
-        // If event has YouTube integration, trigger LiveKit Cloud Egress
-        if (roomState?.youtubeStreamKey) {
-          const res = await fetch("/api/livekit/egress", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "start",
-              eventId,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            console.warn("Egress warning:", data.error);
-            setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
-          } else if (data.egressId) {
-            setCurrentEgressId(data.egressId);
+        // Trigger LiveKit Cloud Egress & ensure active YouTube live broadcast
+        const res = await fetch("/api/livekit/egress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "start",
+            eventId,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.warn("Egress warning:", data.error);
+          setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
+        } else if (data.egressId) {
+          setCurrentEgressId(data.egressId);
+          if (data.youtubeBroadcastId) {
+            setRoomState((prev: any) => ({
+              ...prev,
+              youtubeBroadcastId: data.youtubeBroadcastId,
+              youtubeStreamKey: data.youtubeStreamKey,
+              youtubeEmbedUrl: data.youtubeEmbedUrl,
+            }));
           }
         }
 
@@ -681,6 +710,20 @@ export default function StudioPage({ params, searchParams }: Props) {
                 </>
               )}
             </button>
+
+            {roomState?.youtubeBroadcastId && (
+              <a
+                href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-950/40 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-900/50 transition"
+                title="Abrir a Sala de Controle ao Vivo no YouTube Studio"
+              >
+                <YouTubeIcon className="h-3.5 w-3.5 text-red-500" />
+                <span className="hidden md:inline">YouTube Studio</span>
+                <ArrowUpRight className="h-3 w-3" />
+              </a>
+            )}
 
             <a
               href={`/live/${eventId}`}

@@ -20,6 +20,7 @@ export default function PreflightLobby({ userName, userRole, onJoin, onRoleChang
     video: [],
     audio: [],
   });
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -75,7 +76,7 @@ export default function PreflightLobby({ userName, userRole, onJoin, onRoleChang
     initMedia();
 
     return () => {
-      if (activeStream) {
+      if (activeStream && !joinedRef.current) {
         activeStream.getTracks().forEach((t) => t.stop());
       }
       if (audioContext) {
@@ -229,7 +230,10 @@ export default function PreflightLobby({ userName, userRole, onJoin, onRoleChang
           </div>
 
           <button
-            onClick={() => onJoin(stream)}
+            onClick={() => {
+              joinedRef.current = true;
+              onJoin(stream);
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00b4fb] py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 hover:bg-[#009ce0] transition"
           >
             <Sparkles className="h-4 w-4" />

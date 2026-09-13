@@ -243,7 +243,7 @@ export async function createYouTubeLiveBroadcastForEvent(eventId: string) {
       },
       contentDetails: {
         enableAutoStart: true,
-        enableAutoStop: true,
+        enableAutoStop: false,
         enableDvr: true,
         recordFromStart: true,
       },
@@ -335,5 +335,56 @@ export async function createYouTubeLiveBroadcastForEvent(eventId: string) {
   } catch (err) {
     console.error("Error creating YouTube Live broadcast:", err);
     return null;
+  }
+}
+
+// 9. Ensure active YouTube Broadcast (auto-recreates if previously completed/closed)
+export async function ensureActiveYouTubeBroadcast(eventId: string) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  });
+
+  if (!event) return null;
+
+  const accessToken = await getValidYouTubeAccessToken();
+  if (!accessToken) {
+    // If YouTube is not connected, return current event record
+    return event;
+  }
+
+  // If missing broadcast ID or stream key, create one
+  if (!event.youtubeBroadcastId || !event.youtubeStreamKey) {
+    return await createYouTubeLiveBroadcastForEvent(eventId);
+  }
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/liveBroadcasts?part=status&id=${event.youtubeBroadcastId}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!res.ok) {
+      console.warn("Could not query YouTube broadcast status, regenerating broadcast...");
+      return await createYouTubeLiveBroadcastForEvent(eventId);
+    }
+
+    const data = await res.json();
+    const item = data.items?.[0];
+    const lifeCycleStatus = item?.status?.lifeCycleStatus;
+
+    // If completed, abandoned or revoked, create a fresh one!
+    if (!item || lifeCycleStatus === "complete" || lifeCycleStatus === "revoked") {
+      console.log(
+        `[YOUTUBE RENEW] Event ${eventId} broadcast ${event.youtubeBroadcastId} status is '${lifeCycleStatus || "not found"}'. Recreating active broadcast...`
+      );
+      return await createYouTubeLiveBroadcastForEvent(eventId);
+    }
+
+    return event;
+  } catch (err) {
+    console.error("Error in ensureActiveYouTubeBroadcast:", err);
+    return event;
   }
 }

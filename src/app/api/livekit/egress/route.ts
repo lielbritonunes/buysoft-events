@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startRoomEgressToYouTube, stopLiveKitEgress } from "@/lib/livekitService";
+import { ensureActiveYouTubeBroadcast } from "@/lib/youtubeService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,20 +21,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "start") {
-      if (!event.youtubeStreamKey) {
+      // Ensure broadcast is active and not marked complete/closed on YouTube
+      const activeEvent = (await ensureActiveYouTubeBroadcast(eventId)) || event;
+
+      if (!activeEvent.youtubeStreamKey) {
         return NextResponse.json(
           { error: "Nenhuma chave de transmissão do YouTube configurada para este evento." },
           { status: 400 }
         );
       }
 
-      const rtmpUrl = event.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2";
+      const rtmpUrl = activeEvent.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2";
       const roomName = `event_${eventId}`;
 
       const startedEgressId = await startRoomEgressToYouTube({
         roomName,
         rtmpUrl,
-        streamKey: event.youtubeStreamKey,
+        streamKey: activeEvent.youtubeStreamKey,
       });
 
       // Update event status to live in both Event and StreamRoom
@@ -52,6 +56,9 @@ export async function POST(req: NextRequest) {
         success: true,
         egressId: startedEgressId,
         isLive: true,
+        youtubeBroadcastId: activeEvent.youtubeBroadcastId,
+        youtubeStreamKey: activeEvent.youtubeStreamKey,
+        youtubeEmbedUrl: activeEvent.youtubeEmbedUrl,
       });
     }
 
