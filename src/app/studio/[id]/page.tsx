@@ -21,7 +21,16 @@ import {
   Layers,
   PhoneOff,
   Copy,
-  Check
+  Check,
+  LayoutGrid,
+  Columns2,
+  Palette,
+  Film,
+  Type,
+  Clock,
+  Plus,
+  Tv,
+  CheckCircle2
 } from "lucide-react";
 
 function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
@@ -35,6 +44,16 @@ function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
 import PreflightLobby from "@/components/studio/PreflightLobby";
 import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
+import StudioLayoutManager, {
+  LayoutMode,
+  BACKGROUND_PRESETS,
+} from "@/components/studio/StudioLayoutManager";
+import {
+  LowerThird,
+  TickerTape,
+  HeadlineBanner,
+} from "@/components/studio/LowerThirdsOverlay";
+import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
 
@@ -48,7 +67,8 @@ export default function StudioPage({ params, searchParams }: Props) {
   const eventId = resolvedParams.id;
 
   const resolvedSearchParams = searchParams ? use(searchParams) : {};
-  const initialRole: "host" | "speaker" = resolvedSearchParams?.role === "speaker" ? "speaker" : "host";
+  const initialRole: "host" | "speaker" =
+    resolvedSearchParams?.role === "speaker" ? "speaker" : "host";
   const [userRole, setUserRole] = useState<"host" | "speaker">(initialRole);
 
   // State
@@ -61,8 +81,53 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [isCamOn, setIsCamOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [isOnStage, setIsOnStage] = useState(true); // in stage vs backstage
+  const [isOnStage, setIsOnStage] = useState(true);
   const [copiedRtmp, setCopiedRtmp] = useState(false);
+
+  // Studio Customization States
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("solo");
+  const [backgroundPresetId, setBackgroundPresetId] = useState<string>("dark-mesh");
+  const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string>("");
+
+  // Brand & Overlays
+  const [brandColor, setBrandColor] = useState<string>("#00b4fb");
+  const [lowerThirdVisible, setLowerThirdVisible] = useState(false);
+  const [lowerThirdName, setLowerThirdName] = useState(
+    initialRole === "host" ? "Eliel Nunes" : "Palestrante Especialista"
+  );
+  const [lowerThirdRole, setLowerThirdRole] = useState("Líder de Tecnologia & Inovação");
+  const [lowerThirdCompany, setLowerThirdCompany] = useState("Buysoft");
+
+  const [tickerVisible, setTickerVisible] = useState(false);
+  const [tickerText, setTickerText] = useState(
+    "🚀 Bem-vindo ao Buysoft Events! Deixe suas dúvidas no chat ao lado • buysoft.com.br"
+  );
+
+  const [bannerVisible, setBannerVisible] = useState(false);
+  const [bannerTitle, setBannerTitle] = useState("Buysoft Executive Webinar");
+  const [bannerSubtitle, setBannerSubtitle] = useState(
+    "Transformação Digital, Nuvem e Soluções Avançadas"
+  );
+
+  // Video Asset Player (Direct studio media clip)
+  const [videoAssetUrl, setVideoAssetUrl] = useState<string | null>(null);
+  const [customVideoInput, setCustomVideoInput] = useState("");
+
+  // LiveKit Egress & Streaming Timer
+  const [isBroadcastingLive, setIsBroadcastingLive] = useState(false);
+  const [currentEgressId, setCurrentEgressId] = useState<string | null>(null);
+  const [isStartingBroadcast, setIsStartingBroadcast] = useState(false);
+  const [liveDuration, setLiveDuration] = useState(0);
+
+  // Modals
+  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
+  const [customizationTab, setCustomizationTab] = useState<
+    "brand" | "ticker" | "background" | "media"
+  >("brand");
+  const [showCtaModal, setShowCtaModal] = useState(false);
+  const [ctaTitle, setCtaTitle] = useState("Agende uma Demonstração com nossos Especialistas");
+  const [ctaBtnText, setCtaBtnText] = useState("Falar com Consultor");
+  const [ctaBtnUrl, setCtaBtnUrl] = useState("https://buysoft.com.br");
 
   // Video refs & WebRTC Broadcaster
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -90,17 +155,16 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   }, [localStream, screenStream, roomState?.status, isOnStage]);
 
-  // Host CTA Launcher modal
-  const [showCtaModal, setShowCtaModal] = useState(false);
-  const [ctaTitle, setCtaTitle] = useState("Agende uma Demonstração com nossos Especialistas");
-  const [ctaBtnText, setCtaBtnText] = useState("Falar com Consultor");
-  const [ctaBtnUrl, setCtaBtnUrl] = useState("https://buysoft.com.br");
-
-  // Load and poll live state every 2 seconds
+  // Load and poll live state
   const fetchState = async () => {
     try {
       const state = await getLiveRoomState(eventId);
       setRoomState(state);
+      if (state?.status === "live") {
+        setIsBroadcastingLive(true);
+      } else {
+        setIsBroadcastingLive(false);
+      }
     } catch (err) {
       console.error("Error fetching live room state:", err);
     }
@@ -112,19 +176,34 @@ export default function StudioPage({ params, searchParams }: Props) {
     return () => clearInterval(interval);
   }, [eventId]);
 
-  // Bind local stream to video element once joined
+  // Timer counter when live
+  useEffect(() => {
+    let timer: any = null;
+    if (roomState?.status === "live") {
+      timer = setInterval(() => {
+        setLiveDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setLiveDuration(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [roomState?.status]);
+
+  // Bind local stream to video element
   useEffect(() => {
     if (hasJoinedLobby && localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [hasJoinedLobby, localStream]);
+  }, [hasJoinedLobby, localStream, layoutMode]);
 
   // Bind screen share stream
   useEffect(() => {
     if (screenStream && screenVideoRef.current) {
       screenVideoRef.current.srcObject = screenStream;
     }
-  }, [screenStream]);
+  }, [screenStream, layoutMode]);
 
   // Toggle Camera
   const handleToggleCam = () => {
@@ -156,6 +235,9 @@ export default function StudioPage({ params, searchParams }: Props) {
       }
       setScreenStream(null);
       setIsScreenSharing(false);
+      if (layoutMode === "split" || layoutMode === "pip") {
+        setLayoutMode("solo");
+      }
     } else {
       try {
         const sStream = await navigator.mediaDevices.getDisplayMedia({
@@ -164,10 +246,14 @@ export default function StudioPage({ params, searchParams }: Props) {
         });
         setScreenStream(sStream);
         setIsScreenSharing(true);
+        if (layoutMode === "solo") {
+          setLayoutMode("split");
+        }
 
         sStream.getVideoTracks()[0].onended = () => {
           setIsScreenSharing(false);
           setScreenStream(null);
+          setLayoutMode("solo");
         };
       } catch (err) {
         console.warn("Screen share cancelled:", err);
@@ -175,11 +261,62 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   };
 
-  // Toggle Go Live (Host only)
+  // Toggle 1-Click LiveKit Egress & Broadcast
   const handleToggleGoLive = async () => {
-    const nextStatus = roomState?.status === "live" ? "published" : "live";
-    await updateEvent(eventId, { status: nextStatus });
-    fetchState();
+    setIsStartingBroadcast(true);
+    const isCurrentlyLive = roomState?.status === "live" || isBroadcastingLive;
+
+    if (isCurrentlyLive) {
+      try {
+        await fetch("/api/livekit/egress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "stop",
+            eventId,
+            egressId: currentEgressId,
+          }),
+        });
+        await updateEvent(eventId, { status: "published" });
+        setIsBroadcastingLive(false);
+        setCurrentEgressId(null);
+        fetchState();
+      } catch (err) {
+        console.error("Error stopping live stream:", err);
+      } finally {
+        setIsStartingBroadcast(false);
+      }
+    } else {
+      try {
+        const res = await fetch("/api/livekit/egress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "start",
+            eventId,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.warn("Egress warning:", data.error);
+          // Still set event status to live in DB so viewer room opens
+          await updateEvent(eventId, { status: "live" });
+        } else {
+          if (data.egressId) {
+            setCurrentEgressId(data.egressId);
+          }
+        }
+        setIsBroadcastingLive(true);
+        fetchState();
+      } catch (err: any) {
+        console.error("Error starting broadcast:", err);
+        await updateEvent(eventId, { status: "live" });
+        setIsBroadcastingLive(true);
+        fetchState();
+      } finally {
+        setIsStartingBroadcast(false);
+      }
+    }
   };
 
   // Launch CTA (Host only)
@@ -204,6 +341,16 @@ export default function StudioPage({ params, searchParams }: Props) {
     fetchState();
   };
 
+  const formatDuration = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+      return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    }
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
   // Show Lobby if not joined
   if (!hasJoinedLobby) {
     return (
@@ -219,14 +366,14 @@ export default function StudioPage({ params, searchParams }: Props) {
     );
   }
 
-  const isWebinarLive = roomState?.status === "live";
+  const isWebinarLive = roomState?.status === "live" || isBroadcastingLive;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-white font-sans">
       {/* Main Studio Area (Left) */}
       <div className="flex flex-1 flex-col h-full overflow-hidden">
         {/* Top Control Bar */}
-        <header className="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900/70 px-4 sm:px-6 backdrop-blur-md">
+        <header className="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 sm:px-6 backdrop-blur-md z-30">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-xs">
               <Radio className="h-4 w-4" />
@@ -269,15 +416,20 @@ export default function StudioPage({ params, searchParams }: Props) {
               </div>
             </div>
 
-            {/* Live Badge */}
-            <div className="ml-3 hidden sm:flex items-center gap-1.5">
+            {/* Live Badge with Duration Timer */}
+            <div className="ml-3 hidden sm:flex items-center gap-2">
               {isWebinarLive ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-rose-500/20 border border-rose-500/30 px-2.5 py-0.5 text-[10px] font-bold text-rose-400">
+                <div className="flex items-center gap-2 rounded-xl bg-rose-500/20 border border-rose-500/40 px-3 py-1">
                   <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
-                  NO AR (AO VIVO)
-                </span>
+                  <span className="text-[11px] font-extrabold text-rose-400 tracking-wider uppercase">
+                    AO VIVO
+                  </span>
+                  <span className="text-xs font-mono font-bold text-white pl-2 border-l border-rose-500/30">
+                    {formatDuration(liveDuration)}
+                  </span>
+                </div>
               ) : (
-                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-400">
+                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-400">
                   EM BASTIDORES (BACKSTAGE)
                 </span>
               )}
@@ -312,13 +464,21 @@ export default function StudioPage({ params, searchParams }: Props) {
             {/* Go Live / End Broadcast */}
             <button
               onClick={handleToggleGoLive}
+              disabled={isStartingBroadcast}
               className={`flex items-center gap-2 rounded-xl px-4 py-1.5 text-xs font-extrabold shadow-lg transition transform active:scale-95 ${
-                isWebinarLive
+                isStartingBroadcast
+                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                  : isWebinarLive
                   ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30 animate-pulse"
                   : "bg-gradient-to-r from-rose-600 via-rose-500 to-[#00b4fb] hover:from-rose-500 hover:to-[#009ce0] text-white shadow-rose-500/25"
               }`}
             >
-              {isWebinarLive ? (
+              {isStartingBroadcast ? (
+                <>
+                  <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  <span>Conectando...</span>
+                </>
+              ) : isWebinarLive ? (
                 <>
                   <Square className="h-3 w-3 fill-current" />
                   <span>Encerrar Transmissão</span>
@@ -326,7 +486,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               ) : (
                 <>
                   <Play className="h-3 w-3 fill-current" />
-                  <span>Entrar ao Vivo</span>
+                  <span>Iniciar Transmissão Ao Vivo</span>
                 </>
               )}
             </button>
@@ -344,7 +504,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         </header>
 
         {/* Studio Stage Video Canvas */}
-        <div className="relative flex-1 p-4 sm:p-6 overflow-hidden flex flex-col justify-center items-center">
+        <div className="relative flex-1 p-3 sm:p-5 overflow-hidden flex flex-col justify-center items-center">
           {/* Active Live CTA Banner (if launched) */}
           {roomState?.liveCtas && roomState.liveCtas.length > 0 && (
             <div className="absolute top-4 inset-x-6 z-30 max-w-2xl mx-auto">
@@ -352,35 +512,37 @@ export default function StudioPage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {/* YouTube Live Status & Ingest Bar */}
+          {/* YouTube Live Ingest Status */}
           {roomState?.youtubeBroadcastId && (
-            <div className="w-full max-w-3xl mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/40 p-3.5 backdrop-blur-md z-20">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+            <div className="w-full max-w-4xl mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-2.5 sm:px-4 backdrop-blur-md z-20">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
                   <YouTubeIcon className="h-4 w-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-rose-200">YouTube Live Integrado (Não Listado)</span>
-                    <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-300 uppercase">
-                      Ao Vivo na Plateia
+                    <span className="text-xs font-bold text-rose-200">
+                      YouTube Live Integrado (Transmissão Direta Buysoft)
+                    </span>
+                    <span className="rounded-full bg-rose-500/20 px-2 py-0.2 text-[9px] font-bold text-rose-300 uppercase">
+                      LiveKit Egress
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
-                    A transmissão no YouTube será exibida automaticamente em Full HD para a audiência nesta sala.
+                  <p className="text-[10px] text-slate-300">
+                    O codificador do estúdio envia o stream automaticamente para a sua transmissão não listada.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-center">
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(roomState.youtubeStreamKey || "");
                     setCopiedRtmp(true);
                     setTimeout(() => setCopiedRtmp(false), 2000);
                   }}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
-                  title="Copiar Chave de Transmissão (Stream Key para OBS/vMix)"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition"
+                  title="Copiar Chave de Transmissão"
                 >
                   {copiedRtmp ? (
                     <>
@@ -390,7 +552,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   ) : (
                     <>
                       <Copy className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Copiar Chave RTMP</span>
+                      <span>Chave RTMP</span>
                     </>
                   )}
                 </button>
@@ -399,9 +561,9 @@ export default function StudioPage({ params, searchParams }: Props) {
                   href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition"
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-3 py-1 text-xs font-bold text-white shadow-xs transition"
                 >
-                  <span>Transmitir no YouTube Studio</span>
+                  <span>Abrir YouTube Studio</span>
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </a>
               </div>
@@ -410,26 +572,29 @@ export default function StudioPage({ params, searchParams }: Props) {
 
           {/* Notice Banner when in Backstage (Bastidores) */}
           {!isWebinarLive && (
-            <div className="w-full max-w-3xl mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3.5 backdrop-blur-md z-20">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <div className="w-full max-w-4xl mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2.5 sm:px-4 backdrop-blur-md z-20">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
                   <Radio className="h-4 w-4 animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-200">Você está no Backstage (Bastidores)</span>
-                    <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 uppercase">
+                    <span className="text-xs font-bold text-amber-200">
+                      Você está no Camarim / Backstage
+                    </span>
+                    <span className="rounded-full bg-amber-400/20 px-2 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
                       Privado
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
-                    A plateia na sala de espera ainda não vê nem ouve o estúdio. Clique ao lado quando estiver pronto para transmitir.
+                  <p className="text-[10px] text-slate-300">
+                    A audiência ainda não vê o estúdio. Quando estiver pronto, clique ao lado para iniciar a live.
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleToggleGoLive}
-                className="shrink-0 flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 px-4 py-2 text-xs font-extrabold text-white shadow-lg shadow-rose-600/30 transition transform active:scale-95"
+                disabled={isStartingBroadcast}
+                className="shrink-0 flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-rose-600/30 transition transform active:scale-95"
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
                 <span>Iniciar Transmissão Ao Vivo</span>
@@ -437,115 +602,170 @@ export default function StudioPage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {/* Video Layout Grid */}
-          <div className="w-full h-full max-h-[70vh] flex items-center justify-center gap-4">
-            {/* Screen Share Tile (if sharing) */}
-            {isScreenSharing && (
-              <div className="relative h-full flex-1 rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
-                <video
-                  ref={screenVideoRef}
-                  autoPlay
-                  playsInline
-                  className="h-full w-full object-contain"
-                />
-                <span className="absolute top-3 left-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-xs flex items-center gap-1.5 z-20">
-                  <Monitor className="h-3 w-3 text-[#00b4fb]" /> Tela Compartilhada
-                </span>
+          {/* MAIN STAGE CANVAS: StudioLayoutManager with Overlays */}
+          <div className="relative w-full flex-1 max-h-[66vh] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center border border-slate-800/80">
+            <StudioLayoutManager
+              layoutMode={layoutMode}
+              backgroundPresetId={backgroundPresetId}
+              customBackgroundUrl={customBackgroundUrl}
+              presenter={{
+                id: "local_presenter",
+                name: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+                videoRef: localVideoRef,
+                stream: isOnStage && isCamOn ? localStream : null,
+                isMicOn: isMicOn,
+                isCamOn: isCamOn,
+              }}
+              screenShare={
+                isScreenSharing
+                  ? {
+                      id: "screen_share",
+                      name: "Apresentação / Tela",
+                      videoRef: screenVideoRef,
+                      stream: screenStream,
+                      isScreen: true,
+                    }
+                  : null
+              }
+              mediaVideoElement={
+                videoAssetUrl ? (
+                  <MediaAssetPlayer
+                    videoUrl={videoAssetUrl}
+                    onClose={() => setVideoAssetUrl(null)}
+                  />
+                ) : null
+              }
+            />
+
+            {/* Overlays */}
+            <HeadlineBanner
+              isVisible={bannerVisible}
+              title={bannerTitle}
+              subtitle={bannerSubtitle}
+              themeColor={brandColor}
+            />
+            <LowerThird
+              isVisible={lowerThirdVisible}
+              name={lowerThirdName}
+              role={lowerThirdRole}
+              company={lowerThirdCompany}
+              themeColor={brandColor}
+            />
+            <TickerTape
+              isVisible={tickerVisible}
+              text={tickerText}
+              themeColor={brandColor}
+            />
+
+            {/* Backstage Overlay for Off-Stage Presenter */}
+            {!isOnStage && (
+              <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center z-40">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Você está no Camarim (Bastidores)</p>
+                  <p className="text-xs text-slate-300 max-w-sm mt-0.5">
+                    Seu vídeo e áudio estão ocultos da transmissão. Clique abaixo para entrar no palco.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsOnStage(true)}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-500 hover:from-[#009ce0] hover:to-sky-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl shadow-sky-500/30 transition transform active:scale-95"
+                >
+                  <Radio className="h-4 w-4 animate-pulse" />
+                  <span>Colocar no Palco (Ao Vivo)</span>
+                </button>
               </div>
             )}
+          </div>
 
-            {/* Local Presenter Video Tile */}
-            <div
-              className={`relative rounded-2xl border overflow-hidden shadow-2xl flex items-center justify-center bg-slate-900 transition-all ${
-                isScreenSharing ? "w-64 h-48 self-end" : "w-full max-w-3xl aspect-video"
-              } ${isOnStage ? "border-slate-800 ring-2 ring-emerald-500/20" : "border-amber-500/60 ring-2 ring-amber-500/30"}`}
-            >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`h-full w-full object-cover -scale-x-100 ${!isCamOn && "hidden"}`}
-              />
+          {/* Quick Layout & Personalization Bar */}
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2.5 w-full max-w-4xl">
+            {/* Layout Mode Buttons */}
+            <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/90 p-1 backdrop-blur-md">
+              <span className="text-[10px] font-bold text-slate-400 px-2 uppercase tracking-wider">
+                Layout:
+              </span>
+              <button
+                type="button"
+                onClick={() => setLayoutMode("solo")}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  layoutMode === "solo"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Solo: Apresentador único"
+              >
+                <Square className="h-3.5 w-3.5" />
+                <span>Solo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode("grid")}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  layoutMode === "grid"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Grade: Câmeras em grid balanceado"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Grade</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode("split")}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  layoutMode === "split"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Split: Apresentação grande + Apresentador na lateral"
+              >
+                <Columns2 className="h-3.5 w-3.5" />
+                <span>Split</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode("pip")}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                  layoutMode === "pip"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="PiP: Apresentador flutuando no canto"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>PiP</span>
+              </button>
+            </div>
 
-              {!isCamOn && (
-                <div className="flex flex-col items-center gap-2 text-slate-500">
-                  <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-xl font-bold text-white">
-                    {userRole === "host" ? "EN" : "SP"}
-                  </div>
-                  <p className="text-xs">Câmera desativada</p>
-                </div>
-              )}
-
-              {/* If off-stage (In Camarim), show prominent overlay to put on stage */}
-              {!isOnStage && (
-                <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center z-10 animate-in fade-in">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                    <Shield className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Você está no Camarim (Bastidores)</p>
-                    <p className="text-xs text-slate-300 max-w-sm mt-0.5">
-                      Seu vídeo e áudio estão ocultos da plateia. Clique abaixo para entrar no palco ao vivo.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsOnStage(true)}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-500 hover:from-[#009ce0] hover:to-sky-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl shadow-sky-500/30 transition transform active:scale-95"
-                  >
-                    <Radio className="h-4 w-4 animate-pulse" />
-                    <span>Colocar no Palco (Ao Vivo)</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Badges on Tile */}
-              <div className="absolute top-3 left-3 flex items-center gap-2 z-20">
-                <span className="rounded-md bg-black/70 px-2.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-xs">
-                  {userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado"}
-                </span>
-
-                {isOnStage ? (
-                  <span className="rounded-md bg-emerald-500/90 px-2.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow-xs">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                    No Palco (Ao Vivo)
-                  </span>
-                ) : (
-                  <span className="rounded-md bg-amber-500/90 px-2.5 py-0.5 text-[10px] font-bold text-white">
-                    No Camarim
-                  </span>
-                )}
-              </div>
-
-              {/* Quick Mover to Backstage Button if on Stage */}
-              {isOnStage && (
-                <div className="absolute top-3 right-3 z-20">
-                  <button
-                    onClick={() => setIsOnStage(false)}
-                    className="rounded-lg bg-black/70 hover:bg-black/90 px-2.5 py-1 text-[10px] font-bold text-amber-300 border border-amber-500/30 backdrop-blur-xs transition"
-                    title="Mover de volta para os bastidores"
-                  >
-                    Mover para Camarim
-                  </button>
-                </div>
-              )}
-
-              {/* Audio Status */}
-              <div className="absolute bottom-3 right-3 z-20">
-                <span
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg backdrop-blur-xs ${
-                    isMicOn ? "bg-black/60 text-white" : "bg-rose-600 text-white"
-                  }`}
+            {/* Personalization Drawer Button */}
+            <div className="flex items-center gap-2">
+              {videoAssetUrl && (
+                <button
+                  onClick={() => setVideoAssetUrl(null)}
+                  className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/30 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/40 transition"
                 >
-                  {isMicOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
-                </span>
-              </div>
+                  <Film className="h-3.5 w-3.5" />
+                  <span>Parar Vídeo no Palco</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowCustomizationModal(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50 px-3 py-1.5 text-xs font-bold text-[#00b4fb] transition backdrop-blur-md shadow-xs"
+              >
+                <Palette className="h-3.5 w-3.5" />
+                <span>Personalizar Estúdio (Marca & Mídia)</span>
+              </button>
             </div>
           </div>
 
           {/* Bottom Backstage Strip */}
-          <div className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-2.5 backdrop-blur-xs w-full max-w-3xl">
-            <div className="flex items-center gap-1.5 px-2">
+          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-2 sm:px-3 backdrop-blur-xs w-full max-w-4xl">
+            <div className="flex items-center gap-1.5 px-1">
               <Layers className="h-3.5 w-3.5 text-slate-400" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Bastidores / Camarim
@@ -553,25 +773,25 @@ export default function StudioPage({ params, searchParams }: Props) {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2.5 rounded-xl bg-slate-800 p-1.5 pr-3 border border-slate-700">
-                <div className="h-7 w-7 rounded-lg bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+              <div className="flex items-center gap-2 rounded-xl bg-slate-800 p-1.5 pr-3 border border-slate-700">
+                <div className="h-6 w-6 rounded-lg bg-slate-700 flex items-center justify-center text-[10px] font-bold">
                   {userRole === "host" ? "EN" : "SP"}
                 </div>
                 <div className="text-[11px]">
                   <p className="font-bold text-slate-200">Você ({userRole === "host" ? "Host" : "Speaker"})</p>
                   <p className="text-[9px] text-slate-400">
-                    {isOnStage ? "🟢 Transmitindo no Palco" : "🟠 Privado no Camarim"}
+                    {isOnStage ? "🟢 No Palco (Ao Vivo)" : "🟠 No Camarim"}
                   </p>
                 </div>
                 <button
                   onClick={() => setIsOnStage(!isOnStage)}
-                  className={`ml-2 rounded-lg px-2.5 py-1 text-[10px] font-extrabold transition shadow-xs ${
+                  className={`ml-2 rounded-lg px-2 py-0.5 text-[10px] font-extrabold transition shadow-xs ${
                     isOnStage
                       ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30"
                       : "bg-[#00b4fb] text-white hover:bg-[#009ce0] shadow-sky-500/20"
                   }`}
                 >
-                  {isOnStage ? "Mover para Camarim" : "Colocar no Palco (Ao Vivo)"}
+                  {isOnStage ? "Mover para Camarim" : "Colocar no Palco"}
                 </button>
               </div>
             </div>
@@ -579,11 +799,13 @@ export default function StudioPage({ params, searchParams }: Props) {
         </div>
 
         {/* Bottom Control Bar */}
-        <footer className="flex h-16 items-center justify-center gap-3 border-t border-slate-800 bg-slate-900/80 px-6">
+        <footer className="flex h-16 items-center justify-center gap-3 border-t border-slate-800 bg-slate-900/80 px-6 z-30">
           <button
             onClick={handleToggleCam}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isCamOn ? "bg-slate-800 hover:bg-slate-700 text-white" : "bg-rose-600 hover:bg-rose-700 text-white"
+              isCamOn
+                ? "bg-slate-800 hover:bg-slate-700 text-white"
+                : "bg-rose-600 hover:bg-rose-700 text-white"
             }`}
           >
             {isCamOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
@@ -593,7 +815,9 @@ export default function StudioPage({ params, searchParams }: Props) {
           <button
             onClick={handleToggleMic}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isMicOn ? "bg-slate-800 hover:bg-slate-700 text-white" : "bg-rose-600 hover:bg-rose-700 text-white"
+              isMicOn
+                ? "bg-slate-800 hover:bg-slate-700 text-white"
+                : "bg-rose-600 hover:bg-rose-700 text-white"
             }`}
           >
             {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
@@ -622,7 +846,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             }`}
           >
             <Radio className="h-4 w-4" />
-            <span>{isOnStage ? "Mover para Bastidores" : "Colocar no Palco (Ao Vivo)"}</span>
+            <span>{isOnStage ? "Mover para Bastidores" : "Colocar no Palco"}</span>
           </button>
         </footer>
       </div>
@@ -635,6 +859,380 @@ export default function StudioPage({ params, searchParams }: Props) {
         roomState={roomState}
         onRefresh={fetchState}
       />
+
+      {/* STUDIO CUSTOMIZATION MODAL (Brand, Banners, Backgrounds, Video Clips) */}
+      {showCustomizationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-5 shadow-2xl text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-[#00b4fb]">
+                <Palette className="h-4 w-4" />
+                <span>Personalização do Estúdio (StreamYard / OBS Mode)</span>
+              </div>
+              <button
+                onClick={() => setShowCustomizationModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setCustomizationTab("brand")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  customizationTab === "brand"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Type className="h-3.5 w-3.5" />
+                <span>Lower Third & Faixas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomizationTab("ticker")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  customizationTab === "ticker"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Letreiro Rodapé & Banner</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomizationTab("background")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  customizationTab === "background"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Palette className="h-3.5 w-3.5" />
+                <span>Plano de Fundo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomizationTab("media")}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  customizationTab === "media"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Film className="h-3.5 w-3.5" />
+                <span>Vídeos & Vinhetas</span>
+              </button>
+            </div>
+
+            {/* TAB CONTENT 1: LOWER THIRDS */}
+            {customizationTab === "brand" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700">
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      Exibir Lower Third no Palco
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Identificação com nome, cargo e empresa no canto inferior.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLowerThirdVisible(!lowerThirdVisible)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      lowerThirdVisible
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-700 text-slate-300"
+                    }`}
+                  >
+                    {lowerThirdVisible ? "Visível no Palco" : "Oculto"}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Nome do Palestrante
+                    </label>
+                    <input
+                      type="text"
+                      value={lowerThirdName}
+                      onChange={(e) => setLowerThirdName(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Empresa
+                    </label>
+                    <input
+                      type="text"
+                      value={lowerThirdCompany}
+                      onChange={(e) => setLowerThirdCompany(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Cargo ou Especialidade
+                    </label>
+                    <input
+                      type="text"
+                      value={lowerThirdRole}
+                      onChange={(e) => setLowerThirdRole(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Cor da Marca (Brand Accent)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {[
+                        { label: "Azul Buysoft", color: "#00b4fb" },
+                        { label: "Roxo", color: "#8b5cf6" },
+                        { label: "Esmeralda", color: "#10b981" },
+                        { label: "Coral", color: "#f43f5e" },
+                        { label: "Âmbar", color: "#f59e0b" },
+                      ].map((item) => (
+                        <button
+                          key={item.color}
+                          type="button"
+                          onClick={() => setBrandColor(item.color)}
+                          className={`h-7 w-7 rounded-lg border-2 transition ${
+                            brandColor === item.color
+                              ? "border-white scale-110 shadow-md"
+                              : "border-transparent opacity-75 hover:opacity-100"
+                          }`}
+                          style={{ backgroundColor: item.color }}
+                          title={item.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT 2: TICKER & HEADLINE BANNER */}
+            {customizationTab === "ticker" && (
+              <div className="space-y-4">
+                {/* Ticker Tape */}
+                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        Letreiro Rodapé Rolante (Ticker Tape)
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Mensagem contínua estilo jornal/webinar no rodapé da tela.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTickerVisible(!tickerVisible)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        tickerVisible
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {tickerVisible ? "Ativo no Rodapé" : "Oculto"}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={tickerText}
+                    onChange={(e) => setTickerText(e.target.value)}
+                    placeholder="Texto a correr no rodapé..."
+                    className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                  />
+                </div>
+
+                {/* Headline Banner */}
+                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        Banner de Destaque Superior
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Título fixado no topo da transmissão para introduzir temas ou tópicos.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBannerVisible(!bannerVisible)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        bannerVisible
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {bannerVisible ? "Exibindo no Topo" : "Oculto"}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={bannerTitle}
+                      onChange={(e) => setBannerTitle(e.target.value)}
+                      placeholder="Título do Banner..."
+                      className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={bannerSubtitle}
+                      onChange={(e) => setBannerSubtitle(e.target.value)}
+                      placeholder="Subtítulo descritivo..."
+                      className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT 3: BACKGROUND */}
+            {customizationTab === "background" && (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Escolha o fundo que envelopa as câmeras e janelas de apresentação no estúdio:
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {BACKGROUND_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        setBackgroundPresetId(preset.id);
+                        setCustomBackgroundUrl("");
+                      }}
+                      className={`h-24 rounded-xl border p-2 flex flex-col justify-end text-left transition ${
+                        backgroundPresetId === preset.id && !customBackgroundUrl
+                          ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/40"
+                          : "border-slate-700 hover:border-slate-500"
+                      } ${preset.className}`}
+                    >
+                      <span className="text-[11px] font-bold text-white drop-shadow-md">
+                        {preset.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Ou Imagem de Fundo Personalizada (URL)
+                  </label>
+                  <input
+                    type="text"
+                    value={customBackgroundUrl}
+                    onChange={(e) => setCustomBackgroundUrl(e.target.value)}
+                    placeholder="https://exemplo.com/fundo-estudio.jpg"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT 4: MEDIA VIDEOS */}
+            {customizationTab === "media" && (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Exiba vídeos institucionais, vinhetas de contagem regressiva ou clipes gravados
+                  diretamente no estúdio sem precisar de compartilhamento de tela:
+                </p>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-300">Vídeos Rápidos de Exemplo:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoAssetUrl(
+                          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                        );
+                        setShowCustomizationModal(false);
+                      }}
+                      className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-left transition"
+                    >
+                      <Film className="h-4 w-4 text-[#00b4fb] shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-white">Vinheta Institucional (15s)</p>
+                        <p className="text-[10px] text-slate-400">Reproduzir no Palco com Áudio</p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoAssetUrl(
+                          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                        );
+                        setShowCustomizationModal(false);
+                      }}
+                      className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-left transition"
+                    >
+                      <Tv className="h-4 w-4 text-purple-400 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-white">Vídeo de Demonstração</p>
+                        <p className="text-[10px] text-slate-400">Exibir clipe em Full HD</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Adicionar Vídeo por URL (MP4 / WebM)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customVideoInput}
+                      onChange={(e) => setCustomVideoInput(e.target.value)}
+                      placeholder="https://meuservidor.com/video.mp4"
+                      className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customVideoInput) {
+                          setVideoAssetUrl(customVideoInput);
+                          setShowCustomizationModal(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#00b4fb] text-white text-xs font-bold hover:bg-[#009ce0] transition"
+                    >
+                      Reproduzir no Palco
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowCustomizationModal(false)}
+                className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] px-5 py-2 text-xs font-bold text-white hover:bg-[#009ce0] shadow-md shadow-sky-500/20"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Salvar & Aplicar no Estúdio</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Host CTA Launcher Modal */}
       {showCtaModal && (
