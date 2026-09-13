@@ -243,7 +243,7 @@ export async function createYouTubeLiveBroadcastForEvent(eventId: string) {
       },
       contentDetails: {
         enableAutoStart: true,
-        enableAutoStop: false,
+        enableAutoStop: true,
         enableDvr: true,
         recordFromStart: true,
       },
@@ -386,5 +386,48 @@ export async function ensureActiveYouTubeBroadcast(eventId: string) {
   } catch (err) {
     console.error("Error in ensureActiveYouTubeBroadcast:", err);
     return event;
+  }
+}
+
+// 10. End YouTube Live Broadcast (transitions broadcast to 'complete' in YouTube Studio)
+export async function endYouTubeLiveBroadcast(eventId: string) {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  });
+
+  if (!event || !event.youtubeBroadcastId) {
+    return null;
+  }
+
+  const accessToken = await getValidYouTubeAccessToken();
+  if (!accessToken) {
+    console.warn("Cannot end YouTube live broadcast: YouTube integration token not found.");
+    return null;
+  }
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=complete&id=${event.youtubeBroadcastId}&part=id,status`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[YOUTUBE END BROADCAST ERROR] Status ${res.status}:`, errText);
+    } else {
+      const data = await res.json();
+      console.log(`[YOUTUBE LIVE ENDED] Broadcast ${event.youtubeBroadcastId} transitioned to complete:`, data.status?.lifeCycleStatus);
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error transitioning YouTube live broadcast to complete:", err);
+    return null;
   }
 }

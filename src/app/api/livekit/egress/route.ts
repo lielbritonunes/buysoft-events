@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startRoomEgressToYouTube, stopLiveKitEgress } from "@/lib/livekitService";
-import { ensureActiveYouTubeBroadcast } from "@/lib/youtubeService";
+import { ensureActiveYouTubeBroadcast, endYouTubeLiveBroadcast } from "@/lib/youtubeService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,6 +71,13 @@ export async function POST(req: NextRequest) {
         });
       } catch (e) {
         console.warn("Could not stop LiveKit egress:", e);
+      }
+
+      // Automatically transition YouTube Live broadcast to 'complete' in YouTube Studio
+      try {
+        await endYouTubeLiveBroadcast(eventId);
+      } catch (e) {
+        console.warn("Could not end YouTube live broadcast:", e);
       }
 
       await prisma.event.update({
