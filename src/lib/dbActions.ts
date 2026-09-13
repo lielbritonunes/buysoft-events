@@ -352,6 +352,10 @@ export async function getLiveRoomState(eventId: string) {
       autoRecord: true,
       primaryColor: true,
       speakers: true,
+      youtubeBroadcastId: true,
+      youtubeStreamKey: true,
+      youtubeRtmpUrl: true,
+      youtubeEmbedUrl: true,
       chatMessages: {
         where: { isDeleted: false },
         orderBy: { createdAt: "asc" },

@@ -57,6 +57,7 @@ import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
 import { Room, Track } from "livekit-client";
+import { StudioCompositor } from "@/lib/studioCompositor";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -135,10 +136,105 @@ export default function StudioPage({ params, searchParams }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const broadcasterRef = useRef<HostBroadcaster | null>(null);
 
+  // 1080p Stage Compositor (Composes layout, camera, screen, lower thirds, tickers & banners)
+  const compositorRef = useRef<StudioCompositor | null>(null);
+
   // LiveKit Cloud Room Connection & Track Publishing
   const livekitRoomRef = useRef<Room | null>(null);
   const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
   const [egressError, setEgressError] = useState<string | null>(null);
+
+  // Initialize and synchronize StudioCompositor (1080p Stage Composite Stream)
+  useEffect(() => {
+    if (!hasJoinedLobby) return;
+
+    const compositor = new StudioCompositor({
+      layoutMode,
+      isOnStage,
+      isCamOn,
+      isMicOn,
+      isScreenSharing,
+      presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+      brandColor,
+      lowerThird: {
+        visible: lowerThirdVisible,
+        name: lowerThirdName,
+        role: lowerThirdRole,
+        company: lowerThirdCompany,
+      },
+      ticker: {
+        visible: tickerVisible,
+        text: tickerText,
+      },
+      banner: {
+        visible: bannerVisible,
+        title: bannerTitle,
+        subtitle: bannerSubtitle,
+      },
+    });
+
+    compositorRef.current = compositor;
+
+    return () => {
+      compositor.destroy();
+      compositorRef.current = null;
+    };
+  }, [hasJoinedLobby]);
+
+  // Sync state changes into compositor in real time
+  useEffect(() => {
+    if (compositorRef.current) {
+      compositorRef.current.updateState({
+        layoutMode,
+        isOnStage,
+        isCamOn,
+        isMicOn,
+        isScreenSharing,
+        presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+        brandColor,
+        lowerThird: {
+          visible: lowerThirdVisible,
+          name: lowerThirdName,
+          role: lowerThirdRole,
+          company: lowerThirdCompany,
+        },
+        ticker: {
+          visible: tickerVisible,
+          text: tickerText,
+        },
+        banner: {
+          visible: bannerVisible,
+          title: bannerTitle,
+          subtitle: bannerSubtitle,
+        },
+      });
+    }
+  }, [
+    layoutMode,
+    isOnStage,
+    isCamOn,
+    isMicOn,
+    isScreenSharing,
+    userRole,
+    brandColor,
+    lowerThirdVisible,
+    lowerThirdName,
+    lowerThirdRole,
+    lowerThirdCompany,
+    tickerVisible,
+    tickerText,
+    bannerVisible,
+    bannerTitle,
+    bannerSubtitle,
+  ]);
+
+  // Sync video elements and audio streams into compositor
+  useEffect(() => {
+    if (compositorRef.current) {
+      compositorRef.current.setVideoElements(localVideoRef.current, screenVideoRef.current);
+      compositorRef.current.updateAudioSources(localStream, screenStream);
+    }
+  }, [localStream, screenStream, isScreenSharing, isOnStage, isCamOn, isMicOn]);
 
   // Initialize WebRTC Host Broadcaster
   useEffect(() => {
@@ -150,16 +246,17 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [eventId]);
 
-  // Sync streams and live status with WebRTC broadcaster
+  // Sync composite stream to WebRTC peer broadcaster
   useEffect(() => {
-    if (broadcasterRef.current) {
+    if (broadcasterRef.current && compositorRef.current) {
+      const compositeStream = compositorRef.current.getCompositeStream();
       broadcasterRef.current.setStreams(
-        isOnStage ? localStream : null,
-        screenStream,
+        compositeStream,
+        null,
         roomState?.status === "live"
       );
     }
-  }, [localStream, screenStream, roomState?.status, isOnStage]);
+  }, [localStream, screenStream, roomState?.status, isOnStage, isScreenSharing, layoutMode]);
 
   // Connect to LiveKit Room once joined lobby
   useEffect(() => {
@@ -195,27 +292,16 @@ export default function StudioPage({ params, searchParams }: Props) {
         livekitRoomRef.current = room;
         setIsLiveKitConnected(true);
 
-        // Publish local camera/mic tracks if on stage
-        if (isOnStage) {
-          const vt = localStream?.getVideoTracks()[0];
-          const at = localStream?.getAudioTracks()[0];
-          if (vt && vt.readyState === "live") {
-            await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera }).catch(() => {});
-          } else if (isCamOn) {
-            await room.localParticipant.setCameraEnabled(true).catch(() => {});
+        // Publish composite 1080p stream
+        if (compositorRef.current) {
+          const compositeStream = compositorRef.current.getCompositeStream();
+          const cVt = compositeStream.getVideoTracks()[0];
+          const cAt = compositeStream.getAudioTracks()[0];
+          if (cVt) {
+            await room.localParticipant.publishTrack(cVt, { name: "stage-composite", source: Track.Source.Camera }).catch(() => {});
           }
-          if (at && at.readyState === "live") {
-            await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone }).catch(() => {});
-          } else if (isMicOn) {
-            await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
-          }
-        }
-
-        // Publish existing screen share if active
-        if (screenStream) {
-          const st = screenStream.getVideoTracks()[0];
-          if (st && st.readyState === "live") {
-            await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare }).catch(() => {});
+          if (cAt) {
+            await room.localParticipant.publishTrack(cAt, { name: "stage-audio", source: Track.Source.Microphone }).catch(() => {});
           }
         }
       } catch (err) {
@@ -233,101 +319,39 @@ export default function StudioPage({ params, searchParams }: Props) {
         setIsLiveKitConnected(false);
       }
     };
-  }, [hasJoinedLobby, eventId, userRole, isOnStage, isCamOn, isMicOn]);
+  }, [hasJoinedLobby, eventId, userRole]);
 
-  // Sync local camera & mic tracks with LiveKit
+  // Ensure composite tracks are published if compositor was initialized after connect
   useEffect(() => {
     const room = livekitRoomRef.current;
-    if (!room || !isLiveKitConnected) return;
+    if (!room || !isLiveKitConnected || !compositorRef.current) return;
 
-    const syncTracks = async () => {
+    const publishCompositeTracks = async () => {
       try {
-        if (!isOnStage) {
-          // In backstage: unpublish video/audio so they are not broadcast to live stage
-          for (const pub of Array.from(room.localParticipant.videoTrackPublications.values())) {
-            if (pub.track && (pub.source === Track.Source.Camera || pub.trackName === "camera")) {
-              await room.localParticipant.unpublishTrack(pub.track);
-            }
-          }
-          for (const pub of Array.from(room.localParticipant.audioTrackPublications.values())) {
-            if (pub.track && (pub.source === Track.Source.Microphone || pub.trackName === "microphone")) {
-              await room.localParticipant.unpublishTrack(pub.track);
-            }
-          }
-          return;
-        }
+        const compositeStream = compositorRef.current!.getCompositeStream();
+        const cVt = compositeStream.getVideoTracks()[0];
+        const cAt = compositeStream.getAudioTracks()[0];
 
-        // Camera track
-        const vt = localStream?.getVideoTracks()[0];
         const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-          (p) => p.source === Track.Source.Camera || p.trackName === "camera"
+          (p) => p.trackName === "stage-composite" || p.source === Track.Source.Camera
         );
-        if (existingVideoPub?.track && (!vt || (existingVideoPub.track as any).mediaStreamTrack !== vt)) {
-          await room.localParticipant.unpublishTrack(existingVideoPub.track).catch(() => {});
-        }
-        if (vt && vt.readyState === "live" && (!existingVideoPub || (existingVideoPub.track as any)?.mediaStreamTrack !== vt)) {
-          await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera }).catch(() => {});
-        } else if (!existingVideoPub && isCamOn) {
-          await room.localParticipant.setCameraEnabled(true).catch(() => {});
+        if (cVt && !existingVideoPub) {
+          await room.localParticipant.publishTrack(cVt, { name: "stage-composite", source: Track.Source.Camera }).catch(() => {});
         }
 
-        // Audio track
-        const at = localStream?.getAudioTracks()[0];
         const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
-          (p) => p.source === Track.Source.Microphone || p.trackName === "microphone"
+          (p) => p.trackName === "stage-audio" || p.source === Track.Source.Microphone
         );
-        if (existingAudioPub?.track && (!at || (existingAudioPub.track as any).mediaStreamTrack !== at)) {
-          await room.localParticipant.unpublishTrack(existingAudioPub.track).catch(() => {});
+        if (cAt && !existingAudioPub) {
+          await room.localParticipant.publishTrack(cAt, { name: "stage-audio", source: Track.Source.Microphone }).catch(() => {});
         }
-        if (at && at.readyState === "live" && (!existingAudioPub || (existingAudioPub.track as any)?.mediaStreamTrack !== at)) {
-          await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone }).catch(() => {});
-        } else if (!existingAudioPub && isMicOn) {
-          await room.localParticipant.setMicrophoneEnabled(true).catch(() => {});
-        }
-      } catch (e) {
-        console.warn("Track sync warning with LiveKit:", e);
+      } catch (err) {
+        console.warn("Error verifying composite tracks in LiveKit:", err);
       }
     };
 
-    syncTracks();
-  }, [localStream, isOnStage, isLiveKitConnected, isCamOn, isMicOn]);
-
-  // Sync screen share track with LiveKit
-  useEffect(() => {
-    const room = livekitRoomRef.current;
-    if (!room || !isLiveKitConnected) return;
-
-    const syncScreen = async () => {
-      try {
-        const st = screenStream?.getVideoTracks()[0];
-        const existingScreenPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-          (p) => p.source === Track.Source.ScreenShare || p.trackName === "screen"
-        );
-        if (existingScreenPub?.track && (!st || (existingScreenPub.track as any).mediaStreamTrack !== st)) {
-          await room.localParticipant.unpublishTrack(existingScreenPub.track).catch(() => {});
-        }
-        if (st && st.readyState === "live" && (!existingScreenPub || (existingScreenPub.track as any)?.mediaStreamTrack !== st)) {
-          await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare }).catch(() => {});
-        }
-
-        // Screen Audio (if sharing browser tab or system sound)
-        const sa = screenStream?.getAudioTracks()[0];
-        const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
-          (p) => p.trackName === "screen-audio"
-        );
-        if (existingAudioPub?.track && (!sa || (existingAudioPub.track as any).mediaStreamTrack !== sa)) {
-          await room.localParticipant.unpublishTrack(existingAudioPub.track).catch(() => {});
-        }
-        if (sa && sa.readyState === "live" && (!existingAudioPub || (existingAudioPub.track as any)?.mediaStreamTrack !== sa)) {
-          await room.localParticipant.publishTrack(sa, { name: "screen-audio", source: Track.Source.ScreenShareAudio }).catch(() => {});
-        }
-      } catch (e) {
-        console.warn("Screen track sync warning with LiveKit:", e);
-      }
-    };
-
-    syncScreen();
-  }, [screenStream, isLiveKitConnected]);
+    publishCompositeTracks();
+  }, [isLiveKitConnected, hasJoinedLobby]);
 
   // Load and poll live state
   const fetchState = async () => {

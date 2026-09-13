@@ -132,18 +132,22 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           dynacast: true,
         });
 
-        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
-          if (track.kind === Track.Kind.Video && videoRef.current) {
-            track.attach(videoRef.current);
+        const handleAttachTrack = (track: RemoteTrack) => {
+          if (track.kind === Track.Kind.Video) {
             setHasLiveKitTracks(true);
-            videoRef.current.play().catch(() => {});
+            if (videoRef.current) {
+              track.attach(videoRef.current);
+              videoRef.current.play().catch(() => {});
+            }
           }
           if (track.kind === Track.Kind.Audio) {
             const el = track.attach();
             el.setAttribute("data-livekit-audio", "true");
             document.body.appendChild(el);
           }
-        });
+        };
+
+        room.on(RoomEvent.TrackSubscribed, handleAttachTrack);
 
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
           track.detach();
@@ -156,6 +160,15 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         }
 
         livekitRoomRef.current = room;
+
+        // Check for tracks that were already published before connecting
+        for (const p of room.remoteParticipants.values()) {
+          for (const pub of p.trackPublications.values()) {
+            if (pub.track) {
+              handleAttachTrack(pub.track);
+            }
+          }
+        }
       } catch (err) {
         console.warn("LiveKit attendee subscriber warning:", err);
       }
@@ -172,6 +185,22 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
       document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
     };
   }, [eventId, userName]);
+
+  // Re-attach video track if videoRef mounts or source toggles back to webrtc
+  useEffect(() => {
+    const room = livekitRoomRef.current;
+    if (room && videoRef.current) {
+      for (const p of room.remoteParticipants.values()) {
+        for (const pub of p.trackPublications.values()) {
+          if (pub.track && pub.track.kind === Track.Kind.Video) {
+            pub.track.attach(videoRef.current);
+            videoRef.current.play().catch(() => {});
+            setHasLiveKitTracks(true);
+          }
+        }
+      }
+    }
+  }, [selectedSource, hasLiveKitTracks]);
 
   // Bind remote stream to HTML5 video element with autoplay fallback (when not using LiveKit tracks)
   useEffect(() => {
@@ -479,9 +508,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   autoPlay
                   playsInline
                   muted={isMuted}
-                  className={`h-full w-full object-contain ${
-                    hasLiveKitTracks || (remoteStream && remoteStream.getVideoTracks().length > 0) ? "block" : "hidden"
-                  }`}
+                  className="h-full w-full object-contain block"
                 />
 
                 {/* Floating Unmute Prompt if audio is muted */}

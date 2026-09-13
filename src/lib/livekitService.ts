@@ -1,6 +1,7 @@
 import {
   AccessToken,
   EgressClient,
+  EncodingOptionsPreset,
   RoomServiceClient,
   StreamOutput,
   StreamProtocol,
@@ -120,6 +121,7 @@ export async function startRoomEgressToYouTube({
     streamOutput,
     {
       layout: "grid",
+      encodingOptions: EncodingOptionsPreset.H264_1080P_30,
     }
   );
 
