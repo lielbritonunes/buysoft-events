@@ -1,0 +1,187 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  about     String?
+  website   String?
+  twitter   String?
+  linkedin  String?
+  facebook  String?
+  planName  String   @default("Trial Ativo")
+  members   Member[]
+  events    Event[]
+  series    Series[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Series {
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  bannerUrl      String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events         Event[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  name           String
+  email          String
+  role           String       @default("member")
+  avatarInitials String       @default("EN")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+}
+
+model Event {
+  id                  String         @id @default(cuid())
+  title               String
+  description         String
+  startDate           String
+  endDate             String
+  timezone            String         @default("(GMT-03:00) Horário de Brasília")
+  status              String         @default("draft") // draft, published, live, ended
+  maxAttendees        Int            @default(100)
+  logoUrl             String?
+  bannerUrl           String?
+  
+  // Layout & Theme
+  layoutType          String         @default("classic") // "classic" | "advanced"
+  advancedTheme       String         @default("crosby") // "crosby" | "seldon" | "dark" | "clean"
+  confirmationMessage String?
+  customEmailsJson    String?
+
+  // Series relationship
+  seriesId            String?
+  series              Series?        @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  // Settings
+  chatEnabled         Boolean        @default(true)
+  qaEnabled           Boolean        @default(true)
+  pollsEnabled        Boolean        @default(true)
+  attendeeListVisible Boolean        @default(true)
+  autoRecord          Boolean        @default(true)
+  primaryColor        String         @default("#00b4fb")
+  backgroundColor     String         @default("#ffffff")
+  textColor           String         @default("#0f172a")
+
+  organizationId      String?
+  organization        Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  speakers            Speaker[]
+  formFields          FormField[]
+  registrations       Registration[]
+  chatMessages        ChatMessage[]
+  questions           Question[]
+  polls               Poll[]
+  liveCtas            LiveCta[]
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+model Speaker {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  role      String
+  company   String
+  bio       String?
+  avatarUrl String?
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model FormField {
+  id          String   @id @default(cuid())
+  label       String
+  type        String   @default("text")
+  required    Boolean  @default(false)
+  optionsJson String?
+  orderIndex  Int      @default(0)
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Registration {
+  id                      String   @id @default(cuid())
+  attendeeName            String
+  attendeeEmail           String
+  responsesJson           String?
+  magicLinkToken          String   @unique @default(cuid())
+  attended                Boolean  @default(false)
+  attendedDurationSeconds Int      @default(0)
+  clickedCta              Boolean  @default(false)
+  eventId                 String
+  event                   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt               DateTime @default(now())
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  senderName String
+  senderRole String   @default("attendee") // host, speaker, attendee
+  text       String
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Question {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  askerName  String
+  text       String
+  upvotes    Int      @default(0)
+  isAnswered Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Poll {
+  id          String     @id @default(cuid())
+  eventId     String
+  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  question    String
+  optionsJson String     // JSON array of string options
+  isActive    Boolean    @default(true)
+  votes       PollVote[]
+  createdAt   DateTime   @default(now())
+}
+
+model PollVote {
+  id          String   @id @default(cuid())
+  pollId      String
+  poll        Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionIndex Int
+  voterId     String
+  createdAt   DateTime @default(now())
+}
+
+model LiveCta {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title      String
+  buttonText String
+  buttonUrl  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}

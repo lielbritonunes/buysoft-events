@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  
+  /* Buysoft Events Branding */
+  --buysoft-blue: #00b4fb;
+  --buysoft-blue-hover: #009ce0;
+  --buysoft-blue-dark: #0084be;
+  --buysoft-blue-light: #e6f7fe;
+  --buysoft-blue-glow: rgba(0, 180, 251, 0.15);
+  
+  --brand-black: #090d16;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-elevated: #ffffff;
+  
+  --border: #e2e8f0;
+  --border-focus: #00b4fb;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+body {
+  background-color: #f8fafc;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for desktop elegance */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Buysoft Button Utilities */
+.btn-buysoft-primary {
+  background-color: #00b4fb;
+  color: #ffffff;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+}
+.btn-buysoft-primary:hover {
+  background-color: #009ce0;
+  box-shadow: 0 2px 8px rgba(0, 180, 251, 0.3);
+}
+
+.btn-buysoft-secondary {
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+}
+.btn-buysoft-secondary:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.badge-webinar {
+  background-color: #e6f7fe;
+  color: #0084be;
+  border: 1px solid #bce6fb;
+}
+
+.badge-draft {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.badge-live {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
