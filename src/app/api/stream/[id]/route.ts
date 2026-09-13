@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 interface PeerSession {
   offer?: any;
@@ -8,33 +9,35 @@ interface PeerSession {
   lastSeen: number;
 }
 
-interface StreamRoom {
-  hostId: string | null;
-  isLive: boolean;
-  hasScreen: boolean;
-  hasCamera: boolean;
-  speakerName: string;
-  peers: Record<string, PeerSession>;
-  lastUpdated: number;
-}
+async function getDbRoom(eventId: string) {
+  let room = await prisma.streamRoom.findUnique({
+    where: { eventId },
+  });
 
-// Global in-memory room store (preserved across API requests in Node runtime)
-const globalRooms: Record<string, StreamRoom> =
-  (global as any).__STREAM_ROOMS || ((global as any).__STREAM_ROOMS = {});
-
-function getRoom(eventId: string): StreamRoom {
-  if (!globalRooms[eventId]) {
-    globalRooms[eventId] = {
-      hostId: null,
-      isLive: false,
-      hasScreen: false,
-      hasCamera: true,
-      speakerName: "Orador",
-      peers: {},
-      lastUpdated: Date.now(),
-    };
+  if (!room) {
+    room = await prisma.streamRoom.create({
+      data: {
+        eventId,
+        hostId: null,
+        isLive: false,
+        hasScreen: false,
+        hasCamera: true,
+        speakerName: "Orador",
+        peersJson: "{}",
+      },
+    });
   }
-  return globalRooms[eventId];
+
+  let peers: Record<string, PeerSession> = {};
+  try {
+    if (room.peersJson) {
+      peers = JSON.parse(room.peersJson);
+    }
+  } catch {
+    peers = {};
+  }
+
+  return { room, peers };
 }
 
 // GET: Query room status & pending signaling data
@@ -47,43 +50,62 @@ export async function GET(
   const role = searchParams.get("role") || "viewer"; // "host" | "viewer"
   const peerId = searchParams.get("peerId") || "";
 
-  const room = getRoom(eventId);
+  try {
+    const { room, peers } = await getDbRoom(eventId);
 
-  if (role === "host") {
-    // Return all peer sessions that have offers or candidates for host
-    const activePeers: Record<string, any> = {};
-    const now = Date.now();
-    for (const [pId, pData] of Object.entries(room.peers)) {
-      // Keep peers seen in last 30s
-      if (now - pData.lastSeen < 30000) {
-        activePeers[pId] = {
-          offer: pData.offer,
-          peerCandidates: pData.peerCandidates,
-        };
+    if (role === "host") {
+      // Return all peer sessions that have offers or candidates for host
+      const activePeers: Record<string, any> = {};
+      const now = Date.now();
+      for (const [pId, pData] of Object.entries(peers)) {
+        // Keep peers that either have an offer waiting for an answer, or seen in last 2 mins
+        if (!pData.answer || now - (pData.lastSeen || 0) < 120000) {
+          activePeers[pId] = {
+            offer: pData.offer,
+            peerCandidates: pData.peerCandidates || [],
+          };
+        }
+      }
+      return NextResponse.json({
+        status: "ok",
+        isLive: room.isLive,
+        hasScreen: room.hasScreen,
+        hasCamera: room.hasCamera,
+        speakerName: room.speakerName,
+        peers: activePeers,
+      });
+    }
+
+    // Viewer role
+    if (peerId && peers[peerId]) {
+      const now = Date.now();
+      if (now - (peers[peerId].lastSeen || 0) > 10000) {
+        peers[peerId].lastSeen = now;
+        prisma.streamRoom.update({
+          where: { eventId },
+          data: { peersJson: JSON.stringify(peers) },
+        }).catch(() => {});
       }
     }
+
+    const peerSession = peerId ? peers[peerId] : null;
     return NextResponse.json({
       status: "ok",
       isLive: room.isLive,
       hasScreen: room.hasScreen,
       hasCamera: room.hasCamera,
       speakerName: room.speakerName,
-      peers: activePeers,
+      hasHost: !!room.hostId,
+      answer: peerSession?.answer || null,
+      hostCandidates: peerSession?.hostCandidates || [],
     });
+  } catch (err: any) {
+    console.error("[STREAM API ERROR GET]:", err);
+    return NextResponse.json(
+      { status: "error", message: err.message },
+      { status: 500 }
+    );
   }
-
-  // Viewer role
-  const peerSession = peerId ? room.peers[peerId] : null;
-  return NextResponse.json({
-    status: "ok",
-    isLive: room.isLive,
-    hasScreen: room.hasScreen,
-    hasCamera: room.hasCamera,
-    speakerName: room.speakerName,
-    hasHost: !!room.hostId,
-    answer: peerSession?.answer || null,
-    hostCandidates: peerSession?.hostCandidates || [],
-  });
 }
 
 // POST: Update status, send offer/answer and ICE candidates
@@ -95,63 +117,107 @@ export async function POST(
   const body = await req.json();
   const { action, role, peerId, payload } = body;
 
-  const room = getRoom(eventId);
-  room.lastUpdated = Date.now();
+  try {
+    const { room, peers } = await getDbRoom(eventId);
 
-  // Host presence & broadcast status
-  if (role === "host") {
-    if (action === "heartbeat" || action === "update_status") {
-      room.hostId = peerId || "host";
-      if (typeof payload?.isLive === "boolean") room.isLive = payload.isLive;
-      if (typeof payload?.hasScreen === "boolean") room.hasScreen = payload.hasScreen;
-      if (typeof payload?.hasCamera === "boolean") room.hasCamera = payload.hasCamera;
-      if (payload?.speakerName) room.speakerName = payload.speakerName;
-      return NextResponse.json({ success: true, room });
-    }
+    // Host presence & broadcast status
+    if (role === "host") {
+      if (action === "heartbeat" || action === "update_status") {
+        const isLive = typeof payload?.isLive === "boolean" ? payload.isLive : room.isLive;
+        const hasScreen = typeof payload?.hasScreen === "boolean" ? payload.hasScreen : room.hasScreen;
+        const hasCamera = typeof payload?.hasCamera === "boolean" ? payload.hasCamera : room.hasCamera;
+        const speakerName = payload?.speakerName || room.speakerName;
 
-    if (action === "send_answer") {
-      const targetPeerId = payload.targetPeerId;
-      if (targetPeerId && room.peers[targetPeerId]) {
-        room.peers[targetPeerId].answer = payload.answer;
+        await prisma.streamRoom.update({
+          where: { eventId },
+          data: {
+            hostId: peerId || "host",
+            isLive,
+            hasScreen,
+            hasCamera,
+            speakerName,
+            lastHeartbeat: new Date(),
+          },
+        });
+        return NextResponse.json({ success: true });
       }
-      return NextResponse.json({ success: true });
-    }
 
-    if (action === "send_host_candidate") {
-      const targetPeerId = payload.targetPeerId;
-      if (targetPeerId && room.peers[targetPeerId]) {
-        room.peers[targetPeerId].hostCandidates.push(payload.candidate);
+      if (action === "send_answer") {
+        const targetPeerId = payload.targetPeerId;
+        if (targetPeerId && peers[targetPeerId]) {
+          peers[targetPeerId].answer = payload.answer;
+          await prisma.streamRoom.update({
+            where: { eventId },
+            data: { peersJson: JSON.stringify(peers) },
+          });
+        }
+        return NextResponse.json({ success: true });
       }
-      return NextResponse.json({ success: true });
+
+      if (action === "send_host_candidate") {
+        const targetPeerId = payload.targetPeerId;
+        if (targetPeerId && peers[targetPeerId]) {
+          if (!peers[targetPeerId].hostCandidates) {
+            peers[targetPeerId].hostCandidates = [];
+          }
+          peers[targetPeerId].hostCandidates.push(payload.candidate);
+          await prisma.streamRoom.update({
+            where: { eventId },
+            data: { peersJson: JSON.stringify(peers) },
+          });
+        }
+        return NextResponse.json({ success: true });
+      }
     }
+
+    // Viewer operations
+    if (role === "viewer" && peerId) {
+      if (!peers[peerId]) {
+        peers[peerId] = {
+          hostCandidates: [],
+          peerCandidates: [],
+          lastSeen: Date.now(),
+        };
+      }
+      peers[peerId].lastSeen = Date.now();
+
+      if (action === "send_offer") {
+        peers[peerId].offer = payload.offer;
+        await prisma.streamRoom.update({
+          where: { eventId },
+          data: { peersJson: JSON.stringify(peers) },
+        });
+        return NextResponse.json({ success: true });
+      }
+
+      if (action === "send_peer_candidate") {
+        if (!peers[peerId].peerCandidates) {
+          peers[peerId].peerCandidates = [];
+        }
+        peers[peerId].peerCandidates.push(payload.candidate);
+        await prisma.streamRoom.update({
+          where: { eventId },
+          data: { peersJson: JSON.stringify(peers) },
+        });
+        return NextResponse.json({ success: true });
+      }
+
+      if (action === "leave") {
+        delete peers[peerId];
+        await prisma.streamRoom.update({
+          where: { eventId },
+          data: { peersJson: JSON.stringify(peers) },
+        });
+        return NextResponse.json({ success: true });
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("[STREAM API ERROR POST]:", err);
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
   }
-
-  // Viewer operations
-  if (role === "viewer" && peerId) {
-    if (!room.peers[peerId]) {
-      room.peers[peerId] = {
-        hostCandidates: [],
-        peerCandidates: [],
-        lastSeen: Date.now(),
-      };
-    }
-    room.peers[peerId].lastSeen = Date.now();
-
-    if (action === "send_offer") {
-      room.peers[peerId].offer = payload.offer;
-      return NextResponse.json({ success: true });
-    }
-
-    if (action === "send_peer_candidate") {
-      room.peers[peerId].peerCandidates.push(payload.candidate);
-      return NextResponse.json({ success: true });
-    }
-
-    if (action === "leave") {
-      delete room.peers[peerId];
-      return NextResponse.json({ success: true });
-    }
-  }
-
-  return NextResponse.json({ success: true });
 }

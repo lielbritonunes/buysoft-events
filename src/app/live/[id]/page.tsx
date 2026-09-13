@@ -90,11 +90,18 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId]);
 
-  // Bind remote stream to HTML5 video element
+  // Bind remote stream to HTML5 video element with autoplay fallback
   useEffect(() => {
     if (videoRef.current && remoteStream) {
       videoRef.current.srcObject = remoteStream;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch((err) => {
+        console.warn("Autoplay with sound blocked by browser, trying muted:", err);
+        if (videoRef.current) {
+          videoRef.current.muted = true;
+          setIsMuted(true);
+          videoRef.current.play().catch(() => {});
+        }
+      });
     }
   }, [remoteStream]);
 
@@ -314,12 +321,23 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   playsInline
                   muted={isMuted}
                   className={`h-full w-full object-contain ${
-                    remoteStream ? "block" : "hidden"
+                    remoteStream && remoteStream.getVideoTracks().length > 0 ? "block" : "hidden"
                   }`}
                 />
 
-                {/* Fallback / Audio-only Stage Visualizer when video stream is pending */}
-                {!remoteStream && (
+                {/* Floating Unmute Prompt if audio is muted */}
+                {remoteStream && isMuted && (
+                  <button
+                    onClick={() => setIsMuted(false)}
+                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-slate-900/95 hover:bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-white shadow-2xl backdrop-blur-md transition transform hover:scale-105 active:scale-95"
+                  >
+                    <VolumeX className="h-4 w-4 text-rose-400 animate-pulse" />
+                    <span>Clique para Ativar Som 🔊</span>
+                  </button>
+                )}
+
+                {/* Fallback / Audio-only Stage Visualizer when video track is pending */}
+                {(!remoteStream || remoteStream.getVideoTracks().length === 0) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
                     <div className="text-center space-y-4 p-6 z-10">
                       <div className="relative inline-block">

@@ -4,6 +4,8 @@ const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
   ],
 };
 
@@ -15,6 +17,7 @@ export class HostBroadcaster {
   private localStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
+  private processedCandidates: Set<string> = new Set();
   private channel: BroadcastChannel | null = null;
   private pollingInterval: any = null;
   private isLive: boolean = false;
@@ -41,7 +44,7 @@ export class HostBroadcaster {
     this.broadcastStatus();
 
     // Update existing peer connection tracks
-    for (const [peerId, pc] of this.peerConnections.entries()) {
+    for (const [, pc] of this.peerConnections.entries()) {
       this.syncTracksForPeer(pc);
     }
   }
@@ -63,6 +66,7 @@ export class HostBroadcaster {
       pc.close();
     }
     this.peerConnections.clear();
+    this.processedCandidates.clear();
     if (this.channel) {
       this.channel.postMessage({ type: "host_stopped" });
     }
@@ -104,9 +108,13 @@ export class HostBroadcaster {
           if (peerData.peerCandidates && this.peerConnections.has(peerId)) {
             const pc = this.peerConnections.get(peerId)!;
             for (const c of peerData.peerCandidates) {
-              try {
-                await pc.addIceCandidate(new RTCIceCandidate(c));
-              } catch (e) {}
+              const key = `${peerId}_${JSON.stringify(c)}`;
+              if (!this.processedCandidates.has(key)) {
+                this.processedCandidates.add(key);
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(c));
+                } catch (e) {}
+              }
             }
           }
         }
@@ -128,9 +136,13 @@ export class HostBroadcaster {
     } else if (msg.type === "viewer_candidate") {
       const pc = this.peerConnections.get(msg.peerId);
       if (pc && msg.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } catch (err) {}
+        const key = `${msg.peerId}_${JSON.stringify(msg.candidate)}`;
+        if (!this.processedCandidates.has(key)) {
+          this.processedCandidates.add(key);
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch (err) {}
+        }
       }
     }
   }
@@ -144,9 +156,6 @@ export class HostBroadcaster {
 
     pc = new RTCPeerConnection(ICE_SERVERS);
     this.peerConnections.set(peerId, pc);
-
-    // Add active tracks
-    this.syncTracksForPeer(pc);
 
     // Send host ICE candidates
     pc.onicecandidate = (event) => {
@@ -177,46 +186,81 @@ export class HostBroadcaster {
       }
     };
 
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      this.syncTracksForPeer(pc);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
 
-    if (source === "channel" && this.channel) {
-      this.channel.postMessage({
-        type: "host_answer",
-        peerId,
-        answer: { type: answer.type, sdp: answer.sdp },
-      });
+      if (source === "channel" && this.channel) {
+        this.channel.postMessage({
+          type: "host_answer",
+          peerId,
+          answer: { type: answer.type, sdp: answer.sdp },
+        });
+      }
+
+      await fetch(`/api/stream/${this.eventId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_answer",
+          role: "host",
+          peerId: "host",
+          payload: { targetPeerId: peerId, answer: { type: answer.type, sdp: answer.sdp } },
+        }),
+      }).catch(() => {});
+    } catch (err) {
+      console.warn("Error handling offer for peer:", peerId, err);
     }
-
-    await fetch(`/api/stream/${this.eventId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "send_answer",
-        role: "host",
-        peerId: "host",
-        payload: { targetPeerId: peerId, answer: { type: answer.type, sdp: answer.sdp } },
-      }),
-    }).catch(() => {});
   }
 
   private syncTracksForPeer(pc: RTCPeerConnection) {
     if (pc.signalingState === "closed") return;
 
-    // We can stream both screen and camera, or whichever is active
-    const activeStream = this.screenStream || this.localStream;
-    if (!activeStream) return;
+    // Pick video track: screen share if active, otherwise camera
+    const videoTrack =
+      this.screenStream?.getVideoTracks().find((t) => t.enabled) ||
+      this.localStream?.getVideoTracks().find((t) => t.enabled) ||
+      null;
 
-    const currentSenders = pc.getSenders();
-    activeStream.getTracks().forEach((track) => {
-      const sender = currentSenders.find((s) => s.track?.kind === track.kind);
-      if (sender) {
-        sender.replaceTrack(track).catch(() => {});
-      } else {
-        pc.addTrack(track, activeStream);
+    // Pick audio track: presenter microphone (or screen audio if present)
+    const audioTrack =
+      this.localStream?.getAudioTracks().find((t) => t.enabled) ||
+      this.screenStream?.getAudioTracks().find((t) => t.enabled) ||
+      null;
+
+    const transceivers = pc.getTransceivers();
+
+    // 1. Video Transceiver
+    const videoTransceiver = transceivers.find(
+      (t) => t.receiver.track.kind === "video" || t.sender.track?.kind === "video"
+    );
+
+    if (videoTransceiver) {
+      videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
+      if (videoTrack) {
+        videoTransceiver.direction = "sendonly";
       }
-    });
+    } else if (videoTrack) {
+      const stream = this.screenStream || this.localStream;
+      if (stream) pc.addTrack(videoTrack, stream);
+    }
+
+    // 2. Audio Transceiver
+    const audioTransceiver = transceivers.find(
+      (t) => t.receiver.track.kind === "audio" || t.sender.track?.kind === "audio"
+    );
+
+    if (audioTransceiver) {
+      audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
+      if (audioTrack) {
+        audioTransceiver.direction = "sendonly";
+      }
+    } else if (audioTrack) {
+      const stream = this.localStream || this.screenStream;
+      if (stream) pc.addTrack(audioTrack, stream);
+    }
   }
 }
 
@@ -233,6 +277,8 @@ export class ViewerReceiver {
   private onStatusCallback: (status: { isLive: boolean; hasScreen: boolean; hasCamera: boolean }) => void;
   private isDestroyed: boolean = false;
   private connectedWithAnswer: boolean = false;
+  private receivedStream: MediaStream = new MediaStream();
+  private processedCandidates: Set<string> = new Set();
 
   constructor(
     eventId: string,
@@ -257,6 +303,7 @@ export class ViewerReceiver {
   public async start() {
     this.isDestroyed = false;
     this.connectedWithAnswer = false;
+    this.processedCandidates.clear();
 
     // Create RTCPeerConnection
     this.pc = new RTCPeerConnection(ICE_SERVERS);
@@ -266,11 +313,22 @@ export class ViewerReceiver {
     this.pc.addTransceiver("audio", { direction: "recvonly" });
 
     this.pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        this.onStreamCallback(event.streams[0]);
-      } else {
-        const stream = new MediaStream([event.track]);
-        this.onStreamCallback(stream);
+      if (event.track) {
+        // Remove existing tracks of the same kind
+        this.receivedStream
+          .getTracks()
+          .filter((t) => t.kind === event.track.kind)
+          .forEach((t) => this.receivedStream.removeTrack(t));
+
+        this.receivedStream.addTrack(event.track);
+
+        event.track.onended = () => {
+          this.receivedStream.removeTrack(event.track);
+          this.onStreamCallback(new MediaStream(this.receivedStream.getTracks()));
+        };
+
+        // Notify with a fresh MediaStream wrapper containing all active tracks
+        this.onStreamCallback(new MediaStream(this.receivedStream.getTracks()));
       }
     };
 
@@ -323,7 +381,7 @@ export class ViewerReceiver {
       }),
     }).catch(() => {});
 
-    // Polling for answer if HTTP used
+    // Polling for answer and host candidates
     this.pollingInterval = setInterval(() => {
       this.pollSignaling();
     }, 1500);
@@ -336,6 +394,10 @@ export class ViewerReceiver {
       this.pc.close();
       this.pc = null;
     }
+    this.receivedStream.getTracks().forEach((t) => t.stop());
+    this.receivedStream = new MediaStream();
+    this.processedCandidates.clear();
+
     fetch(`/api/stream/${this.eventId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -363,9 +425,13 @@ export class ViewerReceiver {
 
       if (data.hostCandidates && this.pc && this.pc.remoteDescription) {
         for (const c of data.hostCandidates) {
-          try {
-            await this.pc.addIceCandidate(new RTCIceCandidate(c));
-          } catch (e) {}
+          const key = JSON.stringify(c);
+          if (!this.processedCandidates.has(key)) {
+            this.processedCandidates.add(key);
+            try {
+              await this.pc.addIceCandidate(new RTCIceCandidate(c));
+            } catch (e) {}
+          }
         }
       }
     } catch (e) {}
@@ -385,9 +451,13 @@ export class ViewerReceiver {
       }
     } else if (msg.type === "host_candidate" && msg.peerId === this.peerId && this.pc) {
       if (this.pc.remoteDescription && msg.candidate) {
-        try {
-          await this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } catch (e) {}
+        const key = JSON.stringify(msg.candidate);
+        if (!this.processedCandidates.has(key)) {
+          this.processedCandidates.add(key);
+          try {
+            await this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch (e) {}
+        }
       }
     }
   }
