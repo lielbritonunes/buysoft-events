@@ -17,11 +17,12 @@ model Organization {
   linkedin  String?
   facebook  String?
   planName  String   @default("Trial Ativo")
-  members   Member[]
-  events    Event[]
-  series    Series[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  members             Member[]
+  events              Event[]
+  series              Series[]
+  youtubeIntegration  YouTubeIntegration?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model Series {
@@ -89,6 +90,13 @@ model Event {
   questions           Question[]
   polls               Poll[]
   liveCtas            LiveCta[]
+
+  // YouTube Live Integration
+  youtubeBroadcastId  String?
+  youtubeStreamId     String?
+  youtubeStreamKey    String?
+  youtubeRtmpUrl      String?
+  youtubeEmbedUrl     String?
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -198,4 +206,20 @@ model StreamRoom {
   peersJson     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model YouTubeIntegration {
+  id               String       @id @default(cuid())
+  organizationId   String       @unique
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channelId        String?
+  channelTitle     String?
+  channelThumbnail String?
+  accessToken      String?
+  refreshToken     String
+  tokenType        String       @default("Bearer")
+  scope            String?
+  expiryDate       BigInt?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 }

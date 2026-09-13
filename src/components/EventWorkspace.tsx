@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ArrowLeft,
   ExternalLink,
@@ -38,6 +38,15 @@ import {
   Sliders,
   Maximize2
 } from "lucide-react";
+
+function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
+
 import {
   updateEvent,
   addSpeaker,
@@ -59,10 +68,53 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
     "overview" | "registration" | "settings" | "marketing" | "analytics" | "recordings"
   >("overview");
 
-  // Configuração sub-tabs matching Image 3: Básico, Branding, Agenda, Patrocinadores, Orador
+  // Configuração sub-tabs: Básico, Branding, Agenda, Patrocinadores, Orador, YouTube
   const [settingsSubTab, setSettingsSubTab] = useState<
-    "basic" | "branding" | "agenda" | "sponsors" | "speakers"
+    "basic" | "branding" | "agenda" | "sponsors" | "speakers" | "youtube"
   >("branding");
+
+  // YouTube Live Integration State
+  const [ytStatus, setYtStatus] = useState<{
+    isConnected: boolean;
+    channelTitle?: string;
+    channelThumbnail?: string;
+  }>({ isConnected: false });
+  const [isSyncingYt, setIsSyncingYt] = useState(false);
+  const [showStreamKey, setShowStreamKey] = useState(false);
+
+  const fetchYouTubeStatus = () => {
+    fetch("/api/integrations/youtube/status")
+      .then((res) => res.json())
+      .then((data) => setYtStatus(data))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchYouTubeStatus();
+  }, []);
+
+  const handleSyncYouTube = async () => {
+    setIsSyncingYt(true);
+    try {
+      const res = await fetch("/api/integrations/youtube/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_event", eventId: event.id }),
+      });
+      const data = await res.json();
+      if (data.success && data.event) {
+        onUpdateEvent(data.event);
+        setSaveToast(true);
+        setTimeout(() => setSaveToast(false), 3000);
+      } else {
+        alert(data.message || "Erro ao sincronizar com o YouTube");
+      }
+    } catch (e: any) {
+      alert("Erro ao conectar com a API do YouTube: " + e.message);
+    } finally {
+      setIsSyncingYt(false);
+    }
+  };
 
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState(false);
@@ -127,7 +179,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
   const [isAddingSpeaker, setIsAddingSpeaker] = useState(false);
 
   // Copy helper
-  const handleCopy = (text: string, type: "registration" | "backstage" | "live" | "hostStudio") => {
+  const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     setCopiedLink(type);
     setTimeout(() => setCopiedLink(null), 2500);
@@ -496,6 +548,23 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                     <span>Orador</span>
                     <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
                   </button>
+
+                  <button
+                    onClick={() => setSettingsSubTab("youtube")}
+                    className={`flex items-center justify-between w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                      settingsSubTab === "youtube"
+                        ? "text-rose-600 font-bold bg-rose-50"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <span>YouTube Live</span>
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        ytStatus.isConnected ? "bg-emerald-500" : "bg-slate-300"
+                      }`}
+                      title={ytStatus.isConnected ? "Canal Conectado" : "Não conectado"}
+                    />
+                  </button>
                 </div>
               )}
 
@@ -775,6 +844,112 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       </div>
+                    </div>
+
+                    {/* YouTube Live Integration Card */}
+                    <div className="flex flex-col gap-3 p-4 rounded-xl bg-gradient-to-r from-rose-50 to-red-50/60 border border-rose-200">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs">
+                            <YouTubeIcon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold text-slate-900">Transmissão YouTube Live (Não Listada)</p>
+                              {event.youtubeBroadcastId && (
+                                <span className="rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-extrabold border border-rose-200 flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-pulse" />
+                                  Live Criada
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {ytStatus.isConnected
+                                ? `Canal conectado: ${ytStatus.channelTitle || "YouTube"} ✓`
+                                : "Conecte sua conta do YouTube para gerar a live não listada automaticamente."}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {!ytStatus.isConnected ? (
+                            <a
+                              href="/api/integrations/youtube/auth"
+                              className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition"
+                            >
+                              <YouTubeIcon className="h-3.5 w-3.5" />
+                              <span>Conectar Canal do YouTube</span>
+                            </a>
+                          ) : !event.youtubeBroadcastId ? (
+                            <button
+                              onClick={handleSyncYouTube}
+                              disabled={isSyncingYt}
+                              className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition disabled:opacity-50"
+                            >
+                              <YouTubeIcon className="h-3.5 w-3.5" />
+                              <span>{isSyncingYt ? "Criando Live..." : "Criar Live no YouTube"}</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={`https://studio.youtube.com/video/${event.youtubeBroadcastId}/livestreaming`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1.5 text-xs font-bold shadow-xs transition"
+                                title="Abrir estúdio de transmissão do YouTube"
+                              >
+                                <span>Abrir YouTube Studio</span>
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* If event has YouTube broadcast details, display Stream Key & RTMP URL */}
+                      {event.youtubeBroadcastId && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-rose-200/70 text-[11px]">
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-rose-100">
+                            <div>
+                              <span className="text-slate-400 font-medium">Servidor RTMP:</span>
+                              <p className="font-mono text-slate-700 font-semibold truncate max-w-[180px]">
+                                {event.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2"}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleCopy(event.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2", "rtmpUrl")}
+                              className="p-1 text-slate-400 hover:text-slate-700"
+                              title="Copiar Servidor RTMP"
+                            >
+                              {copiedLink === "rtmpUrl" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-rose-100">
+                            <div>
+                              <span className="text-slate-400 font-medium">Chave de Transmissão (OBS):</span>
+                              <p className="font-mono text-slate-700 font-semibold truncate max-w-[180px]">
+                                {showStreamKey ? event.youtubeStreamKey : "••••••••••••••••"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setShowStreamKey(!showStreamKey)}
+                                className="p-1 text-slate-400 hover:text-slate-700 text-[10px] underline"
+                              >
+                                {showStreamKey ? "Ocultar" : "Ver"}
+                              </button>
+                              <button
+                                onClick={() => handleCopy(event.youtubeStreamKey || "", "streamKey")}
+                                className="p-1 text-slate-400 hover:text-slate-700"
+                                title="Copiar Chave de Transmissão"
+                              >
+                                {copiedLink === "streamKey" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1575,6 +1750,181 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                     ) : (
                       <div className="col-span-2 rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-xs text-slate-400">
                         Nenhum palestrante cadastrado ainda.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab: YOUTUBE LIVE INTEGRATION */}
+              {settingsSubTab === "youtube" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Integração com o YouTube Live</h2>
+                    <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                      Configure a conta do YouTube para provisionar automaticamente uma transmissão ao vivo não listada a cada evento criado, com entrega global via CDN e gravação automática de replay.
+                    </p>
+                  </div>
+
+                  {/* Connection Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 shadow-xs">
+                          <YouTubeIcon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900">Canal do YouTube</h3>
+                            {ytStatus.isConnected ? (
+                              <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-extrabold border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Conectado
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold">
+                                Não Conectado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {ytStatus.isConnected
+                              ? `Canal: ${ytStatus.channelTitle || "YouTube Channel"} • Todas as transmissões serão criadas como Não Listadas (unlisted).`
+                              : "Conecte sua conta do Google para permitir que a Buysoft crie transmissões ao vivo automaticamente."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!ytStatus.isConnected ? (
+                          <a
+                            href="/api/integrations/youtube/auth"
+                            className="flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition"
+                          >
+                            <YouTubeIcon className="h-4 w-4" />
+                            <span>Conectar Canal do YouTube</span>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              if (confirm("Tem certeza que deseja desconectar o canal do YouTube?")) {
+                                await fetch("/api/integrations/youtube/status", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "disconnect" }),
+                                });
+                                fetchYouTubeStatus();
+                              }
+                            }}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
+                          >
+                            Desconectar Canal
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Event YouTube Live Status & Details */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Live Vinculada a este Evento</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Detalhes da transmissão no YouTube provisionada para "{event.title}".
+                        </p>
+                      </div>
+
+                      {ytStatus.isConnected && (
+                        <button
+                          onClick={handleSyncYouTube}
+                          disabled={isSyncingYt}
+                          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition disabled:opacity-50"
+                        >
+                          <YouTubeIcon className="h-3.5 w-3.5 text-rose-600" />
+                          <span>{isSyncingYt ? "Sincronizando..." : event.youtubeBroadcastId ? "Recriar / Sincronizar" : "Criar Live no YouTube"}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {event.youtubeBroadcastId ? (
+                      <div className="space-y-3 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                            <span className="text-slate-400 font-medium">Broadcast ID do YouTube:</span>
+                            <p className="font-mono font-bold text-slate-800">{event.youtubeBroadcastId}</p>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                            <span className="text-slate-400 font-medium">Privacidade:</span>
+                            <p className="font-bold text-emerald-700">Não Listada (unlisted) ✓</p>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                            <span className="text-slate-400 font-medium">Servidor de Ingestão (RTMP):</span>
+                            <div className="flex items-center justify-between">
+                              <p className="font-mono text-slate-700 font-semibold truncate max-w-[200px]">
+                                {event.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2"}
+                              </p>
+                              <button
+                                onClick={() => handleCopy(event.youtubeRtmpUrl || "rtmp://a.rtmp.youtube.com/live2", "rtmpUrl")}
+                                className="p-1 text-slate-400 hover:text-slate-700"
+                              >
+                                {copiedLink === "rtmpUrl" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                            <span className="text-slate-400 font-medium">Chave de Transmissão:</span>
+                            <div className="flex items-center justify-between">
+                              <p className="font-mono text-slate-700 font-semibold truncate max-w-[160px]">
+                                {showStreamKey ? event.youtubeStreamKey : "••••••••••••••••"}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setShowStreamKey(!showStreamKey)}
+                                  className="text-[10px] text-slate-400 hover:text-slate-700 underline"
+                                >
+                                  {showStreamKey ? "Ocultar" : "Ver"}
+                                </button>
+                                <button
+                                  onClick={() => handleCopy(event.youtubeStreamKey || "", "streamKey")}
+                                  className="p-1 text-slate-400 hover:text-slate-700"
+                                >
+                                  {copiedLink === "streamKey" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                          <a
+                            href={`https://studio.youtube.com/video/${event.youtubeBroadcastId}/livestreaming`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition"
+                          >
+                            <span>Abrir no YouTube Studio (Iniciar com 1 Clique)</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+
+                          <a
+                            href={`https://www.youtube.com/watch?v=${event.youtubeBroadcastId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 text-xs font-semibold shadow-xs transition"
+                          >
+                            <span>Ver no YouTube</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+                        {ytStatus.isConnected
+                          ? "Nenhuma live criada ainda para este evento. Clique no botão acima para gerar agora."
+                          : "Conecte sua conta do YouTube acima para que as transmissões sejam criadas automaticamente."}
                       </div>
                     )}
                   </div>

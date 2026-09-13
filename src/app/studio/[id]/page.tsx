@@ -19,8 +19,19 @@ import {
   Sparkles,
   Shield,
   Layers,
-  PhoneOff
+  PhoneOff,
+  Copy,
+  Check
 } from "lucide-react";
+
+function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
+
 import PreflightLobby from "@/components/studio/PreflightLobby";
 import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
@@ -51,6 +62,7 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [isMicOn, setIsMicOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isOnStage, setIsOnStage] = useState(true); // in stage vs backstage
+  const [copiedRtmp, setCopiedRtmp] = useState(false);
 
   // Video refs & WebRTC Broadcaster
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -337,6 +349,62 @@ export default function StudioPage({ params, searchParams }: Props) {
           {roomState?.liveCtas && roomState.liveCtas.length > 0 && (
             <div className="absolute top-4 inset-x-6 z-30 max-w-2xl mx-auto">
               <LiveCtaBanner cta={roomState.liveCtas[0]} />
+            </div>
+          )}
+
+          {/* YouTube Live Status & Ingest Bar */}
+          {roomState?.youtubeBroadcastId && (
+            <div className="w-full max-w-3xl mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/40 p-3.5 backdrop-blur-md z-20">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                  <YouTubeIcon className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-rose-200">YouTube Live Integrado (Não Listado)</span>
+                    <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-300 uppercase">
+                      Ao Vivo na Plateia
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    A transmissão no YouTube será exibida automaticamente em Full HD para a audiência nesta sala.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(roomState.youtubeStreamKey || "");
+                    setCopiedRtmp(true);
+                    setTimeout(() => setCopiedRtmp(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
+                  title="Copiar Chave de Transmissão (Stream Key para OBS/vMix)"
+                >
+                  {copiedRtmp ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Copiar Chave RTMP</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition"
+                >
+                  <span>Transmitir no YouTube Studio</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
             </div>
           )}
 

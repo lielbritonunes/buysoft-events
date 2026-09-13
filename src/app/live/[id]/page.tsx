@@ -311,7 +311,35 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
           {/* Video / Stage Area */}
           <div className="relative flex-1 flex items-center justify-center rounded-2xl bg-black border border-slate-800 overflow-hidden shadow-2xl min-h-[320px] sm:min-h-[480px]">
-            {isLive || streamStatus.isLive ? (
+            {roomState?.youtubeBroadcastId && isLive ? (
+              /* YOUTUBE LIVE UNLISTED EMBEDDED STREAM */
+              <div className="relative h-full w-full flex items-center justify-center bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${roomState.youtubeBroadcastId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
+                  title={roomState?.title || "Transmissão Ao Vivo"}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="h-full w-full border-0 absolute inset-0"
+                />
+
+                {/* Stream Watermark & Status Overlay */}
+                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
+                  <span className="flex items-center gap-1.5 rounded-lg bg-rose-600/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                    YOUTUBE AO VIVO
+                  </span>
+                  <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-[#00b4fb]" />
+                    <span>Transmissão Oficial</span>
+                  </span>
+                </div>
+
+                {/* Floating Reactions overlay */}
+                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
+                  <FloatingReactions />
+                </div>
+              </div>
+            ) : isLive || streamStatus.isLive ? (
               /* LIVE STAGE SCREEN WITH REAL WEBRTC VIDEO */
               <div className="relative h-full w-full flex items-center justify-center bg-black">
                 {/* HTML5 WebRTC Video Player */}

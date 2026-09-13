@@ -138,7 +138,7 @@ export async function createEvent(data: {
 }) {
   const org = await getOrCreateOrganization();
 
-  return await prisma.event.create({
+  const newEvent = await prisma.event.create({
     data: {
       title: data.title,
       description: data.description,
@@ -163,6 +163,25 @@ export async function createEvent(data: {
       series: true,
     },
   });
+
+  // Automatically create unlisted YouTube Live broadcast if integration is active
+  try {
+    const { createYouTubeLiveBroadcastForEvent } = await import("./youtubeService");
+    const ytEvent = await createYouTubeLiveBroadcastForEvent(newEvent.id);
+    if (ytEvent) {
+      return ytEvent;
+    }
+  } catch (ytErr) {
+    console.warn("Could not auto-create YouTube live broadcast:", ytErr);
+  }
+
+  return newEvent;
+}
+
+// Manually sync or regenerate YouTube Live broadcast for an existing event
+export async function syncEventWithYouTube(eventId: string) {
+  const { createYouTubeLiveBroadcastForEvent } = await import("./youtubeService");
+  return await createYouTubeLiveBroadcastForEvent(eventId);
 }
 
 // Update event details or settings
