@@ -218,17 +218,23 @@ export class HostBroadcaster {
   private syncTracksForPeer(pc: RTCPeerConnection) {
     if (pc.signalingState === "closed") return;
 
-    // Pick video track: screen share if active, otherwise camera
-    const videoTrack =
-      this.screenStream?.getVideoTracks().find((t) => t.enabled) ||
-      this.localStream?.getVideoTracks().find((t) => t.enabled) ||
-      null;
+    // Only send tracks to viewers if webinar is LIVE; keep private when in backstage
+    const videoTrack = this.isLive
+      ? (this.screenStream?.getVideoTracks().find((t) => t.enabled) ||
+         this.localStream?.getVideoTracks().find((t) => t.enabled) ||
+         null)
+      : null;
 
-    // Pick audio track: presenter microphone (or screen audio if present)
-    const audioTrack =
-      this.localStream?.getAudioTracks().find((t) => t.enabled) ||
-      this.screenStream?.getAudioTracks().find((t) => t.enabled) ||
-      null;
+    if (videoTrack) {
+      videoTrack.contentHint = "detail";
+    }
+
+    // Pick audio track: presenter microphone (or screen audio if present) when live
+    const audioTrack = this.isLive
+      ? (this.localStream?.getAudioTracks().find((t) => t.enabled) ||
+         this.screenStream?.getAudioTracks().find((t) => t.enabled) ||
+         null)
+      : null;
 
     const transceivers = pc.getTransceivers();
 
@@ -241,10 +247,28 @@ export class HostBroadcaster {
       videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
       if (videoTrack) {
         videoTransceiver.direction = "sendonly";
+        try {
+          const params = videoTransceiver.sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            params.encodings[0].maxBitrate = 5_000_000;
+            params.encodings[0].maxFramerate = 30;
+            videoTransceiver.sender.setParameters(params).catch(() => {});
+          }
+        } catch (_) {}
       }
     } else if (videoTrack) {
       const stream = this.screenStream || this.localStream;
-      if (stream) pc.addTrack(videoTrack, stream);
+      if (stream) {
+        const sender = pc.addTrack(videoTrack, stream);
+        try {
+          const params = sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            params.encodings[0].maxBitrate = 5_000_000;
+            params.encodings[0].maxFramerate = 30;
+            sender.setParameters(params).catch(() => {});
+          }
+        } catch (_) {}
+      }
     }
 
     // 2. Audio Transceiver

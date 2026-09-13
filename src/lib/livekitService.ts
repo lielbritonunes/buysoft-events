@@ -128,8 +128,14 @@ export async function startRoomEgressToYouTube({
   return info.egressId;
 }
 
-// 3. Stop LiveKit Egress
-export async function stopLiveKitEgress(egressId: string) {
+// 3. Stop LiveKit Egress (supports stopping by specific ID or stopping all active egresses for a room)
+export async function stopLiveKitEgress({
+  egressId,
+  roomName,
+}: {
+  egressId?: string;
+  roomName?: string;
+}) {
   const { url, apiKey, apiSecret } = getLiveKitCredentials();
   if (!url || !apiKey || !apiSecret) {
     throw new Error("LiveKit credentials not configured.");
@@ -137,7 +143,35 @@ export async function stopLiveKitEgress(egressId: string) {
 
   const httpUrl = getLiveKitHttpUrl(url);
   const egressClient = new EgressClient(httpUrl, apiKey, apiSecret);
+  const results: any[] = [];
 
-  return await egressClient.stopEgress(egressId);
+  if (egressId) {
+    try {
+      const res = await egressClient.stopEgress(egressId);
+      results.push(res);
+    } catch (e) {
+      console.warn(`Could not stop egress ${egressId}:`, e);
+    }
+  }
+
+  if (roomName) {
+    try {
+      const activeList = await egressClient.listEgress({ roomName, active: true });
+      for (const item of activeList) {
+        if (item.egressId && item.egressId !== egressId) {
+          try {
+            const res = await egressClient.stopEgress(item.egressId);
+            results.push(res);
+          } catch (e) {
+            console.warn(`Could not stop active room egress ${item.egressId}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not query active egress list for ${roomName}:`, e);
+    }
+  }
+
+  return results;
 }
 

@@ -63,12 +63,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "stop") {
-      if (egressId) {
-        try {
-          await stopLiveKitEgress(egressId);
-        } catch (e) {
-          console.warn("Could not stop LiveKit egress (might have already ended):", e);
-        }
+      const roomName = `event_${eventId}`;
+      try {
+        await stopLiveKitEgress({
+          egressId: egressId || undefined,
+          roomName,
+        });
+      } catch (e) {
+        console.warn("Could not stop LiveKit egress:", e);
       }
 
       await prisma.event.update({

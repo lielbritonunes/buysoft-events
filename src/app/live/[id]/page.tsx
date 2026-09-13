@@ -54,6 +54,8 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
   // State
   const [roomState, setRoomState] = useState<any>(null);
+  const isLive = roomState?.status === "live";
+  const isCompleted = roomState?.status === "completed";
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string>(() => {
     if (resolvedSearchParams?.name) return resolvedSearchParams.name;
@@ -128,22 +130,25 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         if (!token || !url || !isSubscribed) return;
 
         const room = new Room({
-          adaptiveStream: true,
-          dynacast: true,
+          adaptiveStream: false, // Ensures full 1080p resolution without downscaling
+          dynacast: false,
         });
 
         const handleAttachTrack = (track: RemoteTrack) => {
           if (track.kind === Track.Kind.Video) {
             setHasLiveKitTracks(true);
-            if (videoRef.current) {
+            if (videoRef.current && isLive) {
               track.attach(videoRef.current);
               videoRef.current.play().catch(() => {});
             }
           }
           if (track.kind === Track.Kind.Audio) {
-            const el = track.attach();
-            el.setAttribute("data-livekit-audio", "true");
-            document.body.appendChild(el);
+            if (isLive) {
+              const el = track.attach();
+              el.setAttribute("data-livekit-audio", "true");
+              el.setAttribute("data-livekit-audio-id", track.sid || "audio");
+              document.body.appendChild(el);
+            }
           }
         };
 
@@ -186,24 +191,52 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId, userName]);
 
-  // Re-attach video track if videoRef mounts or source toggles back to webrtc
+  // Sync LiveKit video & audio tracks when transitioning between waiting room and live stage
   useEffect(() => {
     const room = livekitRoomRef.current;
-    if (room && videoRef.current) {
-      for (const p of room.remoteParticipants.values()) {
-        for (const pub of p.trackPublications.values()) {
-          if (pub.track && pub.track.kind === Track.Kind.Video) {
+    if (!room) return;
+
+    if (!isLive) {
+      // Detach all audio elements when not live to prevent green room audio leakage
+      document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      return;
+    }
+
+    // When LIVE, attach video to videoRef and audio to DOM
+    for (const p of room.remoteParticipants.values()) {
+      for (const pub of p.trackPublications.values()) {
+        if (pub.track) {
+          if (pub.track.kind === Track.Kind.Video && videoRef.current) {
             pub.track.attach(videoRef.current);
             videoRef.current.play().catch(() => {});
             setHasLiveKitTracks(true);
+          } else if (pub.track.kind === Track.Kind.Audio) {
+            const sid = pub.track.sid || "audio";
+            const existing = document.querySelector(`[data-livekit-audio-id="${sid}"]`);
+            if (!existing) {
+              const el = pub.track.attach();
+              el.setAttribute("data-livekit-audio", "true");
+              el.setAttribute("data-livekit-audio-id", sid);
+              document.body.appendChild(el);
+            }
           }
         }
       }
     }
-  }, [selectedSource, hasLiveKitTracks]);
+  }, [isLive, selectedSource, hasLiveKitTracks]);
 
-  // Bind remote stream to HTML5 video element with autoplay fallback (when not using LiveKit tracks)
+  // Bind remote WebRTC stream to HTML5 video element with autoplay fallback when live (and not using LiveKit tracks)
   useEffect(() => {
+    if (!isLive) {
+      if (videoRef.current && !hasLiveKitTracks) {
+        videoRef.current.srcObject = null;
+      }
+      return;
+    }
+
     if (videoRef.current && remoteStream && !hasLiveKitTracks) {
       videoRef.current.srcObject = remoteStream;
       videoRef.current.play().catch((err) => {
@@ -215,7 +248,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         }
       });
     }
-  }, [remoteStream, hasLiveKitTracks]);
+  }, [isLive, remoteStream, hasLiveKitTracks]);
 
   // Sync mute state to video element
   useEffect(() => {
@@ -310,8 +343,6 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     );
   }
 
-  const isLive = roomState?.status === "live";
-  const isCompleted = roomState?.status === "completed";
   const activeCta = roomState?.liveCtas?.[0] || null;
 
   return (
@@ -499,7 +530,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   <FloatingReactions />
                 </div>
               </div>
-            ) : isLive || streamStatus.isLive || hasLiveKitTracks ? (
+            ) : isLive ? (
               /* LIVE STAGE SCREEN WITH REAL WEBRTC / LIVEKIT VIDEO */
               <div className="relative h-full w-full flex items-center justify-center bg-black">
                 {/* HTML5 WebRTC / LiveKit Video Player */}

@@ -74,6 +74,8 @@ function drawAspectFitVideo(
 
   ctx.fillStyle = "#000000";
   ctx.fillRect(x, y, w, h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(video, drawX, drawY, drawW, drawH);
 
   // Subtle border
@@ -164,6 +166,8 @@ export class StudioCompositor {
     const context = this.canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Could not create 2D canvas context");
     this.ctx = context;
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = "high";
 
     this.internalLocalVideo = document.createElement("video");
     this.internalLocalVideo.autoplay = true;
@@ -263,6 +267,10 @@ export class StudioCompositor {
   public getCompositeStream(): MediaStream {
     if (!this.outputStream) {
       const stream = this.canvas.captureStream(30);
+      const vTrack = stream.getVideoTracks()[0];
+      if (vTrack) {
+        vTrack.contentHint = "detail";
+      }
       if (this.audioDest) {
         const audioTrack = this.audioDest.stream.getAudioTracks()[0];
         if (audioTrack) {

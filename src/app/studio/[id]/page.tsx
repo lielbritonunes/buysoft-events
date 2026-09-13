@@ -115,11 +115,13 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [videoAssetUrl, setVideoAssetUrl] = useState<string | null>(null);
   const [customVideoInput, setCustomVideoInput] = useState("");
 
-  // LiveKit Egress & Streaming Timer
   const [isBroadcastingLive, setIsBroadcastingLive] = useState(false);
   const [currentEgressId, setCurrentEgressId] = useState<string | null>(null);
   const [isStartingBroadcast, setIsStartingBroadcast] = useState(false);
   const [liveDuration, setLiveDuration] = useState(0);
+
+  // Single source of truth for webinar live status
+  const isWebinarLive = roomState?.status === "live" || isBroadcastingLive;
 
   // Modals
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
@@ -253,10 +255,10 @@ export default function StudioPage({ params, searchParams }: Props) {
       broadcasterRef.current.setStreams(
         compositeStream,
         null,
-        roomState?.status === "live"
+        isWebinarLive
       );
     }
-  }, [localStream, screenStream, roomState?.status, isOnStage, isScreenSharing, layoutMode]);
+  }, [localStream, screenStream, isWebinarLive, isOnStage, isScreenSharing, layoutMode]);
 
   // Connect to LiveKit Room once joined lobby
   useEffect(() => {
@@ -291,19 +293,6 @@ export default function StudioPage({ params, searchParams }: Props) {
 
         livekitRoomRef.current = room;
         setIsLiveKitConnected(true);
-
-        // Publish composite 1080p stream
-        if (compositorRef.current) {
-          const compositeStream = compositorRef.current.getCompositeStream();
-          const cVt = compositeStream.getVideoTracks()[0];
-          const cAt = compositeStream.getAudioTracks()[0];
-          if (cVt) {
-            await room.localParticipant.publishTrack(cVt, { name: "stage-composite", source: Track.Source.Camera }).catch(() => {});
-          }
-          if (cAt) {
-            await room.localParticipant.publishTrack(cAt, { name: "stage-audio", source: Track.Source.Microphone }).catch(() => {});
-          }
-        }
       } catch (err) {
         console.warn("LiveKit Studio connection warning:", err);
       }
@@ -321,37 +310,72 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [hasJoinedLobby, eventId, userRole]);
 
-  // Ensure composite tracks are published if compositor was initialized after connect
+  // Ensure composite tracks are published ONLY when live and in 1080p crystal clear quality
   useEffect(() => {
     const room = livekitRoomRef.current;
     if (!room || !isLiveKitConnected || !compositorRef.current) return;
 
-    const publishCompositeTracks = async () => {
+    const syncLiveKitCompositeTracks = async () => {
       try {
+        if (!isWebinarLive) {
+          // In backstage/camarim: unpublish any public stage tracks so audience cannot view private backstage
+          const videoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
+            (p) => p.trackName === "stage-composite"
+          );
+          if (videoPub?.track) {
+            await room.localParticipant.unpublishTrack(videoPub.track).catch(() => {});
+          }
+          const audioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+            (p) => p.trackName === "stage-audio"
+          );
+          if (audioPub?.track) {
+            await room.localParticipant.unpublishTrack(audioPub.track).catch(() => {});
+          }
+          return;
+        }
+
+        // Live webinar active: publish pristine 1080p Full HD composite stream (5 Mbps, simulcast disabled)
         const compositeStream = compositorRef.current!.getCompositeStream();
         const cVt = compositeStream.getVideoTracks()[0];
         const cAt = compositeStream.getAudioTracks()[0];
 
         const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-          (p) => p.trackName === "stage-composite" || p.source === Track.Source.Camera
+          (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
-          await room.localParticipant.publishTrack(cVt, { name: "stage-composite", source: Track.Source.Camera }).catch(() => {});
+          cVt.contentHint = "detail";
+          await room.localParticipant.publishTrack(cVt, {
+            name: "stage-composite",
+            source: Track.Source.ScreenShare, // High-priority detail mode for text and presentations
+            simulcast: false, // Disables potato-quality 360p downscaling
+            degradationPreference: "maintain-resolution",
+            videoEncoding: {
+              maxBitrate: 5_000_000, // 5 Mbps Full HD
+              maxFramerate: 30,
+            },
+            videoCodec: "h264",
+          }).catch((err) => console.warn("Error publishing 1080p composite video:", err));
         }
 
         const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
-          (p) => p.trackName === "stage-audio" || p.source === Track.Source.Microphone
+          (p) => p.trackName === "stage-audio"
         );
         if (cAt && !existingAudioPub) {
-          await room.localParticipant.publishTrack(cAt, { name: "stage-audio", source: Track.Source.Microphone }).catch(() => {});
+          await room.localParticipant.publishTrack(cAt, {
+            name: "stage-audio",
+            source: Track.Source.Microphone,
+            audioPreset: {
+              maxBitrate: 96_000,
+            },
+          }).catch((err) => console.warn("Error publishing composite audio:", err));
         }
       } catch (err) {
-        console.warn("Error verifying composite tracks in LiveKit:", err);
+        console.warn("Error synchronizing composite tracks in LiveKit:", err);
       }
     };
 
-    publishCompositeTracks();
-  }, [isLiveKitConnected, hasJoinedLobby]);
+    syncLiveKitCompositeTracks();
+  }, [isLiveKitConnected, isWebinarLive, hasJoinedLobby]);
 
   // Load and poll live state
   const fetchState = async () => {
@@ -459,9 +483,17 @@ export default function StudioPage({ params, searchParams }: Props) {
     } else {
       try {
         const sStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: {
+            width: { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 },
+            frameRate: { ideal: 30, max: 60 },
+          },
           audio: true,
         });
+        const vTrack = sStream.getVideoTracks()[0];
+        if (vTrack) {
+          vTrack.contentHint = "detail";
+        }
         setScreenStream(sStream);
         setIsScreenSharing(true);
         if (layoutMode === "solo") {
@@ -487,17 +519,27 @@ export default function StudioPage({ params, searchParams }: Props) {
 
     if (isCurrentlyLive) {
       try {
-        if (currentEgressId) {
-          await fetch("/api/livekit/egress", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "stop",
-              eventId,
-              egressId: currentEgressId,
-            }),
-          }).catch(() => {});
+        await fetch("/api/livekit/egress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "stop",
+            eventId,
+            egressId: currentEgressId || undefined,
+          }),
+        }).catch(() => {});
+
+        // Unpublish tracks immediately from LiveKit room
+        if (livekitRoomRef.current) {
+          const room = livekitRoomRef.current;
+          const pubs = Array.from(room.localParticipant.trackPublications.values());
+          for (const pub of pubs) {
+            if (pub.track) {
+              await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
+            }
+          }
         }
+
         await updateEvent(eventId, { status: "published" });
         setIsBroadcastingLive(false);
         setCurrentEgressId(null);
@@ -596,8 +638,6 @@ export default function StudioPage({ params, searchParams }: Props) {
       />
     );
   }
-
-  const isWebinarLive = roomState?.status === "live" || isBroadcastingLive;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-white font-sans">

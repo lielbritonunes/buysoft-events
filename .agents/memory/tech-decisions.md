@@ -29,4 +29,8 @@ updated: 2026-07-18
     - Criação automática de Live não listada no canal YouTube da organização via Google OAuth 2.0 e YouTube Data API v3.
     - Codificador nativo no navegador via LiveKit Cloud (`livekit-client`, `livekit-server-sdk`) com Egress direto para o RTMP do YouTube (1-click "Iniciar Transmissão Ao Vivo").
     - Personalização do Estúdio: Modos de Layout (Solo, Grade, Split lado-a-lado, PiP Picture-in-Picture), Lower Thirds com identificação do palestrante, Letreiro de Rodapé (Ticker Tape), Banner de Destaque, Plano de Fundo personalizável com presets e Reprodutor de Vídeos/Vinhetas direto no estúdio sem precisar compartilhar tela.
+    - [Correções de Transmissão]:
+      - Isolamento estrito de bastidores/camarim: a plateia `/live/[id]` permanece obrigatoriamente na Sala de Espera até o host clicar em "Iniciar Transmissão Ao Vivo" no estúdio. Nenhuma faixa de áudio ou vídeo composta é publicada ou reproduzida antes do início oficial da live.
+      - Otimização de qualidade 1080p Full HD cristalina: captura de tela em 1920x1080 com `contentHint: detail`, desativação de simulcast (evitando rebaixamento para 360p/540p), bitrate configurado para 5 Mbps e interpolação de alta qualidade no canvas 2D do estúdio.
+      - Encerramento robusto de Egress: cancelamento ativo de qualquer egress pendente no LiveKit Cloud para a sala ao finalizar a transmissão.
   - Próxima etapa: Fase X (Verificação Final de Ponta a Ponta, Checklist e Entrega do MVP).

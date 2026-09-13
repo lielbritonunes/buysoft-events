@@ -31,8 +31,16 @@ export default function PreflightLobby({ userName, userRole, onJoin, onRoleChang
     async function initMedia() {
       try {
         activeStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
+          video: {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 },
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
 
         setStream(activeStream);
