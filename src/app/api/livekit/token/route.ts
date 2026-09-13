@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateLiveKitToken, LIVEKIT_URL } from "@/lib/livekitService";
+import { generateLiveKitToken, getLiveKitCredentials, LIVEKIT_URL } from "@/lib/livekitService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,20 +10,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing eventId" }, { status: 400 });
     }
 
-    const name = participantName || (role === "host" ? "Host Organizador" : "Orador Convidado");
-    const identity = `${role || "speaker"}_${Math.random().toString(36).substring(2, 9)}`;
     const isHost = role === "host";
+    const isAttendee = role === "attendee";
+    const defaultName = isHost
+      ? "Host Organizador"
+      : isAttendee
+      ? "Participante Convidado"
+      : "Orador Convidado";
+    const name = participantName || defaultName;
+    const identity = `${role || "viewer"}_${Math.random().toString(36).substring(2, 9)}`;
 
     const token = await generateLiveKitToken({
       roomName: `event_${eventId}`,
       participantIdentity: identity,
       participantName: name,
       isHost,
+      canPublish: !isAttendee,
+      canSubscribe: true,
     });
+
+    const { url } = getLiveKitCredentials();
 
     return NextResponse.json({
       token,
-      url: LIVEKIT_URL,
+      url: url || LIVEKIT_URL,
       identity,
       name,
     });
@@ -32,3 +42,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

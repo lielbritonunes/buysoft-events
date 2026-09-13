@@ -1,31 +1,71 @@
 import {
   AccessToken,
   EgressClient,
+  RoomServiceClient,
   StreamOutput,
   StreamProtocol,
 } from "livekit-server-sdk";
+
+export function getLiveKitCredentials() {
+  const url = process.env.LIVEKIT_URL || "";
+  const apiKey = process.env.LIVEKIT_API_KEY || "";
+  const apiSecret = process.env.LIVEKIT_API_SECRET || "";
+  return { url, apiKey, apiSecret };
+}
+
+export function getLiveKitHttpUrl(url: string) {
+  return url.replace("wss://", "https://").replace("ws://", "http://");
+}
 
 export const LIVEKIT_URL = process.env.LIVEKIT_URL || "";
 export const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "";
 export const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "";
 
-// 1. Generate Room Token for Host or Speaker
+// Ensure room exists in LiveKit Cloud
+export async function ensureLiveKitRoom(roomName: string) {
+  const { url, apiKey, apiSecret } = getLiveKitCredentials();
+  if (!url || !apiKey || !apiSecret) {
+    throw new Error("LiveKit credentials not configured in environment variables.");
+  }
+  const httpUrl = getLiveKitHttpUrl(url);
+  const roomService = new RoomServiceClient(httpUrl, apiKey, apiSecret);
+  try {
+    const room = await roomService.createRoom({
+      name: roomName,
+      emptyTimeout: 1800, // 30 minutes empty room timeout
+    });
+    return room;
+  } catch (err: any) {
+    // If room already exists, that is fine
+    return null;
+  }
+}
+
+// 1. Generate Room Token for Host, Speaker or Attendee
 export async function generateLiveKitToken({
   roomName,
   participantIdentity,
   participantName,
   isHost = false,
+  canPublish = true,
+  canSubscribe = true,
 }: {
   roomName: string;
   participantIdentity: string;
   participantName: string;
   isHost?: boolean;
+  canPublish?: boolean;
+  canSubscribe?: boolean;
 }) {
-  if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+  const { apiKey, apiSecret } = getLiveKitCredentials();
+  if (!apiKey || !apiSecret) {
     throw new Error("LiveKit credentials not configured in environment variables.");
   }
 
-  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+  // Pre-create room so it's registered
+  await ensureLiveKitRoom(roomName).catch(() => {});
+
+  const at = new AccessToken(apiKey, apiSecret, {
     identity: participantIdentity,
     name: participantName,
     ttl: "8h",
@@ -34,8 +74,8 @@ export async function generateLiveKitToken({
   at.addGrant({
     roomJoin: true,
     room: roomName,
-    canPublish: true,
-    canSubscribe: true,
+    canPublish,
+    canSubscribe,
     canPublishData: true,
     roomAdmin: isHost,
   });
@@ -53,13 +93,17 @@ export async function startRoomEgressToYouTube({
   rtmpUrl: string;
   streamKey: string;
 }) {
-  if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+  const { url, apiKey, apiSecret } = getLiveKitCredentials();
+  if (!url || !apiKey || !apiSecret) {
     throw new Error("LiveKit credentials not configured.");
   }
 
+  // Pre-ensure room exists in LiveKit Cloud to prevent 'requested room does not exist'
+  await ensureLiveKitRoom(roomName);
+
   // Convert wss:// to https:// for Egress API
-  const httpUrl = LIVEKIT_URL.replace("wss://", "https://").replace("ws://", "http://");
-  const egressClient = new EgressClient(httpUrl, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+  const httpUrl = getLiveKitHttpUrl(url);
+  const egressClient = new EgressClient(httpUrl, apiKey, apiSecret);
 
   // Full RTMP destination endpoint
   const fullRtmpUrl = rtmpUrl.endsWith("/")
@@ -84,12 +128,14 @@ export async function startRoomEgressToYouTube({
 
 // 3. Stop LiveKit Egress
 export async function stopLiveKitEgress(egressId: string) {
-  if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+  const { url, apiKey, apiSecret } = getLiveKitCredentials();
+  if (!url || !apiKey || !apiSecret) {
     throw new Error("LiveKit credentials not configured.");
   }
 
-  const httpUrl = LIVEKIT_URL.replace("wss://", "https://").replace("ws://", "http://");
-  const egressClient = new EgressClient(httpUrl, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+  const httpUrl = getLiveKitHttpUrl(url);
+  const egressClient = new EgressClient(httpUrl, apiKey, apiSecret);
 
   return await egressClient.stopEgress(egressId);
 }
+

@@ -56,6 +56,7 @@ import {
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
+import { Room, Track } from "livekit-client";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -134,6 +135,11 @@ export default function StudioPage({ params, searchParams }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const broadcasterRef = useRef<HostBroadcaster | null>(null);
 
+  // LiveKit Cloud Room Connection & Track Publishing
+  const livekitRoomRef = useRef<Room | null>(null);
+  const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
+  const [egressError, setEgressError] = useState<string | null>(null);
+
   // Initialize WebRTC Host Broadcaster
   useEffect(() => {
     const broadcaster = new HostBroadcaster(eventId);
@@ -154,6 +160,151 @@ export default function StudioPage({ params, searchParams }: Props) {
       );
     }
   }, [localStream, screenStream, roomState?.status, isOnStage]);
+
+  // Connect to LiveKit Room once joined lobby
+  useEffect(() => {
+    if (!hasJoinedLobby || !eventId) return;
+
+    let isSubscribed = true;
+    const connectLiveKit = async () => {
+      try {
+        const res = await fetch("/api/livekit/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId,
+            role: userRole,
+            participantName: userRole === "host" ? "Host Organizador" : "Orador Convidado",
+          }),
+        });
+        if (!res.ok) return;
+        const { token, url } = await res.json();
+        if (!token || !url || !isSubscribed) return;
+
+        const room = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+
+        await room.connect(url, token);
+        if (!isSubscribed) {
+          room.disconnect();
+          return;
+        }
+
+        livekitRoomRef.current = room;
+        setIsLiveKitConnected(true);
+
+        // Publish existing local camera/mic tracks if on stage
+        if (localStream && isOnStage) {
+          const vt = localStream.getVideoTracks()[0];
+          const at = localStream.getAudioTracks()[0];
+          if (vt) {
+            await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera });
+          }
+          if (at) {
+            await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone });
+          }
+        }
+
+        // Publish existing screen share if active
+        if (screenStream) {
+          const st = screenStream.getVideoTracks()[0];
+          if (st) {
+            await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare });
+          }
+        }
+      } catch (err) {
+        console.warn("LiveKit Studio connection warning:", err);
+      }
+    };
+
+    connectLiveKit();
+
+    return () => {
+      isSubscribed = false;
+      if (livekitRoomRef.current) {
+        livekitRoomRef.current.disconnect();
+        livekitRoomRef.current = null;
+        setIsLiveKitConnected(false);
+      }
+    };
+  }, [hasJoinedLobby, eventId, userRole]);
+
+  // Sync local camera & mic tracks with LiveKit
+  useEffect(() => {
+    const room = livekitRoomRef.current;
+    if (!room || !isLiveKitConnected) return;
+
+    const syncTracks = async () => {
+      try {
+        if (!isOnStage) {
+          // In backstage: unpublish video/audio so they are not broadcast to live stage
+          for (const pub of Array.from(room.localParticipant.videoTrackPublications.values())) {
+            if (pub.track && (pub.source === Track.Source.Camera || pub.trackName === "camera")) {
+              await room.localParticipant.unpublishTrack(pub.track);
+            }
+          }
+          for (const pub of Array.from(room.localParticipant.audioTrackPublications.values())) {
+            if (pub.track && (pub.source === Track.Source.Microphone || pub.trackName === "microphone")) {
+              await room.localParticipant.unpublishTrack(pub.track);
+            }
+          }
+          return;
+        }
+
+        // Camera track
+        const vt = localStream?.getVideoTracks()[0];
+        const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
+          (p) => p.source === Track.Source.Camera || p.trackName === "camera"
+        );
+        if (vt && !existingVideoPub) {
+          await room.localParticipant.publishTrack(vt, { name: "camera", source: Track.Source.Camera });
+        } else if (!vt && existingVideoPub?.track) {
+          await room.localParticipant.unpublishTrack(existingVideoPub.track);
+        }
+
+        // Audio track
+        const at = localStream?.getAudioTracks()[0];
+        const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+          (p) => p.source === Track.Source.Microphone || p.trackName === "microphone"
+        );
+        if (at && !existingAudioPub) {
+          await room.localParticipant.publishTrack(at, { name: "microphone", source: Track.Source.Microphone });
+        } else if (!at && existingAudioPub?.track) {
+          await room.localParticipant.unpublishTrack(existingAudioPub.track);
+        }
+      } catch (e) {
+        console.warn("Track sync warning with LiveKit:", e);
+      }
+    };
+
+    syncTracks();
+  }, [localStream, isOnStage, isLiveKitConnected]);
+
+  // Sync screen share track with LiveKit
+  useEffect(() => {
+    const room = livekitRoomRef.current;
+    if (!room || !isLiveKitConnected) return;
+
+    const syncScreen = async () => {
+      try {
+        const st = screenStream?.getVideoTracks()[0];
+        const existingScreenPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
+          (p) => p.source === Track.Source.ScreenShare || p.trackName === "screen"
+        );
+        if (st && !existingScreenPub) {
+          await room.localParticipant.publishTrack(st, { name: "screen", source: Track.Source.ScreenShare });
+        } else if (!st && existingScreenPub?.track) {
+          await room.localParticipant.unpublishTrack(existingScreenPub.track);
+        }
+      } catch (e) {
+        console.warn("Screen track sync warning with LiveKit:", e);
+      }
+    };
+
+    syncScreen();
+  }, [screenStream, isLiveKitConnected]);
 
   // Load and poll live state
   const fetchState = async () => {
@@ -210,8 +361,18 @@ export default function StudioPage({ params, searchParams }: Props) {
     if (localStream) {
       const vt = localStream.getVideoTracks()[0];
       if (vt) {
-        vt.enabled = !isCamOn;
-        setIsCamOn(!isCamOn);
+        const nextState = !isCamOn;
+        vt.enabled = nextState;
+        setIsCamOn(nextState);
+        if (livekitRoomRef.current) {
+          const pub = Array.from(livekitRoomRef.current.localParticipant.videoTrackPublications.values()).find(
+            (p) => p.source === Track.Source.Camera || p.trackName === "camera"
+          );
+          if (pub?.track) {
+            if (!nextState) pub.track.mute();
+            else pub.track.unmute();
+          }
+        }
       }
     }
   };
@@ -221,8 +382,18 @@ export default function StudioPage({ params, searchParams }: Props) {
     if (localStream) {
       const at = localStream.getAudioTracks()[0];
       if (at) {
-        at.enabled = !isMicOn;
-        setIsMicOn(!isMicOn);
+        const nextState = !isMicOn;
+        at.enabled = nextState;
+        setIsMicOn(nextState);
+        if (livekitRoomRef.current) {
+          const pub = Array.from(livekitRoomRef.current.localParticipant.audioTrackPublications.values()).find(
+            (p) => p.source === Track.Source.Microphone || p.trackName === "microphone"
+          );
+          if (pub?.track) {
+            if (!nextState) pub.track.mute();
+            else pub.track.unmute();
+          }
+        }
       }
     }
   };
@@ -264,19 +435,22 @@ export default function StudioPage({ params, searchParams }: Props) {
   // Toggle 1-Click LiveKit Egress & Broadcast
   const handleToggleGoLive = async () => {
     setIsStartingBroadcast(true);
+    setEgressError(null);
     const isCurrentlyLive = roomState?.status === "live" || isBroadcastingLive;
 
     if (isCurrentlyLive) {
       try {
-        await fetch("/api/livekit/egress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "stop",
-            eventId,
-            egressId: currentEgressId,
-          }),
-        });
+        if (currentEgressId) {
+          await fetch("/api/livekit/egress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "stop",
+              eventId,
+              egressId: currentEgressId,
+            }),
+          }).catch(() => {});
+        }
         await updateEvent(eventId, { status: "published" });
         setIsBroadcastingLive(false);
         setCurrentEgressId(null);
@@ -288,28 +462,32 @@ export default function StudioPage({ params, searchParams }: Props) {
       }
     } else {
       try {
-        const res = await fetch("/api/livekit/egress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "start",
-            eventId,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.warn("Egress warning:", data.error);
-          // Still set event status to live in DB so viewer room opens
-          await updateEvent(eventId, { status: "live" });
-        } else {
-          if (data.egressId) {
+        // If event has YouTube integration, trigger LiveKit Cloud Egress
+        if (roomState?.youtubeStreamKey) {
+          const res = await fetch("/api/livekit/egress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "start",
+              eventId,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.warn("Egress warning:", data.error);
+            setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
+          } else if (data.egressId) {
             setCurrentEgressId(data.egressId);
           }
         }
+
+        // Set event status to live in database so viewers receive room state
+        await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
       } catch (err: any) {
         console.error("Error starting broadcast:", err);
+        setEgressError(err.message || "Erro ao conectar transmissão.");
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
@@ -433,6 +611,19 @@ export default function StudioPage({ params, searchParams }: Props) {
                   EM BASTIDORES (BACKSTAGE)
                 </span>
               )}
+
+              {/* LiveKit Cloud Status Badge */}
+              <span
+                className={`hidden lg:flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold border transition ${
+                  isLiveKitConnected
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : "bg-slate-800 text-slate-400 border-slate-700"
+                }`}
+                title={isLiveKitConnected ? "Servidor LiveKit Cloud conectado com sucesso" : "Conectando ao LiveKit Cloud..."}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${isLiveKitConnected ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                <span>{isLiveKitConnected ? "LiveKit Nuvem OK" : "Conectando Nuvem..."}</span>
+              </span>
             </div>
           </div>
 
@@ -505,6 +696,22 @@ export default function StudioPage({ params, searchParams }: Props) {
 
         {/* Studio Stage Video Canvas */}
         <div className="relative flex-1 p-3 sm:p-5 overflow-hidden flex flex-col justify-center items-center">
+          {/* Egress Warning Banner if any */}
+          {egressError && (
+            <div className="w-full max-w-4xl mb-3 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-950/70 p-3 text-xs text-amber-200 backdrop-blur-md z-30">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">⚠️ Transmissão:</span>
+                <span>{egressError}</span>
+              </div>
+              <button
+                onClick={() => setEgressError(null)}
+                className="rounded-lg bg-amber-900/60 hover:bg-amber-800 px-2.5 py-1 text-[11px] font-semibold text-amber-100 transition"
+              >
+                Dispensar
+              </button>
+            </div>
+          )}
+
           {/* Active Live CTA Banner (if launched) */}
           {roomState?.liveCtas && roomState.liveCtas.length > 0 && (
             <div className="absolute top-4 inset-x-6 z-30 max-w-2xl mx-auto">

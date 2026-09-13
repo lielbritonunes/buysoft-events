@@ -36,11 +36,17 @@ export async function POST(req: NextRequest) {
         streamKey: event.youtubeStreamKey,
       });
 
-      // Update event status to live
+      // Update event status to live in both Event and StreamRoom
       await prisma.event.update({
         where: { id: eventId },
         data: { status: "live" },
       });
+
+      await prisma.streamRoom.upsert({
+        where: { eventId },
+        update: { isLive: true },
+        create: { eventId, isLive: true },
+      }).catch(() => {});
 
       return NextResponse.json({
         success: true,
@@ -63,6 +69,12 @@ export async function POST(req: NextRequest) {
         data: { status: "published" },
       });
 
+      await prisma.streamRoom.upsert({
+        where: { eventId },
+        update: { isLive: false },
+        create: { eventId, isLive: false },
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         isLive: false,
@@ -72,6 +84,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
     console.error("LiveKit Egress Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Erro ao comunicar com LiveKit Cloud Egress" }, { status: 500 });
   }
 }

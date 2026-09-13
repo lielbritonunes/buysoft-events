@@ -24,13 +24,23 @@ import {
   Flame,
   Award,
   ChevronRight,
-  Info
+  Info,
+  Zap
 } from "lucide-react";
 import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
 import FloatingReactions from "@/components/engagement/FloatingReactions";
 import { getLiveRoomState } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
+import { Room, RoomEvent, Track, RemoteTrack } from "livekit-client";
+
+function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -73,6 +83,13 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const [activeSidebarTab, setActiveSidebarTab] = useState<"chat" | "qa" | "polls">("chat");
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Stream Source Selection: WebRTC vs YouTube Live
+  const [selectedSource, setSelectedSource] = useState<"webrtc" | "youtube">("webrtc");
+
+  // LiveKit Cloud Subscriber for Attendee
+  const livekitRoomRef = useRef<Room | null>(null);
+  const [hasLiveKitTracks, setHasLiveKitTracks] = useState(false);
+
   // Initialize WebRTC Viewer Receiver
   useEffect(() => {
     const viewer = new ViewerReceiver(
@@ -90,9 +107,75 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId]);
 
-  // Bind remote stream to HTML5 video element with autoplay fallback
+  // Connect to LiveKit Cloud as Attendee subscriber
   useEffect(() => {
-    if (videoRef.current && remoteStream) {
+    if (!eventId) return;
+
+    let isSubscribed = true;
+    const connectLiveKit = async () => {
+      try {
+        const res = await fetch("/api/livekit/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId,
+            role: "attendee",
+            participantName: userName,
+          }),
+        });
+        if (!res.ok) return;
+        const { token, url } = await res.json();
+        if (!token || !url || !isSubscribed) return;
+
+        const room = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+
+        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+          if (track.kind === Track.Kind.Video && videoRef.current) {
+            track.attach(videoRef.current);
+            setHasLiveKitTracks(true);
+            videoRef.current.play().catch(() => {});
+          }
+          if (track.kind === Track.Kind.Audio) {
+            const el = track.attach();
+            el.setAttribute("data-livekit-audio", "true");
+            document.body.appendChild(el);
+          }
+        });
+
+        room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+          track.detach();
+        });
+
+        await room.connect(url, token);
+        if (!isSubscribed) {
+          room.disconnect();
+          return;
+        }
+
+        livekitRoomRef.current = room;
+      } catch (err) {
+        console.warn("LiveKit attendee subscriber warning:", err);
+      }
+    };
+
+    connectLiveKit();
+
+    return () => {
+      isSubscribed = false;
+      if (livekitRoomRef.current) {
+        livekitRoomRef.current.disconnect();
+        livekitRoomRef.current = null;
+      }
+      document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
+    };
+  }, [eventId, userName]);
+
+  // Bind remote stream to HTML5 video element with autoplay fallback (when not using LiveKit tracks)
+  useEffect(() => {
+    if (videoRef.current && remoteStream && !hasLiveKitTracks) {
       videoRef.current.srcObject = remoteStream;
       videoRef.current.play().catch((err) => {
         console.warn("Autoplay with sound blocked by browser, trying muted:", err);
@@ -103,7 +186,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         }
       });
     }
-  }, [remoteStream]);
+  }, [remoteStream, hasLiveKitTracks]);
 
   // Sync mute state to video element
   useEffect(() => {
@@ -309,9 +392,46 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             </div>
           )}
 
+          {/* Stream Source Selector (Direct WebRTC vs YouTube Live) */}
+          {roomState?.youtubeBroadcastId && isLive && (
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 rounded-xl bg-slate-900 border border-slate-800 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSource("webrtc")}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                    selectedSource === "webrtc"
+                      ? "bg-[#00b4fb] text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Zap className="h-3 w-3 fill-current" />
+                  <span>Transmissão Direta (&lt;300ms)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedSource("youtube")}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                    selectedSource === "youtube"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <YouTubeIcon className="h-3.5 w-3.5" />
+                  <span>YouTube Live (HD)</span>
+                </button>
+              </div>
+
+              <span className="hidden sm:inline-block text-[11px] text-slate-400">
+                {selectedSource === "webrtc" ? "⚡ Ultrabaixa latência em tempo real" : "▶️ Transmissão oficial via YouTube"}
+              </span>
+            </div>
+          )}
+
           {/* Video / Stage Area */}
           <div className="relative flex-1 flex items-center justify-center rounded-2xl bg-black border border-slate-800 overflow-hidden shadow-2xl min-h-[320px] sm:min-h-[480px]">
-            {roomState?.youtubeBroadcastId && isLive ? (
+            {selectedSource === "youtube" && roomState?.youtubeBroadcastId && isLive ? (
               /* YOUTUBE LIVE UNLISTED EMBEDDED STREAM */
               <div className="relative h-full w-full flex items-center justify-center bg-black">
                 <iframe
@@ -321,6 +441,17 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   allowFullScreen
                   className="h-full w-full border-0 absolute inset-0"
                 />
+
+                {/* Switch to direct WebRTC if YouTube has no signal */}
+                <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedSource("webrtc")}
+                    className="flex items-center gap-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-white shadow-xl backdrop-blur-md transition"
+                  >
+                    <Zap className="h-3.5 w-3.5 text-[#00b4fb]" />
+                    <span>Tela preta no YouTube? Assistir Direto no Buysoft ⚡</span>
+                  </button>
+                </div>
 
                 {/* Stream Watermark & Status Overlay */}
                 <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
@@ -339,22 +470,22 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   <FloatingReactions />
                 </div>
               </div>
-            ) : isLive || streamStatus.isLive ? (
-              /* LIVE STAGE SCREEN WITH REAL WEBRTC VIDEO */
+            ) : isLive || streamStatus.isLive || hasLiveKitTracks ? (
+              /* LIVE STAGE SCREEN WITH REAL WEBRTC / LIVEKIT VIDEO */
               <div className="relative h-full w-full flex items-center justify-center bg-black">
-                {/* HTML5 WebRTC Video Player */}
+                {/* HTML5 WebRTC / LiveKit Video Player */}
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted={isMuted}
                   className={`h-full w-full object-contain ${
-                    remoteStream && remoteStream.getVideoTracks().length > 0 ? "block" : "hidden"
+                    hasLiveKitTracks || (remoteStream && remoteStream.getVideoTracks().length > 0) ? "block" : "hidden"
                   }`}
                 />
 
                 {/* Floating Unmute Prompt if audio is muted */}
-                {remoteStream && isMuted && (
+                {(hasLiveKitTracks || remoteStream) && isMuted && (
                   <button
                     onClick={() => setIsMuted(false)}
                     className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-slate-900/95 hover:bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-white shadow-2xl backdrop-blur-md transition transform hover:scale-105 active:scale-95"
@@ -364,8 +495,25 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   </button>
                 )}
 
+                {/* Direct Stream Watermark Overlay */}
+                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
+                  <span className="flex items-center gap-1.5 rounded-lg bg-[#00b4fb] backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                    <Zap className="h-3 w-3 fill-current" />
+                    TRANSMISSÃO DIRETA
+                  </span>
+                  <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>&lt;300ms Latência</span>
+                  </span>
+                </div>
+
+                {/* Floating Reactions overlay */}
+                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
+                  <FloatingReactions />
+                </div>
+
                 {/* Fallback / Audio-only Stage Visualizer when video track is pending */}
-                {(!remoteStream || remoteStream.getVideoTracks().length === 0) && (
+                {!hasLiveKitTracks && (!remoteStream || remoteStream.getVideoTracks().length === 0) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
                     <div className="text-center space-y-4 p-6 z-10">
                       <div className="relative inline-block">
