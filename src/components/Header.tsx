@@ -31,7 +31,7 @@ export default function Header({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white px-6 sm:px-10 shadow-2xs">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-8 lg:px-10 shadow-2xs">
       {/* 1. Left: Buysoft Events Logo */}
       <div
         className="flex items-center gap-2.5 cursor-pointer group select-none"
@@ -41,21 +41,21 @@ export default function Header({
           <Radio className="h-4 w-4 animate-pulse" />
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-lg font-extrabold tracking-tight text-slate-900 leading-none">
+          <span className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-none">
             buysoft
           </span>
-          <span className="text-lg font-extrabold tracking-tight text-[#00b4fb] leading-none">
+          <span className="text-base sm:text-lg font-extrabold tracking-tight text-[#00b4fb] leading-none">
             events
           </span>
         </div>
       </div>
 
       {/* 2. Right: Ajuda, Organization, Vertical Bar, User Profile Avatar (Exact RingCentral structure) */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-4">
         {/* Live Broadcast Pill (if live) */}
         {hasLiveEvent && (
-          <div className="flex items-center gap-2 rounded-full bg-rose-50 border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 shadow-2xs animate-pulse">
-            <span className="h-2 w-2 rounded-full bg-rose-500" />
+          <div className="flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2 sm:px-3 py-1 text-[11px] sm:text-xs font-bold text-rose-600 shadow-2xs animate-pulse">
+            <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-rose-500" />
             <span>Ao Vivo</span>
           </div>
         )}

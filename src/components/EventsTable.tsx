@@ -17,7 +17,9 @@ import {
   ExternalLink,
   ChevronsUpDown,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Calendar,
+  Clock
 } from "lucide-react";
 import { duplicateEvent, deleteEvent, addEventToSeries, createSeries, deleteSeries } from "@/lib/dbActions";
 
@@ -173,45 +175,148 @@ export default function EventsTable({
     }
   };
 
-  return (
-    <div className="w-full space-y-5 font-sans">
-      {/* 1. Control Bar inspired by RingCentral (Simple, Clean, Direct) */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        {/* Left: Tabs (Eventos | Séries) */}
-        <div className="flex items-center gap-2">
+  // Render Action Dropdown Menu
+  const renderActionMenu = (ev: any, alignRight = true) => {
+    if (openMenuEventId !== ev.id) return null;
+
+    return (
+      <div
+        className={`absolute z-50 mt-1 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-xl text-left divide-y divide-slate-100 animate-in fade-in zoom-in-95 ${
+          alignRight ? "right-0" : "left-0"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="py-1">
           <button
-            onClick={() => setActiveTab("events")}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              activeTab === "events"
-                ? "bg-sky-50 text-[#0084be] shadow-2xs border border-sky-100"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-            }`}
+            onClick={() => {
+              setOpenMenuEventId(null);
+              onSelectEvent(ev);
+            }}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
-            Eventos
+            <Edit3 className="h-3.5 w-3.5 text-slate-400" />
+            <span>Editar</span>
           </button>
-          <button
-            onClick={() => setActiveTab("series")}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              activeTab === "series"
-                ? "bg-sky-50 text-[#0084be] shadow-2xs border border-sky-100"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-            }`}
+
+          <a
+            href={`/e/${ev.id}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setOpenMenuEventId(null)}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
-            Séries
+            <Eye className="h-3.5 w-3.5 text-slate-400" />
+            <span>Pré-visualizar</span>
+          </a>
+
+          <a
+            href={`/studio/${ev.id}`}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#0084be] hover:bg-sky-50 transition"
+          >
+            <Video className="h-3.5 w-3.5 text-[#00b4fb]" />
+            <span>Abrir Estúdio</span>
+          </a>
+
+          <button
+            onClick={() => {
+              setOpenMenuEventId(null);
+              setSeriesModalEvent(ev);
+              setSelectedSeriesId(ev.seriesId || "");
+            }}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            <Folder className="h-3.5 w-3.5 text-slate-400" />
+            <span>Série</span>
+          </button>
+
+          <button
+            onClick={(e) => handleDuplicate(ev, e)}
+            disabled={isCopying === ev.id}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            <Copy className="h-3.5 w-3.5 text-slate-400" />
+            <span>{isCopying === ev.id ? "Copiando..." : "Copiar"}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setOpenMenuEventId(null);
+              setTeamModalEvent(ev);
+            }}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            <Users className="h-3.5 w-3.5 text-slate-400" />
+            <span>Acesso da Equipe</span>
           </button>
         </div>
 
-        {/* Right: Search, Filter Dropdown, Nova Série, Criar Evento */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="py-1">
+          <button
+            onClick={() => {
+              setOpenMenuEventId(null);
+              setDeleteModalEvent(ev);
+            }}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+            <span>Excluir</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full space-y-4 sm:space-y-5 font-sans">
+      {/* 1. Mobile-First Control Bar (Clean & Responsive) */}
+      <div className="flex flex-col gap-3 sm:gap-4">
+        {/* Top Row on mobile: Tabs & Create Event CTA */}
+        <div className="flex items-center justify-between gap-2.5">
+          {/* Tabs: Eventos | Séries */}
+          <div className="flex items-center gap-1.5 bg-slate-200/50 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab("events")}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                activeTab === "events"
+                  ? "bg-white text-[#0084be] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Eventos
+            </button>
+            <button
+              onClick={() => setActiveTab("series")}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                activeTab === "series"
+                  ? "bg-white text-[#0084be] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Séries
+            </button>
+          </div>
+
+          {/* Criar Evento Button on Top Right */}
+          <button
+            onClick={onOpenCreateWizard}
+            className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-3.5 sm:px-4 py-2 text-xs font-bold text-white shadow-xs shadow-sky-300/30 transition shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Criar evento</span>
+          </button>
+        </div>
+
+        {/* Second Row: Search, Filter, and Nova Série */}
+        <div className="flex items-center gap-2">
           {/* Pesquisar Input */}
-          <div className="relative flex-1 sm:w-60">
+          <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
               placeholder="Pesquisar"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] shadow-2xs transition"
+              className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] shadow-2xs transition"
             />
           </div>
 
@@ -219,7 +324,7 @@ export default function EventsTable({
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-              className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition shadow-2xs ${
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shadow-2xs shrink-0 ${
                 statusFilter !== "all"
                   ? "border-sky-300 bg-sky-50 text-[#0084be]"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
@@ -303,232 +408,236 @@ export default function EventsTable({
           {/* Nova Série Button */}
           <button
             onClick={() => setShowCreateSeriesModal(true)}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-2xs"
+            className="rounded-xl border border-slate-200 bg-white px-3 sm:px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-2xs shrink-0"
           >
             Nova série
-          </button>
-
-          {/* Criar Evento Button (Solid Buysoft Blue #00b4fb) */}
-          <button
-            onClick={onOpenCreateWizard}
-            className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-4 py-1.5 text-xs font-bold text-white shadow-xs shadow-sky-300/30 transition"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Criar evento</span>
           </button>
         </div>
       </div>
 
-      {/* 2. TAB 1: EVENTOS (Clean RingCentral Table Layout) */}
+      {/* 2. TAB 1: EVENTOS */}
       {activeTab === "events" && (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="border-b border-slate-100 bg-white text-[12px] font-semibold text-slate-500">
-              <tr>
-                <th scope="col" className="px-6 py-4 font-semibold">Nome</th>
-                <th scope="col" className="px-4 py-4 font-semibold">Tipo</th>
-                <th scope="col" className="px-4 py-4 font-semibold">
-                  <div className="flex items-center gap-1 cursor-pointer hover:text-slate-800">
-                    <span>Data e Hora</span>
-                    <ChevronsUpDown className="h-3.5 w-3.5 text-slate-400" />
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 font-semibold text-center">Inscritos</th>
-                <th scope="col" className="px-4 py-4 font-semibold">Status</th>
-                <th scope="col" className="px-6 py-4 text-right"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredEvents.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-14 text-center text-slate-400">
-                    <Video className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                    <p className="font-semibold text-slate-600 text-sm">Nenhum evento encontrado</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Clique em &quot;Criar evento&quot; para agendar seu primeiro webinar.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filteredEvents.map((ev) => {
+        <>
+          {filteredEvents.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-10 text-center text-slate-400 space-y-3 shadow-xs">
+              <Video className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+              <p className="font-semibold text-slate-600 text-sm">Nenhum evento encontrado</p>
+              <p className="text-xs text-slate-400">
+                Clique em &quot;Criar evento&quot; para agendar seu primeiro webinar.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* MOBILE VIEW (< md): Touch-Friendly Cards */}
+              <div className="grid grid-cols-1 gap-3 md:hidden">
+                {filteredEvents.map((ev) => {
                   const regCount = ev.registrations?.length || ev.registeredCount || 0;
 
                   return (
-                    <tr
+                    <div
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className="group cursor-pointer hover:bg-slate-50/70 transition-colors"
+                      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs active:scale-[0.99] transition cursor-pointer relative"
                     >
-                      {/* Nome + Thumbnail (Orange Gradient or Logo as shown in RingCentral screenshot) */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-14 shrink-0 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white overflow-hidden shadow-2xs">
+                      {/* Top Row: Thumbnail + Title + Options Menu */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-10 w-14 shrink-0 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white overflow-hidden shadow-2xs">
                             {ev.logoUrl ? (
                               <img src={ev.logoUrl} alt="Logo" className="h-full w-full object-cover" />
                             ) : null}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 group-hover:text-[#0084be] transition text-sm">
-                                {ev.title}
+
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-slate-900 text-sm truncate leading-snug">
+                              {ev.title}
+                            </h4>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="inline-flex items-center rounded-md bg-[#e6f7fe] px-2 py-0.5 text-[10px] font-semibold text-[#0084be]">
+                                Webinar
                               </span>
                               {ev.series && (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-[#0084be] border border-sky-100">
+                                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-bold text-[#0084be] border border-sky-100">
                                   <Folder className="h-2.5 w-2.5" />
                                   {ev.series.title}
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-slate-400">
-                              {ev.timezone || "Horário de Brasília"}
-                            </span>
                           </div>
                         </div>
-                      </td>
 
-                      {/* Tipo: Webinar Badge (RingCentral soft blue pill) */}
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center rounded-md bg-[#e6f7fe] px-2.5 py-0.5 text-[11px] font-semibold text-[#0084be]">
-                          Webinar
-                        </span>
-                      </td>
-
-                      {/* Data e Hora: 12 de out., 17:00 → 18:00 */}
-                      <td className="px-4 py-4 font-medium text-slate-700">
-                        {formatRingCentralDate(ev.startDate, ev.endDate)}
-                      </td>
-
-                      {/* Inscritos (Single number e.g. 0) */}
-                      <td className="px-4 py-4 text-center font-medium text-slate-800">
-                        {regCount}
-                      </td>
-
-                      {/* Status: Dot + Status Text */}
-                      <td className="px-4 py-4">
-                        {ev.status === "published" && (
-                          <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                            <span className="h-2 w-2 rounded-xs bg-emerald-500" />
-                            <span>Publicado</span>
-                          </div>
-                        )}
-                        {ev.status === "draft" && (
-                          <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                            <span className="h-2 w-2 rounded-xs bg-amber-400" />
-                            <span>Rascunho</span>
-                          </div>
-                        )}
-                        {ev.status === "live" && (
-                          <div className="flex items-center gap-2 text-xs font-bold text-rose-600 animate-pulse">
-                            <span className="h-2 w-2 rounded-full bg-rose-500" />
-                            <span>Ao Vivo</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Ações: Three Horizontal Dots (•••) */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                        {/* 3-dots Menu Button */}
+                        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuEventId(openMenuEventId === ev.id ? null : ev.id);
                             }}
-                            className="p-1 text-sky-600 hover:text-[#0084be] transition rounded-lg hover:bg-slate-100"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 transition rounded-lg hover:bg-slate-100"
                             title="Opções"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
+                          {renderActionMenu(ev, true)}
+                        </div>
+                      </div>
 
-                          {/* Dropdown Menu */}
-                          {openMenuEventId === ev.id && (
-                            <div className="absolute right-0 z-50 mt-1 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-xl text-left divide-y divide-slate-100 animate-in fade-in zoom-in-95">
-                              <div className="py-1">
-                                <button
-                                  onClick={() => {
-                                    setOpenMenuEventId(null);
-                                    onSelectEvent(ev);
-                                  }}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>Editar</span>
-                                </button>
+                      {/* Bottom Info Row: Date + Registered + Status */}
+                      <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-slate-700">
+                            {formatRingCentralDate(ev.startDate, ev.endDate)}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {regCount} {regCount === 1 ? "inscrito" : "inscritos"}
+                          </span>
+                        </div>
 
-                                <a
-                                  href={`/e/${ev.id}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={() => setOpenMenuEventId(null)}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                                >
-                                  <Eye className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>Pré-visualizar</span>
-                                </a>
-
-                                <a
-                                  href={`/studio/${ev.id}`}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#0084be] hover:bg-sky-50 transition"
-                                >
-                                  <Video className="h-3.5 w-3.5 text-[#00b4fb]" />
-                                  <span>Abrir Estúdio</span>
-                                </a>
-
-                                <button
-                                  onClick={() => {
-                                    setOpenMenuEventId(null);
-                                    setSeriesModalEvent(ev);
-                                    setSelectedSeriesId(ev.seriesId || "");
-                                  }}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                                >
-                                  <Folder className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>Série</span>
-                                </button>
-
-                                <button
-                                  onClick={(e) => handleDuplicate(ev, e)}
-                                  disabled={isCopying === ev.id}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                                >
-                                  <Copy className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>{isCopying === ev.id ? "Copiando..." : "Copiar"}</span>
-                                </button>
-
-                                <button
-                                  onClick={() => {
-                                    setOpenMenuEventId(null);
-                                    setTeamModalEvent(ev);
-                                  }}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                                >
-                                  <Users className="h-3.5 w-3.5 text-slate-400" />
-                                  <span>Acesso da Equipe</span>
-                                </button>
-                              </div>
-
-                              <div className="py-1">
-                                <button
-                                  onClick={() => {
-                                    setOpenMenuEventId(null);
-                                    setDeleteModalEvent(ev);
-                                  }}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                                  <span>Excluir</span>
-                                </button>
-                              </div>
+                        <div>
+                          {ev.status === "published" && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              <span>Publicado</span>
+                            </div>
+                          )}
+                          {ev.status === "draft" && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                              <span>Rascunho</span>
+                            </div>
+                          )}
+                          {ev.status === "live" && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 animate-pulse">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                              <span>Ao Vivo</span>
                             </div>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                })}
+              </div>
+
+              {/* DESKTOP VIEW (>= md): Full RingCentral Clean Table */}
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="border-b border-slate-100 bg-white text-[12px] font-semibold text-slate-500">
+                    <tr>
+                      <th scope="col" className="px-6 py-4 font-semibold">Nome</th>
+                      <th scope="col" className="px-4 py-4 font-semibold">Tipo</th>
+                      <th scope="col" className="px-4 py-4 font-semibold">
+                        <div className="flex items-center gap-1 cursor-pointer hover:text-slate-800">
+                          <span>Data e Hora</span>
+                          <ChevronsUpDown className="h-3.5 w-3.5 text-slate-400" />
+                        </div>
+                      </th>
+                      <th scope="col" className="px-4 py-4 font-semibold text-center">Inscritos</th>
+                      <th scope="col" className="px-4 py-4 font-semibold">Status</th>
+                      <th scope="col" className="px-6 py-4 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredEvents.map((ev) => {
+                      const regCount = ev.registrations?.length || ev.registeredCount || 0;
+
+                      return (
+                        <tr
+                          key={ev.id}
+                          onClick={() => onSelectEvent(ev)}
+                          className="group cursor-pointer hover:bg-slate-50/70 transition-colors"
+                        >
+                          {/* Nome + Thumbnail */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-14 shrink-0 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white overflow-hidden shadow-2xs">
+                                {ev.logoUrl ? (
+                                  <img src={ev.logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900 group-hover:text-[#0084be] transition text-sm">
+                                    {ev.title}
+                                  </span>
+                                  {ev.series && (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-[#0084be] border border-sky-100">
+                                      <Folder className="h-2.5 w-2.5" />
+                                      {ev.series.title}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400">
+                                  {ev.timezone || "Horário de Brasília"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Tipo: Webinar Badge */}
+                          <td className="px-4 py-4">
+                            <span className="inline-flex items-center rounded-md bg-[#e6f7fe] px-2.5 py-0.5 text-[11px] font-semibold text-[#0084be]">
+                              Webinar
+                            </span>
+                          </td>
+
+                          {/* Data e Hora */}
+                          <td className="px-4 py-4 font-medium text-slate-700">
+                            {formatRingCentralDate(ev.startDate, ev.endDate)}
+                          </td>
+
+                          {/* Inscritos */}
+                          <td className="px-4 py-4 text-center font-medium text-slate-800">
+                            {regCount}
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-4 py-4">
+                            {ev.status === "published" && (
+                              <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                                <span className="h-2 w-2 rounded-xs bg-emerald-500" />
+                                <span>Publicado</span>
+                              </div>
+                            )}
+                            {ev.status === "draft" && (
+                              <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                                <span className="h-2 w-2 rounded-xs bg-amber-400" />
+                                <span>Rascunho</span>
+                              </div>
+                            )}
+                            {ev.status === "live" && (
+                              <div className="flex items-center gap-2 text-xs font-bold text-rose-600 animate-pulse">
+                                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                                <span>Ao Vivo</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Ações */}
+                          <td className="px-6 py-4 text-right">
+                            <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuEventId(openMenuEventId === ev.id ? null : ev.id);
+                                }}
+                                className="p-1 text-sky-600 hover:text-[#0084be] transition rounded-lg hover:bg-slate-100"
+                                title="Opções"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {renderActionMenu(ev, true)}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {/* 3. TAB 2: SÉRIES DE EVENTOS */}
@@ -551,7 +660,7 @@ export default function EventsTable({
           </div>
 
           {filteredSeries.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-400 space-y-3">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center text-slate-400 space-y-3">
               <Folder className="h-10 w-10 mx-auto text-slate-300" />
               <div>
                 <p className="text-sm font-bold text-slate-700">Nenhuma série cadastrada</p>
@@ -568,11 +677,11 @@ export default function EventsTable({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {filteredSeries.map((s) => (
                 <div
                   key={s.id}
-                  className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4 flex flex-col justify-between"
+                  className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-4 flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -625,11 +734,11 @@ export default function EventsTable({
       {/* MODAL 1: Vincular a Série */}
       {seriesModalEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-slate-100">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Vincular à Série</h3>
-                <p className="text-xs text-slate-500">{seriesModalEvent.title}</p>
+                <p className="text-xs text-slate-500 truncate max-w-xs">{seriesModalEvent.title}</p>
               </div>
               <button
                 onClick={() => setSeriesModalEvent(null)}
@@ -680,7 +789,7 @@ export default function EventsTable({
       {/* MODAL 2: Acesso da Equipe */}
       {teamModalEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-slate-100">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Acesso da Equipe</h3>
@@ -698,7 +807,7 @@ export default function EventsTable({
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Membros com Acesso ao Estúdio
               </span>
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 max-h-60 overflow-y-auto">
                 {organizationMembers.map((m: any) => (
                   <div key={m.id} className="flex items-center justify-between p-3 text-xs">
                     <div className="flex items-center gap-2.5">
@@ -736,7 +845,7 @@ export default function EventsTable({
       {/* MODAL 3: Confirmação de Exclusão de Evento */}
       {deleteModalEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-slate-100">
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
               <AlertTriangle className="h-6 w-6" />
             </div>
@@ -770,7 +879,7 @@ export default function EventsTable({
       {/* MODAL 4: Criar Nova Série */}
       {showCreateSeriesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 border border-slate-100">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Criar Nova Série</h3>
