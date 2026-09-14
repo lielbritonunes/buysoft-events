@@ -115,7 +115,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f4f8fe] flex flex-col font-sans selection:bg-[#00b4fb] selection:text-white">
       {/* Top Header with Buysoft Events Branding */}
       <Header
         organization={organization}
@@ -127,7 +127,7 @@ export default function Home() {
       />
 
       {/* Main Dashboard Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 sm:px-10 py-7">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#00b4fb] border-t-transparent" />
