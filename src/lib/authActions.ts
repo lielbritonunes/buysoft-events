@@ -547,7 +547,13 @@ export async function forgotPasswordAction(
     },
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.NODE_ENV === "production"
+      ? (process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://buysoft-events.vercel.app"))
+      : "http://localhost:3000");
   const resetUrl = `${appUrl}/reset-password/${token}`;
 
   try {
