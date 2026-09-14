@@ -52,6 +52,16 @@ export interface OrganizationMember {
   avatarInitials: string;
 }
 
+export interface UserSession {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatarInitials: string;
+  avatarUrl?: string | null;
+  mfaEnabled: boolean;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -64,4 +74,18 @@ export interface Organization {
   facebook?: string;
   planName: string;
   members: OrganizationMember[];
+  customSmtpEnabled?: boolean;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpSecure?: boolean;
+  smtpUser?: string | null;
+  smtpPass?: string | null;
+  smtpSendersJson?: string | null;
+  defaultSender?: string | null;
+  youtubeIntegration?: {
+    channelId?: string | null;
+    channelTitle?: string | null;
+    channelThumbnail?: string | null;
+    updatedAt?: Date | string;
+  } | null;
 }

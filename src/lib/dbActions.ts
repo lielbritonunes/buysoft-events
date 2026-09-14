@@ -6,7 +6,7 @@ import { sendConfirmationEmail, sendBroadcastEmailToAttendees } from "./emailSer
 // Ensure default organization exists
 export async function getOrCreateOrganization() {
   let org = await prisma.organization.findFirst({
-    include: { members: true },
+    include: { members: true, youtubeIntegration: true },
   });
 
   if (!org) {
@@ -37,7 +37,7 @@ export async function getOrCreateOrganization() {
           ],
         },
       },
-      include: { members: true },
+      include: { members: true, youtubeIntegration: true },
     });
   }
 
@@ -70,7 +70,7 @@ export async function getEvents() {
         timezone: "(GMT-03:00) Horário de Brasília",
         status: "published",
         maxAttendees: 100,
-        organizationId: org.id,
+        organizationId: org!.id,
         speakers: {
           create: [
             {
@@ -147,7 +147,7 @@ export async function createEvent(data: {
       timezone: data.timezone,
       status: "draft",
       maxAttendees: 100,
-      organizationId: org.id,
+      organizationId: org!.id,
       formFields: {
         create: [
           { label: "Nome completo", type: "text", required: true, orderIndex: 0 },
@@ -558,7 +558,7 @@ export async function deleteEvent(id: string) {
 export async function getSeries() {
   const org = await getOrCreateOrganization();
   return await prisma.series.findMany({
-    where: { organizationId: org.id },
+    where: { organizationId: org!.id },
     include: {
       events: {
         include: {
@@ -580,7 +580,7 @@ export async function createSeries(data: { title: string; description?: string; 
       title: data.title,
       description: data.description || "",
       bannerUrl: data.bannerUrl,
-      organizationId: org.id,
+      organizationId: org!.id,
     },
     include: {
       events: true,
@@ -646,3 +646,84 @@ export async function registerSeriesAttendee(
   }
   return results;
 }
+
+// Update organization profile, SMTP and settings
+export async function updateOrganizationAction(orgId: string, data: any) {
+  const updated = await prisma.organization.update({
+    where: { id: orgId },
+    data: {
+      name: data.name,
+      email: data.email,
+      about: data.about,
+      website: data.website,
+      twitter: data.twitter,
+      facebook: data.facebook,
+      linkedin: data.linkedin,
+      customSmtpEnabled: data.customSmtpEnabled ?? false,
+      smtpHost: data.smtpHost,
+      smtpPort: data.smtpPort ? parseInt(data.smtpPort, 10) : 587,
+      smtpSecure: data.smtpSecure ?? false,
+      smtpUser: data.smtpUser,
+      smtpPass: data.smtpPass,
+      smtpSendersJson: data.smtpSendersJson,
+      defaultSender: data.defaultSender,
+    },
+    include: { members: true, youtubeIntegration: true },
+  });
+  return updated;
+}
+
+// Test SMTP connection and dispatch test email
+export async function testSmtpConnectionAction(config: {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  testRecipient: string;
+}) {
+  try {
+    const nodemailer = (await import("nodemailer")).default;
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+    });
+
+    await transporter.verify();
+
+    await transporter.sendMail({
+      from: config.from,
+      to: config.testRecipient,
+      subject: "Teste de Conexão SMTP - Buysoft Events",
+      html: `
+      <div style="font-family: sans-serif; max-width: 500px; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #0f172a;">
+        <div style="color: #00b4fb; font-weight: bold; font-size: 16px; margin-bottom: 12px;">Buysoft Events</div>
+        <p style="font-size: 14px; margin: 0 0 12px;">Parabéns! O servidor SMTP da sua organização foi conectado e validado com sucesso.</p>
+        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; font-size: 12px; color: #64748b;">
+          <div><b>Host:</b> ${config.host}:${config.port}</div>
+          <div><b>Remetente Autorizado:</b> ${config.from}</div>
+        </div>
+      </div>
+      `.trim(),
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Falha ao conectar com o servidor SMTP." };
+  }
+}
+
+// Disconnect YouTube integration for an organization
+export async function disconnectYouTubeAction(orgId: string) {
+  await prisma.youTubeIntegration.deleteMany({
+    where: { organizationId: orgId },
+  });
+  return { success: true };
+}
+

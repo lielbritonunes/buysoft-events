@@ -33,4 +33,12 @@ updated: 2026-07-18
       - Isolamento estrito de bastidores/camarim: a plateia `/live/[id]` permanece obrigatoriamente na Sala de Espera até o host clicar em "Iniciar Transmissão Ao Vivo" no estúdio. Nenhuma faixa de áudio ou vídeo composta é publicada ou reproduzida antes do início oficial da live.
       - Otimização de qualidade 1080p Full HD cristalina: captura de tela em 1920x1080 com `contentHint: detail`, desativação de simulcast (evitando rebaixamento para 360p/540p), bitrate configurado para 5 Mbps e interpolação de alta qualidade no canvas 2D do estúdio.
       - Encerramento robusto de Egress: cancelamento ativo de qualquer egress pendente no LiveKit Cloud para a sala ao finalizar a transmissão.
-  - Próxima etapa: Fase X (Verificação Final de Ponta a Ponta, Checklist e Entrega do MVP).
+  - Fase 6: Autenticação Moderna, SSO (Google OAuth 2.0) e MFA com Google Authenticator (TOTP RFC 6238).
+    - Hashing seguro de senhas com `bcryptjs` e tokens de sessão JWT assinados via `jose` armazenados em cookies `httpOnly`, `secure` e `sameSite: "lax"`.
+    - Middleware do Next.js (`src/middleware.ts`) interceptando e protegendo rotas administrativas (`/`, `/studio/*`), redirecionando não autenticados para `/login`. Rotas públicas de participante (`/e/*`, `/s/*`, `/live/*`) preservadas sem barreira de login.
+    - SSO corporativo com Google OAuth 2.0 ("Continuar com Google") em `/login` e `/register`, conectado via Google Identity Services.
+    - Autenticação em Duas Etapas (MFA/2FA) com Google Authenticator via RFC 6238 TOTP: assistente com QR Code visual, validação de teste, desafio de login (`/login/mfa`) e geração de 8 códigos de backup para emergência.
+    - Gestão de Equipe e RBAC (`admin`, `organizer`, `speaker`) no modal da organização, com links de convite `/invite/[token]` expiráveis e remoção de membros.
+    - Conta administrativa padrão inicial criada: `lielbritonunesbuysoft@gmail.com` (senha: `Buysoft@2026`).
+  - Próxima etapa: Fase X (Verificação Final de Ponta a Ponta e Homologação).
+

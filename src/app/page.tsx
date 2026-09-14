@@ -7,11 +7,13 @@ import CreateEventWizard from "@/components/CreateEventWizard";
 import OrganizationSettingsModal from "@/components/OrganizationSettingsModal";
 import EventWorkspace from "@/components/EventWorkspace";
 import { getEvents, createEvent, getOrCreateOrganization, getSeries } from "@/lib/dbActions";
+import { getCurrentUserAction } from "@/lib/authActions";
 import { initialOrganization } from "@/lib/mockData";
-import { Organization, WebinarEvent } from "@/types";
+import { Organization, WebinarEvent, UserSession } from "@/types";
 
 export default function Home() {
   const [organization, setOrganization] = useState<Organization>(initialOrganization);
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [events, setEvents] = useState<WebinarEvent[]>([]);
   const [seriesList, setSeriesList] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
@@ -24,12 +26,14 @@ export default function Home() {
   // Load initial data from SQLite via Server Actions
   const loadData = async () => {
     try {
-      const [org, evList, sList] = await Promise.all([
+      const [org, evList, sList, user] = await Promise.all([
         getOrCreateOrganization(),
         getEvents(),
         getSeries(),
+        getCurrentUserAction(),
       ]);
       if (org) setOrganization(org as unknown as Organization);
+      if (user) setCurrentUser(user as UserSession);
       if (sList) setSeriesList(sList);
       if (evList) {
         // Map to WebinarEvent format
@@ -118,6 +122,7 @@ export default function Home() {
         onOpenOrgSettings={() => setIsOrgSettingsOpen(true)}
         activeNavTab={activeNavTab}
         onSelectNavTab={setActiveNavTab}
+        currentUser={currentUser}
       />
 
       {/* Main Dashboard Container */}
@@ -151,6 +156,8 @@ export default function Home() {
         isOpen={isOrgSettingsOpen}
         onClose={() => setIsOrgSettingsOpen(false)}
         onUpdateOrg={setOrganization}
+        currentUser={currentUser}
+        onUpdateCurrentUser={setCurrentUser}
       />
     </div>
   );

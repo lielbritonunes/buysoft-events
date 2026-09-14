@@ -18,9 +18,22 @@ model Organization {
   facebook  String?
   planName  String   @default("Trial Ativo")
   members             Member[]
+  users               User[]
+  inviteTokens        InviteToken[]
   events              Event[]
   series              Series[]
   youtubeIntegration  YouTubeIntegration?
+
+  // Custom SMTP & Senders
+  customSmtpEnabled   Boolean      @default(false)
+  smtpHost            String?
+  smtpPort            Int?         @default(587)
+  smtpSecure          Boolean      @default(false)
+  smtpUser            String?
+  smtpPass            String?
+  smtpSendersJson     String?
+  defaultSender       String?
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -35,6 +48,45 @@ model Series {
   events         Event[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+}
+
+model User {
+  id                  String       @id @default(cuid())
+  name                String
+  email               String       @unique
+  passwordHash        String?
+  role                String       @default("organizer") // "admin" | "organizer" | "speaker"
+  avatarUrl           String?
+  avatarInitials      String       @default("EN")
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // SSO with Google
+  googleId            String?      @unique
+  authProvider        String       @default("credentials") // "credentials" | "google"
+  
+  // MFA with Google Authenticator
+  mfaEnabled          Boolean      @default(false)
+  mfaSecret           String?
+  mfaBackupCodes      String?      // JSON string array of hashed backup codes
+  
+  // Password Reset
+  resetPasswordToken  String?      @unique
+  resetPasswordExpires DateTime?
+  
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model InviteToken {
+  id             String       @id @default(cuid())
+  email          String
+  role           String       @default("organizer")
+  token          String       @unique @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
 }
 
 model Member {

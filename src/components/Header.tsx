@@ -9,7 +9,7 @@ import {
   Radio,
   Building2
 } from "lucide-react";
-import { Organization } from "@/types";
+import { Organization, UserSession } from "@/types";
 import OrganizationDropdown from "./OrganizationDropdown";
 
 interface Props {
@@ -17,6 +17,7 @@ interface Props {
   onOpenOrgSettings: () => void;
   activeNavTab?: "home";
   onSelectNavTab?: (tab: "home") => void;
+  currentUser?: UserSession | null;
 }
 
 export default function Header({
@@ -24,6 +25,7 @@ export default function Header({
   onOpenOrgSettings,
   activeNavTab = "home",
   onSelectNavTab,
+  currentUser,
 }: Props) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -89,6 +91,7 @@ export default function Header({
             isOpen={isDropdownOpen}
             onClose={() => setIsDropdownOpen(false)}
             onOpenOrgSettings={onOpenOrgSettings}
+            currentUser={currentUser}
           />
         </div>
 
