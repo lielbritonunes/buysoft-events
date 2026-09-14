@@ -123,6 +123,7 @@ export default function Home() {
         activeNavTab={activeNavTab}
         onSelectNavTab={setActiveNavTab}
         currentUser={currentUser}
+        hasLiveEvent={events.some((e) => e.status === "live")}
       />
 
       {/* Main Dashboard Container */}

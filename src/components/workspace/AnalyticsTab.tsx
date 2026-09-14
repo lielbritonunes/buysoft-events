@@ -202,7 +202,7 @@ export default function AnalyticsTab({ event }: Props) {
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Interações na Sala
             </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-[#0084be]">
               <MessageSquare className="h-4 w-4" />
             </div>
           </div>

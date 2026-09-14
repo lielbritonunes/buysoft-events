@@ -1116,7 +1116,7 @@ export default function OrganizationSettingsModal({
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                               user.role === "admin"
-                                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                ? "bg-slate-900 text-white shadow-xs"
                                 : user.role === "speaker"
                                 ? "bg-amber-50 text-amber-700 border border-amber-200"
                                 : "bg-sky-50 text-sky-700 border border-sky-200"

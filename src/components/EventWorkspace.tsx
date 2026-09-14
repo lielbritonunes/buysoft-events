@@ -775,16 +775,16 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                     </div>
 
                     {/* Backstage Link */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                       <div>
-                        <p className="text-xs font-bold text-purple-900">Link Exclusivo dos Oradores (Backstage)</p>
-                        <p className="text-[11px] text-purple-600">Acesso direto ao camarim e palco para palestrantes</p>
+                        <p className="text-xs font-bold text-slate-900">Link Exclusivo dos Oradores (Backstage)</p>
+                        <p className="text-[11px] text-slate-500">Acesso direto ao camarim e palco para palestrantes</p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleCopy(backstageUrl, "backstage")}
-                          className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-3 py-1.5 text-xs font-bold text-purple-800 hover:bg-purple-50 transition shadow-xs"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs"
                         >
                           {copiedLink === "backstage" ? (
                             <>
@@ -793,7 +793,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                             </>
                           ) : (
                             <>
-                              <Copy className="h-3.5 w-3.5 text-purple-400" />
+                              <Copy className="h-3.5 w-3.5 text-slate-400" />
                               <span>Copiar Backstage</span>
                             </>
                           )}
@@ -802,7 +802,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                           href={backstageUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded-lg border border-purple-200 bg-white hover:bg-purple-50 text-purple-700"
+                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           title="Abrir camarim do orador"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -1038,7 +1038,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                   >
                     <div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-purple-600">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#0084be]">
                           Modular & Rico
                         </span>
                         {layoutType === "advanced" && (

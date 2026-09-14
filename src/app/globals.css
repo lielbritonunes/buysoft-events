@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f8fafc;
   --foreground: #0f172a;
   
   /* Buysoft Events Branding */
@@ -9,7 +9,7 @@
   --buysoft-blue-hover: #009ce0;
   --buysoft-blue-dark: #0084be;
   --buysoft-blue-light: #e6f7fe;
-  --buysoft-blue-glow: rgba(0, 180, 251, 0.15);
+  --buysoft-blue-glow: rgba(0, 180, 251, 0.18);
   
   --brand-black: #090d16;
   --surface: #ffffff;
@@ -26,6 +26,7 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-xl: 18px;
 }
 
 body {
@@ -38,58 +39,146 @@ body {
 
 /* Custom scrollbar for desktop elegance */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4px;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* Buysoft Button Utilities */
+/* Glassmorphism & Navbar (21st.dev style) */
+.glass-navbar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 25px -5px rgba(0, 180, 251, 0.08), 0 8px 10px -6px rgba(0, 180, 251, 0.04);
+}
+
+/* Modern Metric Cards (Untitled UI KPI) */
+.stat-card-modern {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.04);
+  transition: all 0.2s ease-in-out;
+}
+
+.stat-card-modern:hover {
+  border-color: #bae6fd;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -6px rgba(0, 180, 251, 0.12);
+}
+
+.stat-card-modern::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00b4fb, transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.stat-card-modern:hover::before {
+  opacity: 1;
+}
+
+/* Modern Buttons (21st.dev + Untitled UI) */
 .btn-buysoft-primary {
   background-color: #00b4fb;
   color: #ffffff;
-  font-weight: 500;
-  transition: all 0.15s ease-in-out;
+  font-weight: 600;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgba(0, 180, 251, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .btn-buysoft-primary:hover {
   background-color: #009ce0;
-  box-shadow: 0 2px 8px rgba(0, 180, 251, 0.3);
+  box-shadow: 0 4px 14px 0 rgba(0, 180, 251, 0.35);
+  transform: translateY(-0.5px);
+}
+
+.btn-buysoft-primary:active {
+  transform: translateY(0.5px);
 }
 
 .btn-buysoft-secondary {
   background-color: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
   transition: all 0.15s ease-in-out;
 }
+
 .btn-buysoft-secondary:hover {
   background-color: #f8fafc;
   border-color: #cbd5e1;
+  color: #020617;
 }
 
-.badge-webinar {
-  background-color: #e6f7fe;
-  color: #0084be;
-  border: 1px solid #bce6fb;
-}
-
-.badge-draft {
-  background-color: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
-}
-
-.badge-live {
-  background-color: #fee2e2;
+/* Status Badges with Pulse Dots (Untitled UI) */
+.status-pill-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+}
+
+.status-pill-published {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+}
+
+.status-pill-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 9999px;
 }

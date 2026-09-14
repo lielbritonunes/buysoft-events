@@ -313,7 +313,7 @@ export default function MarketingTab({ event, onUpdateEvent }: Props) {
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-slate-900">{trigger.name}</h3>
                   {trigger.isCustom && (
-                    <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                    <span className="rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-bold text-[#0084be]">
                       Personalizado
                     </span>
                   )}
