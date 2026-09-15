@@ -596,7 +596,58 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   };
 
+  const [isTogglingEgress, setIsTogglingEgress] = useState(false);
+
+  // Start or Stop YouTube Egress independently while already live
+  const handleStartYouTubeEgress = async () => {
+    setIsTogglingEgress(true);
+    setEgressError(null);
+    try {
+      const res = await fetch("/api/livekit/egress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          eventId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEgressError(data.error || "Erro ao conectar transmissão ao YouTube.");
+      } else if (data.egressId) {
+        setCurrentEgressId(data.egressId);
+        setEnableYouTubeEgress(true);
+      }
+    } catch (err: any) {
+      setEgressError(err.message || "Erro ao iniciar retransmissão.");
+    } finally {
+      setIsTogglingEgress(false);
+    }
+  };
+
+  const handleStopYouTubeEgress = async () => {
+    setIsTogglingEgress(true);
+    try {
+      await fetch("/api/livekit/egress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "stop",
+          eventId,
+          egressId: currentEgressId || undefined,
+        }),
+      });
+      setCurrentEgressId(null);
+      setEnableYouTubeEgress(false);
+    } catch (err) {
+      console.warn("Could not stop egress:", err);
+    } finally {
+      setIsTogglingEgress(false);
+    }
+  };
+
   // Launch CTA (Host only)
+
   const handleLaunchCta = async () => {
     await setLiveCta(eventId, {
       title: ctaTitle,
@@ -876,7 +927,35 @@ export default function StudioPage({ params, searchParams }: Props) {
               </div>
 
 
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
+                {isWebinarLive && (
+                  currentEgressId ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-xl px-2.5 py-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Ao Vivo no YouTube
+                      </span>
+                      <button
+                        onClick={handleStopYouTubeEgress}
+                        disabled={isTogglingEgress}
+                        className="rounded-xl border border-rose-500/40 bg-rose-950/60 hover:bg-rose-900/60 px-2.5 py-1 text-xs font-semibold text-rose-200 transition disabled:opacity-50"
+                      >
+                        {isTogglingEgress ? "Desconectando..." : "Parar no YouTube"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleStartYouTubeEgress}
+                      disabled={isTogglingEgress}
+                      className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 px-3 py-1 text-xs font-bold text-white shadow-xs transition"
+                      title="Transmitir este estúdio para o YouTube Live via nuvem"
+                    >
+                      <Radio className="h-3.5 w-3.5" />
+                      <span>{isTogglingEgress ? "Conectando..." : "Transmitir no YouTube"}</span>
+                    </button>
+                  )
+                )}
+
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(roomState.youtubeStreamKey || "");
@@ -884,7 +963,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     setTimeout(() => setCopiedRtmp(false), 2000);
                   }}
                   className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition"
-                  title="Copiar Chave de Transmissão"
+                  title="Copiar Chave de Transmissão para o OBS Studio"
                 >
                   {copiedRtmp ? (
                     <>
@@ -903,14 +982,15 @@ export default function StudioPage({ params, searchParams }: Props) {
                   href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-3 py-1 text-xs font-bold text-white shadow-xs transition"
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1 text-xs font-bold text-slate-200 transition"
                 >
-                  <span>Abrir YouTube Studio</span>
+                  <span>YouTube Studio</span>
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
           )}
+
 
           {/* Notice Banner when in Backstage (Bastidores) */}
           {!isWebinarLive && (
