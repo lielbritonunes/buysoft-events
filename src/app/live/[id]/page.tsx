@@ -32,7 +32,7 @@ import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
 import FloatingReactions from "@/components/engagement/FloatingReactions";
 import { getLiveRoomState } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
-import { Room, RoomEvent, Track, RemoteTrack } from "livekit-client";
+import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
 
 function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -91,7 +91,29 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   // LiveKit Cloud Subscriber for Attendee
   const livekitRoomRef = useRef<Room | null>(null);
   const [hasLiveKitTracks, setHasLiveKitTracks] = useState(false);
-  const [subscribedVideoTrack, setSubscribedVideoTrack] = useState<RemoteTrack | null>(null);
+
+  // Separate tracks for camera and screen — composed via CSS, not canvas
+  const [cameraTrack, setCameraTrack] = useState<RemoteTrack | null>(null);
+  const [screenTrack, setScreenTrack] = useState<RemoteTrack | null>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Overlay state sent via LiveKit DataChannel from host
+  interface OverlayState {
+    layoutMode: "solo" | "split" | "pip" | "grid";
+    isScreenSharing: boolean;
+    isCamOn: boolean;
+    isOnStage: boolean;
+    presenterName: string;
+    brandColor: string;
+    lowerThird: { visible: boolean; name: string; role: string; company: string };
+    ticker: { visible: boolean; text: string };
+    banner: { visible: boolean; title: string; subtitle: string };
+  }
+  const [overlayState, setOverlayState] = useState<OverlayState | null>(null);
+  // Ticker animation offset
+  const tickerOffsetRef = useRef(0);
+  const tickerRafRef = useRef<number | null>(null);
 
   // Unmute helper: unmutes both LiveKit audio elements and fallback video
   const handleUnmute = () => {
@@ -135,67 +157,73 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         const res = await fetch("/api/livekit/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventId,
-            role: "attendee",
-            participantName: userName,
-          }),
+          body: JSON.stringify({ eventId, role: "attendee", participantName: userName }),
         });
         if (!res.ok) return;
         const { token, url } = await res.json();
         if (!token || !url || !isSubscribed) return;
 
         const room = new Room({
-          adaptiveStream: true, // Adapts quality to viewer's bandwidth and player size
-          dynacast: true, // Only sends layers that viewers actually need
+          adaptiveStream: true,
+          dynacast: true,
         });
 
-        const handleAttachTrack = (track: RemoteTrack) => {
-          // Minimal playout buffer: absorbs network jitter without perceptible delay
-          try {
-            const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
-            if (receiver) {
-              if ("playoutDelayHint" in receiver) {
-                (receiver as any).playoutDelayHint = 0.05; // 50ms: absorbs jitter without perceptible delay
-              }
-              if ("jitterBufferTarget" in receiver) {
-                (receiver as any).jitterBufferTarget = 50; // 50ms minimum buffer
-              }
-            }
-          } catch (_) {}
-
+        // Subscribe to camera and screen tracks separately
+        const handleTrackSubscribed = (track: RemoteTrack, publication?: RemoteTrackPublication) => {
+          setHasLiveKitTracks(true);
           if (track.kind === Track.Kind.Video) {
-            setSubscribedVideoTrack(track);
-            setHasLiveKitTracks(true);
+            const isScreen = track.source === Track.Source.ScreenShare || publication?.trackName === "screen";
+            if (isScreen) {
+              setScreenTrack(track);
+            } else {
+              setCameraTrack(track);
+            }
           }
           if (track.kind === Track.Kind.Audio) {
-            setHasLiveKitTracks(true);
+            // Audio is handled via attach() to DOM audio elements below
+            const audioEl = track.attach() as HTMLAudioElement;
+            audioEl.setAttribute("data-livekit-audio", "true");
+            audioEl.setAttribute("data-livekit-audio-id", track.sid || "audio");
+            audioEl.muted = true; // Start muted; user clicks to unmute
+            document.body.appendChild(audioEl);
           }
         };
 
-        room.on(RoomEvent.TrackSubscribed, handleAttachTrack);
+        room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, pub: RemoteTrackPublication) => {
+          handleTrackSubscribed(track, pub);
+        });
 
-        room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+        room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, pub: RemoteTrackPublication) => {
           track.detach();
           if (track.kind === Track.Kind.Video) {
-            setSubscribedVideoTrack((curr) => (curr?.sid === track.sid ? null : curr));
+            const isScreen = track.source === Track.Source.ScreenShare || pub?.trackName === "screen";
+            if (isScreen) {
+              setScreenTrack((curr) => curr?.sid === track.sid ? null : curr);
+            } else {
+              setCameraTrack((curr) => curr?.sid === track.sid ? null : curr);
+            }
           }
         });
 
+        // Receive overlay state from host via DataChannel
+        room.on(RoomEvent.DataReceived, (data: Uint8Array) => {
+          try {
+            const msg = JSON.parse(new TextDecoder().decode(data));
+            if (msg.type === "overlay") {
+              setOverlayState(msg as OverlayState);
+            }
+          } catch (_) {}
+        });
+
         await room.connect(url, token);
-        if (!isSubscribed) {
-          room.disconnect();
-          return;
-        }
+        if (!isSubscribed) { room.disconnect(); return; }
 
         livekitRoomRef.current = room;
 
-        // Check for tracks that were already published before connecting
+        // Handle tracks already published before we connected
         for (const p of room.remoteParticipants.values()) {
           for (const pub of p.trackPublications.values()) {
-            if (pub.track) {
-              handleAttachTrack(pub.track);
-            }
+            if (pub.track) handleTrackSubscribed(pub.track, pub);
           }
         }
       } catch (err) {
@@ -215,61 +243,44 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId, userName]);
 
-  // Synchronize LiveKit and WebRTC video track to videoRef element
+  // Attach camera track to its dedicated video element
   useEffect(() => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
+    const el = cameraVideoRef.current;
+    if (!el || !cameraTrack) return;
+    cameraTrack.attach(el);
+    el.muted = true;
+    el.play().catch(() => {});
+    return () => { cameraTrack.detach(el); };
+  }, [cameraTrack]);
 
-    if (!isLive || selectedSource !== "webrtc") {
-      videoEl.srcObject = null;
-      return;
-    }
-
-    if (subscribedVideoTrack) {
-      subscribedVideoTrack.attach(videoEl);
-      videoEl.muted = true; // LiveKit video track is visual-only; audio is on separate elements
-      videoEl.play().catch((err) => console.warn("LiveKit video autoplay warning:", err));
-    } else if (remoteStream) {
-      videoEl.srcObject = remoteStream;
-      videoEl.muted = isMuted;
-      videoEl.play().catch((err) => {
-        console.warn("Autoplay with sound blocked by browser, trying muted:", err);
-        videoEl.muted = true;
-        setIsMuted(true);
-        videoEl.play().catch(() => {});
-      });
-    }
-  }, [isLive, subscribedVideoTrack, remoteStream, selectedSource, isMuted]);
-
-  // Synchronize LiveKit audio tracks to DOM audio elements
+  // Attach screen track to its dedicated video element
   useEffect(() => {
-    if (!isLive) {
-      document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
-      return;
-    }
+    const el = screenVideoRef.current;
+    if (!el || !screenTrack) return;
+    screenTrack.attach(el);
+    el.muted = true;
+    el.play().catch(() => {});
+    return () => { screenTrack.detach(el); };
+  }, [screenTrack]);
 
-    const room = livekitRoomRef.current;
-    if (!room) return;
+  // Unmute all LiveKit audio elements when user clicks unmute
+  useEffect(() => {
+    document.querySelectorAll<HTMLAudioElement>("[data-livekit-audio]").forEach((el) => {
+      el.muted = isMuted;
+      if (!isMuted) el.play().catch(() => {});
+    });
+  }, [isMuted]);
 
-    for (const p of room.remoteParticipants.values()) {
-      for (const pub of p.trackPublications.values()) {
-        if (pub.track && pub.track.kind === Track.Kind.Audio) {
-          const sid = pub.track.sid || "audio";
-          let el = document.querySelector(`[data-livekit-audio-id="${sid}"]`) as HTMLAudioElement | null;
-          if (!el) {
-            el = pub.track.attach() as HTMLAudioElement;
-            el.setAttribute("data-livekit-audio", "true");
-            el.setAttribute("data-livekit-audio-id", sid);
-            document.body.appendChild(el);
-          }
-          el.muted = isMuted;
-          if (!isMuted) {
-            el.play().catch(() => {});
-          }
-        }
-      }
+  // Fallback WebRTC remoteStream attach
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (remoteStream && !hasLiveKitTracks) {
+      el.srcObject = remoteStream;
+      el.muted = isMuted;
+      el.play().catch(() => {});
     }
-  }, [isLive, hasLiveKitTracks, isMuted]);
+  }, [remoteStream, hasLiveKitTracks, isMuted]);
 
   // Survey state for completed webinar
   const [rating, setRating] = useState(5);
@@ -545,55 +556,135 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 </div>
               </div>
             ) : isLive ? (
-              /* LIVE STAGE SCREEN WITH REAL WEBRTC / LIVEKIT VIDEO */
+              /* LIVE STAGE SCREEN WITH DUAL TRACKS (CAMERA + SCREEN) & HTML OVERLAYS */
               <div
-                className="relative h-full w-full flex items-center justify-center bg-black cursor-pointer select-none"
+                className="relative h-full w-full flex items-center justify-center bg-black cursor-pointer select-none overflow-hidden"
                 onClick={() => {
                   if (isMuted) handleUnmute();
                 }}
               >
-                {/* HTML5 WebRTC / LiveKit Video Player */}
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted={hasLiveKitTracks ? true : isMuted}
-                  className="h-full w-full object-contain block pointer-events-none"
-                />
+                {/* Embedded CSS animations for ticker marquee and smooth transitions */}
+                <style dangerouslySetInnerHTML={{ __html: `
+                  @keyframes tickerMarquee {
+                    0% { transform: translate3d(100%, 0, 0); }
+                    100% { transform: translate3d(-100%, 0, 0); }
+                  }
+                  .animate-ticker-marquee {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: tickerMarquee 25s linear infinite;
+                    will-change: transform;
+                  }
+                `}} />
 
-                {/* Floating Unmute Prompt if audio is muted */}
-                {(hasLiveKitTracks || remoteStream) && isMuted && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleUnmute();
-                    }}
-                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-[#00b4fb] hover:from-sky-400 hover:to-[#00a3e3] px-5 py-2.5 text-xs font-black text-white shadow-2xl shadow-sky-500/50 backdrop-blur-md transition transform hover:scale-105 active:scale-95 animate-bounce border border-white/20"
-                  >
-                    <Volume2 className="h-4 w-4 fill-current" />
-                    <span>Clique para Ativar Som 🔊</span>
-                  </button>
-                )}
+                {/* --- VIDEO LAYER (CSS COMPOSITION) --- */}
+                {/* 1. LiveKit Tracks Active: CSS Layout Stage */}
+                {(cameraTrack || screenTrack) ? (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {/* Mode A: SPLIT (Side by Side) */}
+                    {((overlayState?.layoutMode === "split" || (!overlayState?.layoutMode && cameraTrack && screenTrack))) && cameraTrack && screenTrack ? (
+                      <div className="flex flex-col md:flex-row items-center justify-center gap-3 w-full h-full p-2 sm:p-4">
+                        {/* Screen Share Tile */}
+                        <div className="flex-1 w-full h-full max-h-full flex items-center justify-center bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
+                          <video
+                            ref={screenVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain pointer-events-none"
+                          />
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-slate-900/85 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-slate-300 border border-slate-700 pointer-events-none">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#00b4fb]" />
+                            <span>Tela Compartilhada</span>
+                          </div>
+                        </div>
 
-                {/* Direct Stream Watermark Overlay */}
-                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
-                  <span className="flex items-center gap-1.5 rounded-lg bg-[#00b4fb] backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
-                    <Zap className="h-3 w-3 fill-current" />
-                    TRANSMISSÃO DIRETA
-                  </span>
-                  <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>&lt;300ms Latência</span>
-                  </span>
-                </div>
+                        {/* Camera Tile */}
+                        <div className="flex-1 w-full h-full max-h-full flex items-center justify-center bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
+                          <video
+                            ref={cameraVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-slate-900/85 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-slate-300 border border-slate-700 pointer-events-none">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <span>{overlayState?.presenterName || "Apresentador"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : overlayState?.layoutMode === "pip" && cameraTrack && screenTrack ? (
+                      /* Mode B: PiP (Picture in Picture) */
+                      <div className="relative w-full h-full flex items-center justify-center bg-black">
+                        {/* Main Screen Content */}
+                        <div className="w-full h-full flex items-center justify-center">
+                          <video
+                            ref={screenVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain pointer-events-none"
+                          />
+                        </div>
 
-                {/* Floating Reactions overlay */}
-                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
-                  <FloatingReactions />
-                </div>
-
-                {/* Fallback / Audio-only Stage Visualizer when video track is pending */}
-                {!hasLiveKitTracks && (!remoteStream || remoteStream.getVideoTracks().length === 0) && (
+                        {/* Inset Camera Float */}
+                        <div className="absolute bottom-12 right-6 w-44 sm:w-64 aspect-video rounded-2xl shadow-2xl border-2 border-slate-700/90 bg-slate-900 overflow-hidden z-20 flex items-center justify-center">
+                          <video
+                            ref={cameraVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
+                          <div className="absolute bottom-1.5 left-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white pointer-events-none">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <span className="truncate max-w-[120px]">{overlayState?.presenterName || "Apresentador"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Mode C: SOLO or Screen-only / Camera-only */
+                      <div className="relative w-full h-full flex items-center justify-center bg-black">
+                        {screenTrack ? (
+                          <video
+                            ref={screenVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain pointer-events-none"
+                          />
+                        ) : (
+                          <video
+                            ref={cameraVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain pointer-events-none"
+                          />
+                        )}
+                        {/* Hidden companion video element mounted to ensure track ref stays attached */}
+                        <video
+                          ref={screenTrack ? cameraVideoRef : screenVideoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="hidden"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : remoteStream && remoteStream.getVideoTracks().length > 0 ? (
+                  /* 2. P2P WebRTC Fallback Track */
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted={isMuted}
+                    className="h-full w-full object-contain block pointer-events-none"
+                  />
+                ) : (
+                  /* 3. Waiting for Video Stream / Audio-Only Stage Visualizer */
                   <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
                     <div className="text-center space-y-4 p-6 z-10">
                       <div className="relative inline-block">
@@ -618,7 +709,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                           </span>
                         </div>
                         <p className="text-xs text-slate-400 mt-2">
-                          Sessão Ao Vivo • Conectando áudio e vídeo do estúdio...
+                          Sessão Ao Vivo • Sincronizando transmissão em tempo real...
                         </p>
                       </div>
 
@@ -639,20 +730,94 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   </div>
                 )}
 
-                {/* Stream Watermark & Status Overlay */}
-                <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 rounded-lg bg-rose-600/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
-                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                    TRANSMISSÃO AO VIVO
+                {/* --- OVERLAYS LAYER (HTML/CSS VIA DATACHANNEL) --- */}
+
+                {/* Banner Overlay */}
+                {overlayState?.banner?.visible && overlayState.banner.title && (
+                  <div className="absolute top-5 left-1/2 -translate-x-1/2 z-30 max-w-xl px-4 w-full pointer-events-none transition-all duration-300">
+                    <div className="rounded-2xl bg-slate-900/95 border border-slate-700/80 px-6 py-2.5 shadow-2xl backdrop-blur-xl text-center mx-auto w-fit">
+                      <span className="text-xs sm:text-sm font-extrabold text-white tracking-tight block">
+                        {overlayState.banner.title}
+                      </span>
+                      {overlayState.banner.subtitle && (
+                        <span className="text-[11px] sm:text-xs text-slate-300 mt-0.5 font-medium block">
+                          {overlayState.banner.subtitle}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lower Third Overlay */}
+                {overlayState?.lowerThird?.visible && (
+                  <div className="absolute bottom-12 left-6 z-30 transition-all duration-300 pointer-events-none">
+                    <div className="flex items-stretch overflow-hidden rounded-xl bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl">
+                      <div
+                        className="w-2.5 shrink-0"
+                        style={{ backgroundColor: overlayState.brandColor || "#00b4fb" }}
+                      />
+                      <div className="py-2.5 px-4 pr-6">
+                        <div className="text-sm font-extrabold tracking-tight text-white flex items-center gap-2">
+                          <span>{overlayState.lowerThird.name || overlayState.presenterName}</span>
+                          {overlayState.lowerThird.company && (
+                            <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
+                              {overlayState.lowerThird.company}
+                            </span>
+                          )}
+                        </div>
+                        {overlayState.lowerThird.role && (
+                          <div className="text-xs font-medium text-[#00b4fb] mt-0.5">
+                            {overlayState.lowerThird.role}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ticker Overlay */}
+                {overlayState?.ticker?.visible && overlayState.ticker.text && (
+                  <div className="absolute bottom-0 inset-x-0 z-30 bg-slate-950/95 border-t border-slate-800/90 py-1.5 px-4 overflow-hidden backdrop-blur-md flex items-center pointer-events-none">
+                    <div className="shrink-0 mr-3 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#00b4fb] text-[10px] font-black uppercase tracking-wider text-white shadow-xs">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                      Notícias
+                    </div>
+                    <div className="overflow-hidden whitespace-nowrap flex-1">
+                      <span className="animate-ticker-marquee text-xs font-semibold text-slate-200">
+                        {overlayState.ticker.text}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Direct Stream Watermark Overlay */}
+                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
+                  <span className="flex items-center gap-1.5 rounded-lg bg-[#00b4fb] backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                    <Zap className="h-3 w-3 fill-current" />
+                    TRANSMISSÃO DIRETA
                   </span>
                   <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-[#00b4fb]" />
-                    <span>Ao vivo com você</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>&lt;200ms Hardware Sync</span>
                   </span>
                 </div>
 
+                {/* Floating Unmute Prompt if audio is muted */}
+                {(hasLiveKitTracks || cameraTrack || screenTrack || remoteStream) && isMuted && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnmute();
+                    }}
+                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-[#00b4fb] hover:from-sky-400 hover:to-[#00a3e3] px-6 py-3 text-xs font-black text-white shadow-2xl shadow-sky-500/50 backdrop-blur-md transition transform hover:scale-105 active:scale-95 animate-bounce border border-white/20"
+                  >
+                    <Volume2 className="h-4 w-4 fill-current" />
+                    <span>Clique para Ativar Som 🔊</span>
+                  </button>
+                )}
+
                 {/* Floating Reactions overlay */}
-                <div className="absolute bottom-4 right-4 z-20">
+                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
                   <FloatingReactions />
                 </div>
               </div>

@@ -56,7 +56,7 @@ import {
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
-import { Room, Track } from "livekit-client";
+import { Room, Track, DataPacket_Kind } from "livekit-client";
 import { StudioCompositor } from "@/lib/studioCompositor";
 
 interface Props {
@@ -138,7 +138,7 @@ export default function StudioPage({ params, searchParams }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const broadcasterRef = useRef<HostBroadcaster | null>(null);
 
-  // 1080p Stage Compositor (Composes layout, camera, screen, lower thirds, tickers & banners)
+  // Studio Compositor — used only for local preview in the studio, NOT for transmission
   const compositorRef = useRef<StudioCompositor | null>(null);
 
   // LiveKit Cloud Room Connection & Track Publishing
@@ -146,6 +146,11 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
   const [egressError, setEgressError] = useState<string | null>(null);
   const [enableYouTubeEgress, setEnableYouTubeEgress] = useState(false);
+
+  // Track publish state (to avoid double-publishing)
+  const publishedTracksRef = useRef<{ camera: boolean; screen: boolean; mic: boolean }>(
+    { camera: false, screen: false, mic: false }
+  );
 
   // Initialize and synchronize StudioCompositor (1080p Stage Composite Stream)
   useEffect(() => {
@@ -317,81 +322,134 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [hasJoinedLobby, eventId, userRole]);
 
-  // Ensure composite tracks are published ONLY when live and in 1080p crystal clear quality
+  // Send overlay state to all viewers via LiveKit DataChannel
+  const publishOverlayState = React.useCallback(() => {
+    const room = livekitRoomRef.current;
+    if (!room || !isLiveKitConnected) return;
+    try {
+      const payload = JSON.stringify({
+        type: "overlay",
+        layoutMode,
+        isScreenSharing,
+        isCamOn,
+        isOnStage,
+        presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+        brandColor,
+        lowerThird: { visible: lowerThirdVisible, name: lowerThirdName, role: lowerThirdRole, company: lowerThirdCompany },
+        ticker: { visible: tickerVisible, text: tickerText },
+        banner: { visible: bannerVisible, title: bannerTitle, subtitle: bannerSubtitle },
+      });
+      room.localParticipant.publishData(
+        new TextEncoder().encode(payload),
+        { reliable: true }
+      );
+    } catch (_) {}
+  }, [
+    isLiveKitConnected, layoutMode, isScreenSharing, isCamOn, isOnStage, userRole, brandColor,
+    lowerThirdVisible, lowerThirdName, lowerThirdRole, lowerThirdCompany,
+    tickerVisible, tickerText, bannerVisible, bannerTitle, bannerSubtitle,
+  ]);
+
+  // Re-broadcast overlay state whenever any overlay property changes
+  useEffect(() => {
+    publishOverlayState();
+  }, [publishOverlayState]);
+
+  // Publish/unpublish native tracks directly to LiveKit when going live
+  // This uses the OS hardware encoder (H.264) — bypasses canvas entirely
   useEffect(() => {
     const room = livekitRoomRef.current;
-    if (!room || !isLiveKitConnected || !compositorRef.current) return;
+    if (!room || !isLiveKitConnected) return;
 
-    const syncLiveKitCompositeTracks = async () => {
+    const syncNativeTracks = async () => {
       try {
         if (!isWebinarLive) {
-          // In backstage/camarim: unpublish any public stage tracks so audience cannot view private backstage
-          const videoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-            (p) => p.trackName === "stage-composite"
-          );
-          if (videoPub?.track) {
-            await room.localParticipant.unpublishTrack(videoPub.track).catch(() => {});
+          // Backstage: unpublish all stage tracks so audience sees waiting room
+          const pubs = Array.from(room.localParticipant.trackPublications.values());
+          for (const pub of pubs) {
+            const n = pub.trackName;
+            if (n === "camera" || n === "screen" || n === "mic") {
+              if (pub.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
+            }
           }
-          const audioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
-            (p) => p.trackName === "stage-audio"
-          );
-          if (audioPub?.track) {
-            await room.localParticipant.unpublishTrack(audioPub.track).catch(() => {});
-          }
+          publishedTracksRef.current = { camera: false, screen: false, mic: false };
           return;
         }
 
-        // Live webinar active: publish 720p composite stream optimized for fluidity
-        const compositeStream = compositorRef.current!.getCompositeStream();
-        const cVt = compositeStream.getVideoTracks()[0];
-        const cAt = compositorRef.current!.getAudioTrack() || compositeStream.getAudioTracks()[0];
-
-        const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-          (p) => p.trackName === "stage-composite"
-        );
-        if (cVt && !existingVideoPub) {
-          cVt.contentHint = "motion";
+        // --- Publish Screen track (native hardware encoder, no canvas) ---
+        const screenVt = screenStream?.getVideoTracks()[0];
+        if (screenVt && isScreenSharing && !publishedTracksRef.current.screen) {
+          publishedTracksRef.current.screen = true;
+          screenVt.contentHint = "detail"; // Screen content: prioritize sharpness
           try {
-            await room.localParticipant.publishTrack(cVt, {
-              name: "stage-composite",
+            await room.localParticipant.publishTrack(screenVt, {
+              name: "screen",
               source: Track.Source.ScreenShare,
-              simulcast: true,
+              simulcast: false, // Screen share: single high-quality layer
               degradationPreference: "maintain-framerate",
               videoEncoding: {
-                maxBitrate: 2_000_000, // 2 Mbps: optimal for 720p30 — lightweight on upload
+                maxBitrate: 3_000_000, // 3 Mbps for full screen content
                 maxFramerate: 30,
               },
             });
-            console.log("LiveKit: 720p composite stage track published successfully!");
-          } catch (pubErr) {
-            console.error("LiveKit: Error publishing composite stage track:", pubErr);
+            console.log("LiveKit: Screen track published via hardware encoder!");
+          } catch (e) {
+            publishedTracksRef.current.screen = false;
+            console.error("LiveKit: Screen publish error:", e);
+          }
+        } else if (!isScreenSharing && publishedTracksRef.current.screen) {
+          publishedTracksRef.current.screen = false;
+          const pub = Array.from(room.localParticipant.videoTrackPublications.values()).find(p => p.trackName === "screen");
+          if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
+        }
+
+        // --- Publish Camera track ---
+        const camVt = localStream?.getVideoTracks()[0];
+        if (camVt && isCamOn && isOnStage && !publishedTracksRef.current.camera) {
+          publishedTracksRef.current.camera = true;
+          try {
+            await room.localParticipant.publishTrack(camVt, {
+              name: "camera",
+              source: Track.Source.Camera,
+              simulcast: true,
+              videoEncoding: {
+                maxBitrate: 1_500_000, // 1.5 Mbps for camera
+                maxFramerate: 30,
+              },
+            });
+            console.log("LiveKit: Camera track published via hardware encoder!");
+          } catch (e) {
+            publishedTracksRef.current.camera = false;
+            console.error("LiveKit: Camera publish error:", e);
           }
         }
 
-        const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
-          (p) => p.trackName === "stage-audio"
-        );
-        if (cAt && !existingAudioPub) {
+        // --- Publish Microphone audio track ---
+        const micAt = localStream?.getAudioTracks()[0];
+        if (micAt && !publishedTracksRef.current.mic) {
+          publishedTracksRef.current.mic = true;
           try {
-            await room.localParticipant.publishTrack(cAt, {
-              name: "stage-audio",
+            await room.localParticipant.publishTrack(micAt, {
+              name: "mic",
               source: Track.Source.Microphone,
-              audioPreset: {
-                maxBitrate: 96_000,
-              },
+              audioPreset: { maxBitrate: 96_000 },
             });
-            console.log("LiveKit: Studio audio track published successfully!");
-          } catch (audioErr) {
-            console.error("LiveKit: Error publishing studio audio track:", audioErr);
+            console.log("LiveKit: Mic track published!");
+          } catch (e) {
+            publishedTracksRef.current.mic = false;
+            console.error("LiveKit: Mic publish error:", e);
           }
         }
+
+        // Broadcast overlay state to viewers now that tracks are live
+        publishOverlayState();
       } catch (err) {
-        console.warn("Error synchronizing composite tracks in LiveKit:", err);
+        console.warn("Error syncing native tracks to LiveKit:", err);
       }
     };
 
-    syncLiveKitCompositeTracks();
-  }, [isLiveKitConnected, isWebinarLive, hasJoinedLobby]);
+    syncNativeTracks();
+  }, [isLiveKitConnected, isWebinarLive, localStream, screenStream, isScreenSharing, isCamOn, isOnStage, hasJoinedLobby, publishOverlayState]);
 
   // Load and poll live state
   const fetchState = async () => {
