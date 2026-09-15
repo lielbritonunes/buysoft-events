@@ -145,6 +145,7 @@ export default function StudioPage({ params, searchParams }: Props) {
   const livekitRoomRef = useRef<Room | null>(null);
   const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
   const [egressError, setEgressError] = useState<string | null>(null);
+  const [enableYouTubeEgress, setEnableYouTubeEgress] = useState(false);
 
   // Initialize and synchronize StudioCompositor (1080p Stage Composite Stream)
   useEffect(() => {
@@ -551,28 +552,30 @@ export default function StudioPage({ params, searchParams }: Props) {
       }
     } else {
       try {
-        // Trigger LiveKit Cloud Egress & ensure active YouTube live broadcast
-        const res = await fetch("/api/livekit/egress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "start",
-            eventId,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.warn("Egress warning:", data.error);
-          setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
-        } else if (data.egressId) {
-          setCurrentEgressId(data.egressId);
-          if (data.youtubeBroadcastId) {
-            setRoomState((prev: any) => ({
-              ...prev,
-              youtubeBroadcastId: data.youtubeBroadcastId,
-              youtubeStreamKey: data.youtubeStreamKey,
-              youtubeEmbedUrl: data.youtubeEmbedUrl,
-            }));
+        // Trigger LiveKit Cloud Egress & ensure active YouTube live broadcast only if selected
+        if (enableYouTubeEgress && roomState?.youtubeBroadcastId) {
+          const res = await fetch("/api/livekit/egress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "start",
+              eventId,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.warn("Egress warning:", data.error);
+            setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
+          } else if (data.egressId) {
+            setCurrentEgressId(data.egressId);
+            if (data.youtubeBroadcastId) {
+              setRoomState((prev: any) => ({
+                ...prev,
+                youtubeBroadcastId: data.youtubeBroadcastId,
+                youtubeStreamKey: data.youtubeStreamKey,
+                youtubeEmbedUrl: data.youtubeEmbedUrl,
+              }));
+            }
           }
         }
 
@@ -582,6 +585,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         fetchState();
       } catch (err: any) {
         console.error("Error starting broadcast:", err);
+
         setEgressError(err.message || "Erro ao conectar transmissão.");
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
@@ -805,17 +809,32 @@ export default function StudioPage({ params, searchParams }: Props) {
         <div className="relative flex-1 p-3 sm:p-5 overflow-hidden flex flex-col justify-center items-center">
           {/* Egress Warning Banner if any */}
           {egressError && (
-            <div className="w-full max-w-4xl mb-3 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-950/70 p-3 text-xs text-amber-200 backdrop-blur-md z-30">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">⚠️ Transmissão:</span>
-                <span>{egressError}</span>
+            <div className="w-full max-w-4xl mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-950/80 p-3.5 text-xs text-amber-200 backdrop-blur-md z-30 shadow-lg">
+              <div className="flex items-start gap-2.5">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div>
+                  <p className="font-semibold text-amber-100">{egressError}</p>
+                  <p className="text-[11px] text-amber-300/80 mt-1">
+                    Dica: Você pode continuar a transmissão normalmente na plataforma Buysoft sem custo, ou usar o <strong>OBS Studio</strong> com a chave RTMP abaixo para transmitir ao YouTube sem gastar minutos de nuvem.
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => setEgressError(null)}
-                className="rounded-lg bg-amber-900/60 hover:bg-amber-800 px-2.5 py-1 text-[11px] font-semibold text-amber-100 transition"
-              >
-                Dispensar
-              </button>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <a
+                  href="https://cloud.livekit.io"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition"
+                >
+                  Painel LiveKit Cloud
+                </a>
+                <button
+                  onClick={() => setEgressError(null)}
+                  className="rounded-lg bg-amber-900/60 hover:bg-amber-800 px-2.5 py-1 text-[11px] font-semibold text-amber-100 transition"
+                >
+                  Dispensar
+                </button>
+              </div>
             </div>
           )}
 
@@ -836,17 +855,26 @@ export default function StudioPage({ params, searchParams }: Props) {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-rose-200">
-                      YouTube Live Integrado (Transmissão Direta Buysoft)
+                      YouTube Live Integrado
                     </span>
-                    <span className="rounded-full bg-rose-500/20 px-2 py-0.2 text-[9px] font-bold text-rose-300 uppercase">
-                      LiveKit Egress
-                    </span>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] bg-rose-500/20 border border-rose-500/30 rounded-full px-2.5 py-0.5 text-rose-200 hover:bg-rose-500/30 transition">
+                      <input
+                        type="checkbox"
+                        checked={enableYouTubeEgress}
+                        onChange={(e) => setEnableYouTubeEgress(e.target.checked)}
+                        className="rounded border-rose-500/50 bg-slate-900 text-rose-500 focus:ring-0 h-3 w-3 cursor-pointer"
+                      />
+                      <span className="font-semibold">Retransmitir via Nuvem (Egress)</span>
+                    </label>
                   </div>
                   <p className="text-[10px] text-slate-300">
-                    O codificador do estúdio envia o stream automaticamente para a sua transmissão não listada.
+                    {enableYouTubeEgress
+                      ? "O estúdio enviará o stream automaticamente para a sua live no YouTube ao iniciar."
+                      : "Modo econômico ativo: a live roda diretamente na plataforma Buysoft (sem consumir minutos de nuvem)."}
                   </p>
                 </div>
               </div>
+
 
               <div className="flex items-center gap-2 self-end sm:self-center">
                 <button

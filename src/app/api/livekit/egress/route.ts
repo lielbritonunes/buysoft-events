@@ -100,6 +100,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
     console.error("LiveKit Egress Error:", err);
-    return NextResponse.json({ error: err.message || "Erro ao comunicar com LiveKit Cloud Egress" }, { status: 500 });
+    const msg = err?.message || "";
+    let friendlyError = msg;
+
+    if (msg.toLowerCase().includes("egress minutes exceeded") || msg.toLowerCase().includes("resource_exhausted")) {
+      friendlyError = "Cota de minutos de transmissão do LiveKit Cloud esgotada. A live no palco Buysoft continua ativa para os participantes. Para transmitir simultaneamente para o YouTube via nuvem, adicione créditos no painel cloud.livekit.io ou transmita via OBS usando a chave RTMP abaixo.";
+    } else if (msg.toLowerCase().includes("not configured")) {
+      friendlyError = "Credenciais do LiveKit não configuradas no servidor.";
+    } else if (msg.toLowerCase().includes("requested room does not exist")) {
+      friendlyError = "A sala do evento ainda não foi iniciada no LiveKit.";
+    }
+
+    return NextResponse.json({ error: friendlyError, rawError: msg }, { status: 500 });
   }
 }
+
