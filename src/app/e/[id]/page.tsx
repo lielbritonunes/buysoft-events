@@ -408,23 +408,161 @@ export default function PublicEventPage({ params }: Props) {
                   {/* Form fields rendered dynamically from event.formFields */}
                   <div className="space-y-3.5 pt-2">
                     {event.formFields && event.formFields.length > 0 ? (
-                      event.formFields.map((field: any) => (
-                        <div key={field.id}>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            {field.label} {field.required && <span className="text-rose-500">*</span>}
-                          </label>
-                          <input
-                            type={field.type === "email" ? "email" : "text"}
-                            required={field.required}
-                            value={formData[field.label] || ""}
-                            onChange={(e) =>
-                              setFormData({ ...formData, [field.label]: e.target.value })
-                            }
-                            placeholder={`Digite seu ${field.label.toLowerCase()}...`}
-                            className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
-                          />
-                        </div>
-                      ))
+                      event.formFields.map((field: any) => {
+                        let parsedOptions: string[] = [];
+                        if (Array.isArray(field.options)) {
+                          parsedOptions = field.options;
+                        } else if (field.optionsJson) {
+                          try {
+                            parsedOptions = JSON.parse(field.optionsJson);
+                          } catch {}
+                        }
+
+                        if (field.type === "hidden") {
+                          return (
+                            <input
+                              key={field.id}
+                              type="hidden"
+                              value={formData[field.label] || ""}
+                            />
+                          );
+                        }
+
+                        if (field.type === "terms") {
+                          return (
+                            <div key={field.id} className="pt-1">
+                              <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  required={field.required}
+                                  checked={formData[field.label] === "true"}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      [field.label]: e.target.checked ? "true" : ""
+                                    })
+                                  }
+                                  className="mt-0.5 h-4 w-4 accent-[#00b4fb] rounded shrink-0"
+                                />
+                                <span className="text-[11px] text-slate-600 leading-snug">
+                                  {field.label}{" "}
+                                  {field.required && <span className="text-rose-500">*</span>}
+                                </span>
+                              </label>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={field.id}>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              {field.label} {field.required && <span className="text-rose-500">*</span>}
+                            </label>
+
+                            {field.type === "paragraph" ? (
+                              <textarea
+                                rows={3}
+                                required={field.required}
+                                value={formData[field.label] || ""}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, [field.label]: e.target.value })
+                                }
+                                placeholder={`Escreva aqui...`}
+                                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] resize-none"
+                              />
+                            ) : field.type === "select" ? (
+                              <select
+                                required={field.required}
+                                value={formData[field.label] || ""}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, [field.label]: e.target.value })
+                                }
+                                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] bg-white"
+                              >
+                                <option value="">Selecione uma opção...</option>
+                                {parsedOptions.map((opt, i) => (
+                                  <option key={i} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : field.type === "checkbox" ? (
+                              <div className="space-y-1.5 pt-1">
+                                {(parsedOptions.length > 0 ? parsedOptions : ["Sim, tenho interesse"]).map(
+                                  (opt, i) => {
+                                    const selected = (formData[field.label] || "")
+                                      .split(", ")
+                                      .includes(opt);
+                                    return (
+                                      <label
+                                        key={i}
+                                        className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={selected}
+                                          onChange={(e) => {
+                                            const current = (formData[field.label] || "")
+                                              .split(", ")
+                                              .filter(Boolean);
+                                            const updated = e.target.checked
+                                              ? [...current, opt]
+                                              : current.filter((c) => c !== opt);
+                                            setFormData({
+                                              ...formData,
+                                              [field.label]: updated.join(", ")
+                                            });
+                                          }}
+                                          className="h-4 w-4 accent-[#00b4fb] rounded"
+                                        />
+                                        <span>{opt}</span>
+                                      </label>
+                                    );
+                                  }
+                                )}
+                              </div>
+                            ) : field.type === "date" ? (
+                              <input
+                                type="date"
+                                required={field.required}
+                                value={formData[field.label] || ""}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, [field.label]: e.target.value })
+                                }
+                                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] bg-white"
+                              />
+                            ) : field.type === "country" ? (
+                              <select
+                                required={field.required}
+                                value={formData[field.label] || "Brasil"}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, [field.label]: e.target.value })
+                                }
+                                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] bg-white"
+                              >
+                                <option value="Brasil">🇧🇷 Brasil</option>
+                                <option value="Portugal">🇵🇹 Portugal</option>
+                                <option value="Estados Unidos">🇺🇸 Estados Unidos</option>
+                                <option value="Argentina">🇦🇷 Argentina</option>
+                                <option value="Espanha">🇪🇸 Espanha</option>
+                                <option value="Reino Unido">🇬🇧 Reino Unido</option>
+                                <option value="Outro">🌐 Outro</option>
+                              </select>
+                            ) : (
+                              <input
+                                type={field.type === "email" ? "email" : "text"}
+                                required={field.required}
+                                value={formData[field.label] || ""}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, [field.label]: e.target.value })
+                                }
+                                placeholder={`Digite seu ${field.label.toLowerCase()}...`}
+                                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
+                              />
+                            )}
+                          </div>
+                        );
+                      })
                     ) : (
                       <>
                         <div>

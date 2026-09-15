@@ -251,7 +251,7 @@ export async function deleteSpeaker(speakerId: string) {
 // Save form fields
 export async function saveFormFields(
   eventId: string,
-  fields: Array<{ label: string; type: string; required: boolean; orderIndex: number }>
+  fields: Array<{ label: string; type: string; required: boolean; orderIndex: number; optionsJson?: string }>
 ) {
   await prisma.formField.deleteMany({ where: { eventId } });
 
@@ -261,6 +261,7 @@ export async function saveFormFields(
       label: f.label,
       type: f.type,
       required: f.required,
+      optionsJson: f.optionsJson || null,
       orderIndex: i,
     })),
   });

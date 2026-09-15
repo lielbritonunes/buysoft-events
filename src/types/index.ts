@@ -13,9 +13,11 @@ export interface Speaker {
 export interface FormField {
   id: string;
   label: string;
-  type: "text" | "paragraph" | "select" | "checkbox" | "date" | "country" | "terms";
+  type: "text" | "paragraph" | "select" | "checkbox" | "date" | "country" | "terms" | "hidden";
   required: boolean;
   options?: string[];
+  optionsJson?: string;
+  placeholder?: string;
 }
 
 export interface WebinarEvent {
