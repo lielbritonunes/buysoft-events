@@ -235,6 +235,9 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
     "basic" | "branding" | "agenda" | "sponsors" | "speakers" | "youtube"
   >("branding");
 
+  // Registration sub-tabs: "landing" (Página inicial do evento) | "form" (Formulário de inscrições)
+  const [registrationSubTab, setRegistrationSubTab] = useState<"landing" | "form">("landing");
+
   // YouTube Live Integration State
   const [ytStatus, setYtStatus] = useState<{
     isConnected: boolean;
@@ -1012,15 +1015,15 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
             </div>
           )}
 
-          {/* TAB 2: PÁGINA DE INSCRIÇÕES (ITEM 3 & REFERÊNCIA DE CAMPOS DO FORMULÁRIO) */}
+          {/* TAB 2: PÁGINA DE INSCRIÇÕES (ORGANIZADO EM DUAS ABAS: PÁGINA INICIAL & FORMULÁRIO) */}
           {activeTab === "registration" && (
             <div className="space-y-6 animate-in fade-in">
-              {/* Header matching user reference */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              {/* Header with Navigation & Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">Formulário de inscrição</h2>
-                  <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                    Configure seu formulário de registro para coletar informações dos participantes quando eles se registrarem. Exigimos que você colete nome, sobrenome e e-mail porque usamos essas informações para configurar uma conta para esse participante após o registro.
+                  <h2 className="text-xl font-bold text-slate-900">Página de Inscrições</h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                    Personalize o layout de recepção do evento e configure as perguntas do formulário de inscrição.
                   </p>
                 </div>
 
@@ -1063,406 +1066,491 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                 </div>
               </div>
 
-              {/* Main Grid: Left (Active Form Fields Cards) + Right (Campos do Formulário with Hover Popover) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: Form Fields Cards */}
-                <div className="lg:col-span-8 space-y-4">
-                  {/* Fixed Required Platform Fields (matching user screenshot) */}
-                  <div className="space-y-3">
-                    {/* Nome */}
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
-                          <Edit3 className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-900">Nome (obrigatório)</span>
-                      </div>
-                      <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
-                    </div>
+              {/* Sub-tab Switcher: Página inicial do evento vs Formulário de inscrições */}
+              <div className="flex items-center gap-8 border-b border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setRegistrationSubTab("landing")}
+                  className={`pb-3 text-xs font-bold transition-all border-b-2 flex items-center gap-2 ${
+                    registrationSubTab === "landing"
+                      ? "border-[#00b4fb] text-[#0084be]"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Layout className="h-4 w-4" />
+                  <span>Página inicial do evento</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegistrationSubTab("form")}
+                  className={`pb-3 text-xs font-bold transition-all border-b-2 flex items-center gap-2 ${
+                    registrationSubTab === "form"
+                      ? "border-[#00b4fb] text-[#0084be]"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Formulário de inscrições</span>
+                </button>
+              </div>
 
-                    {/* Sobrenome */}
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
-                          <Edit3 className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-900">Sobrenome (obrigatório)</span>
-                      </div>
-                      <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
-                    </div>
-
-                    {/* E-mail */}
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
-                          <Edit3 className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-900">E-mail (obrigatório)</span>
-                      </div>
-                      <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
-                    </div>
+              {/* SUB-TAB 1: PÁGINA INICIAL DO EVENTO (Layouts e Mensagem de Confirmação) */}
+              {registrationSubTab === "landing" && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Configurações da Página Inicial</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Defina o modelo de layout e a mensagem exibida após a inscrição confirmada.
+                    </p>
                   </div>
 
-                  {/* Custom Dynamic Fields Added by User */}
-                  <div className="space-y-3 pt-2">
-                    {formFields.length > 0 && (
-                      <div className="flex items-center justify-between px-1">
-                        <span className="text-xs font-bold text-slate-700">
-                          Campos Adicionais ({formFields.length})
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Use as setas para reordenar perguntas
-                        </span>
-                      </div>
-                    )}
-
-                    {formFields.map((field, index) => {
-                      const typeDef =
-                        FORM_FIELD_TYPES.find((t) => t.type === field.type) || FORM_FIELD_TYPES[0];
-                      const IconComp = typeDef.icon;
-                      const isEditing = editingFieldId === field.id;
-
-                      return (
-                        <div
-                          key={field.id || index}
-                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 transition space-y-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${typeDef.iconBg} shadow-2xs shrink-0`}
-                              >
-                                <IconComp className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <input
-                                  type="text"
-                                  value={field.label}
-                                  onChange={(e) => {
-                                    const copy = [...formFields];
-                                    copy[index].label = e.target.value;
-                                    setFormFields(copy);
-                                  }}
-                                  placeholder="Título da pergunta"
-                                  className="w-full text-xs font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-[#00b4fb] focus:outline-none transition py-0.5"
-                                />
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                                    {typeDef.label}
-                                  </span>
-                                  {(field.type === "select" || field.type === "checkbox") && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingFieldId(isEditing ? null : field.id)}
-                                      className="text-[10px] text-[#00b4fb] hover:underline font-bold"
-                                    >
-                                      {isEditing
-                                        ? "Ocultar alternativas"
-                                        : `Editar alternativas (${field.options?.length || 0})`}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2.5 shrink-0">
-                              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={field.required}
-                                  onChange={(e) => {
-                                    const copy = [...formFields];
-                                    copy[index].required = e.target.checked;
-                                    setFormFields(copy);
-                                  }}
-                                  className="h-3.5 w-3.5 accent-[#00b4fb] rounded"
-                                />
-                                <span className="text-[11px] font-medium">Obrigatório</span>
-                              </label>
-
-                              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
-                                <button
-                                  type="button"
-                                  disabled={index === 0}
-                                  onClick={() => handleMoveField(index, "up")}
-                                  className="p-1 hover:bg-slate-200 disabled:opacity-30 text-slate-600"
-                                  title="Mover para cima"
-                                >
-                                  <ChevronUp className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={index === formFields.length - 1}
-                                  onClick={() => handleMoveField(index, "down")}
-                                  className="p-1 hover:bg-slate-200 disabled:opacity-30 text-slate-600 border-l border-slate-200"
-                                  title="Mover para baixo"
-                                >
-                                  <ChevronDown className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteField(index)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 transition rounded-lg hover:bg-rose-50"
-                                title="Remover campo"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Options Editor for Select & Checkbox */}
-                          {isEditing && (field.type === "select" || field.type === "checkbox") && (
-                            <div className="pt-2 border-t border-slate-100 space-y-2 bg-slate-50/70 p-3 rounded-xl animate-in fade-in">
-                              <div className="text-[11px] font-bold text-slate-700">
-                                Alternativas pré-definidas da lista:
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {(field.options || []).map((opt: string, optIdx: number) => (
-                                  <span
-                                    key={optIdx}
-                                    className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700 shadow-2xs"
-                                  >
-                                    <span>{opt}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const copy = [...formFields];
-                                        copy[index].options = copy[index].options.filter(
-                                          (_: any, i: number) => i !== optIdx
-                                        );
-                                        setFormFields(copy);
-                                      }}
-                                      className="text-slate-400 hover:text-rose-600 ml-0.5"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="flex items-center gap-2 pt-1">
-                                <input
-                                  type="text"
-                                  placeholder="Digite uma nova opção e pressione Enter..."
-                                  value={newOptionText}
-                                  onChange={(e) => setNewOptionText(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && newOptionText.trim()) {
-                                      e.preventDefault();
-                                      const copy = [...formFields];
-                                      const opts = copy[index].options || [];
-                                      copy[index].options = [...opts, newOptionText.trim()];
-                                      setFormFields(copy);
-                                      setNewOptionText("");
-                                    }
-                                  }}
-                                  className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!newOptionText.trim()) return;
-                                    const copy = [...formFields];
-                                    const opts = copy[index].options || [];
-                                    copy[index].options = [...opts, newOptionText.trim()];
-                                    setFormFields(copy);
-                                    setNewOptionText("");
-                                  }}
-                                  className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-bold text-white hover:bg-slate-800"
-                                >
-                                  Adicionar
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {formFields.length === 0 && (
-                      <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-400">
-                        Nenhum campo personalizado adicionado ainda. Clique em um dos tipos no menu ao lado para incluir novas perguntas ao formulário.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Configurações Adicionais da Inscrição (Mensagem pós-inscrição & Layout) */}
-                  <div className="pt-4 space-y-4">
-                    {/* Mensagem de Confirmação */}
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          <span>Mensagem de Confirmação de Inscrição</span>
-                        </h3>
-                        <span className="text-[11px] text-slate-400">Exibida após o registro</span>
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={confirmationMessage}
-                        onChange={(e) => setConfirmationMessage(e.target.value)}
-                        placeholder="Ex: Obrigado por se inscrever! Seu acesso ao webinar está garantido..."
-                        className="w-full rounded-xl border border-slate-300 p-3 text-xs text-slate-800 leading-relaxed focus:border-[#00b4fb] focus:outline-none"
-                      />
+                  {/* Modelo de Layout da Página */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Layout className="h-4 w-4 text-[#00b4fb]" />
+                        <span>Modelo de Layout da Página</span>
+                      </h4>
+                      <span className="text-[11px] font-semibold text-[#00b4fb]">
+                        Tema atual: <b>{layoutType === "classic" ? "Clássico" : advancedTheme.toUpperCase()}</b>
+                      </span>
                     </div>
 
-                    {/* Modelo de Layout */}
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          <Layout className="h-4 w-4 text-[#00b4fb]" />
-                          <span>Modelo de Layout da Página de Inscrição</span>
-                        </h3>
-                        <span className="text-[11px] font-semibold text-[#00b4fb]">
-                          Tema ativo: <b>{layoutType === "classic" ? "Clássico" : advancedTheme}</b>
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div
-                          onClick={() => setLayoutType("classic")}
-                          className={`cursor-pointer rounded-xl border-2 p-3 transition flex flex-col justify-between ${
-                            layoutType === "classic"
-                              ? "border-[#00b4fb] bg-sky-50/40"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Option 1: Clássico */}
+                      <div
+                        onClick={() => setLayoutType("classic")}
+                        className={`cursor-pointer rounded-2xl border-2 p-5 transition flex flex-col justify-between ${
+                          layoutType === "classic"
+                            ? "border-[#00b4fb] bg-sky-50/40 shadow-xs"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">Layout Clássico</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                              Padrão Buysoft / RingCentral
+                            </span>
                             {layoutType === "classic" && (
-                              <span className="rounded-full bg-[#00b4fb] px-2 py-0.2 text-[10px] font-bold text-white">
+                              <span className="rounded-full bg-[#00b4fb] px-2.5 py-0.5 text-[10px] font-bold text-white">
                                 Ativo
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Página de alta conversão com formulário lateral objetivo.
+                          <h5 className="text-base font-bold text-slate-900 mt-2">Layout Clássico</h5>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Página de alta conversão, limpa e direta. Formulário lateral com cronômetro regressivo, detalhes do evento e oradores em destaque.
                           </p>
                         </div>
 
-                        <div
-                          onClick={() => {
-                            setLayoutType("advanced");
-                            setIsThemeModalOpen(true);
-                          }}
-                          className={`cursor-pointer rounded-xl border-2 p-3 transition flex flex-col justify-between ${
-                            layoutType === "advanced"
-                              ? "border-[#00b4fb] bg-sky-50/40"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
+                        <div className="mt-4 rounded-lg bg-slate-100 p-2 text-center text-[11px] font-medium text-slate-600">
+                          Ideal para webinars corporativos e lançamentos rápidos
+                        </div>
+                      </div>
+
+                      {/* Option 2: Avançado */}
+                      <div
+                        onClick={() => {
+                          setLayoutType("advanced");
+                          setIsThemeModalOpen(true);
+                        }}
+                        className={`cursor-pointer rounded-2xl border-2 p-5 transition flex flex-col justify-between ${
+                          layoutType === "advanced"
+                            ? "border-[#00b4fb] bg-sky-50/40 shadow-xs"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">Layout Avançado</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#0084be]">
+                              Modular & Rico
+                            </span>
                             {layoutType === "advanced" && (
-                              <span className="rounded-full bg-[#00b4fb] px-2 py-0.2 text-[10px] font-bold text-white">
-                                {advancedTheme.toUpperCase()}
+                              <span className="rounded-full bg-[#00b4fb] px-2.5 py-0.5 text-[10px] font-bold text-white">
+                                Ativo: {advancedTheme.toUpperCase()}
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Construtor de páginas com temas customizados (Crosby, Seldon, Minimalist).
+                          <h5 className="text-base font-bold text-slate-900 mt-2">Layout Avançado (Temas)</h5>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Construtor de páginas com templates modulares (Crosby, Seldon, Minimalist). Ideal para feiras, cúpulas e grandes congressos.
                           </p>
                         </div>
+
+                        <div className="mt-4 flex items-center justify-between pt-1">
+                          <span className="text-[11px] font-semibold text-[#00b4fb]">
+                            Tema selecionado: <b>{advancedTheme}</b>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsThemeModalOpen(true);
+                            }}
+                            className="rounded-lg bg-white border border-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shadow-xs"
+                          >
+                            Trocar tema
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mensagem de Confirmação de Inscrição */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <span>Mensagem de Confirmação de Inscrição</span>
+                      </h4>
+                      <span className="text-[11px] text-slate-400">Exibida na tela pós-inscrição</span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Personalize a mensagem de agradecimento e as orientações que o participante verá imediatamente após concluir o formulário:
+                    </p>
+                    <textarea
+                      rows={3}
+                      value={confirmationMessage}
+                      onChange={(e) => setConfirmationMessage(e.target.value)}
+                      placeholder="Ex: Obrigado por se inscrever! Seu acesso ao webinar está garantido..."
+                      className="w-full rounded-xl border border-slate-300 p-3.5 text-xs text-slate-800 leading-relaxed focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-TAB 2: FORMULÁRIO DE INSCRIÇÕES (Campos do Formulário com Hover Previews) */}
+              {registrationSubTab === "form" && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Configuração dos Campos</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+                      Configure seu formulário de registro para coletar informações dos participantes quando eles se registrarem. Exigimos que você colete nome, sobrenome e e-mail porque usamos essas informações para configurar uma conta para esse participante após o registro.
+                    </p>
+                  </div>
+
+                  {/* Main Grid: Left (Active Form Fields Cards) + Right (Campos do Formulário with Hover Popover) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Form Fields Cards */}
+                    <div className="lg:col-span-8 space-y-4">
+                      {/* Fixed Required Platform Fields (matching user screenshot) */}
+                      <div className="space-y-3">
+                        {/* Nome */}
+                        <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
+                              <Edit3 className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-900">Nome (obrigatório)</span>
+                          </div>
+                          <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
+                        </div>
+
+                        {/* Sobrenome */}
+                        <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
+                              <Edit3 className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-900">Sobrenome (obrigatório)</span>
+                          </div>
+                          <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
+                        </div>
+
+                        {/* E-mail */}
+                        <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-slate-300 transition">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00b4fb] text-white shadow-2xs">
+                              <Edit3 className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-900">E-mail (obrigatório)</span>
+                          </div>
+                          <span className="text-xs text-slate-400 font-medium">Todos os ingressos</span>
+                        </div>
+                      </div>
+
+                      {/* Custom Dynamic Fields Added by User */}
+                      <div className="space-y-3 pt-2">
+                        {formFields.length > 0 && (
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-xs font-bold text-slate-700">
+                              Campos Adicionais ({formFields.length})
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Use as setas para reordenar perguntas
+                            </span>
+                          </div>
+                        )}
+
+                        {formFields.map((field, index) => {
+                          const typeDef =
+                            FORM_FIELD_TYPES.find((t) => t.type === field.type) || FORM_FIELD_TYPES[0];
+                          const IconComp = typeDef.icon;
+                          const isEditing = editingFieldId === field.id;
+
+                          return (
+                            <div
+                              key={field.id || index}
+                              className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 transition space-y-3"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div
+                                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${typeDef.iconBg} shadow-2xs shrink-0`}
+                                  >
+                                    <IconComp className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <input
+                                      type="text"
+                                      value={field.label}
+                                      onChange={(e) => {
+                                        const copy = [...formFields];
+                                        copy[index].label = e.target.value;
+                                        setFormFields(copy);
+                                      }}
+                                      placeholder="Título da pergunta"
+                                      className="w-full text-xs font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-[#00b4fb] focus:outline-none transition py-0.5"
+                                    />
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                        {typeDef.label}
+                                      </span>
+                                      {(field.type === "select" || field.type === "checkbox") && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingFieldId(isEditing ? null : field.id)}
+                                          className="text-[10px] text-[#00b4fb] hover:underline font-bold"
+                                        >
+                                          {isEditing
+                                            ? "Ocultar alternativas"
+                                            : `Editar alternativas (${field.options?.length || 0})`}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required}
+                                      onChange={(e) => {
+                                        const copy = [...formFields];
+                                        copy[index].required = e.target.checked;
+                                        setFormFields(copy);
+                                      }}
+                                      className="h-3.5 w-3.5 accent-[#00b4fb] rounded"
+                                    />
+                                    <span className="text-[11px] font-medium">Obrigatório</span>
+                                  </label>
+
+                                  <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                                    <button
+                                      type="button"
+                                      disabled={index === 0}
+                                      onClick={() => handleMoveField(index, "up")}
+                                      className="p-1 hover:bg-slate-200 disabled:opacity-30 text-slate-600"
+                                      title="Mover para cima"
+                                    >
+                                      <ChevronUp className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={index === formFields.length - 1}
+                                      onClick={() => handleMoveField(index, "down")}
+                                      className="p-1 hover:bg-slate-200 disabled:opacity-30 text-slate-600 border-l border-slate-200"
+                                      title="Mover para baixo"
+                                    >
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteField(index)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 transition rounded-lg hover:bg-rose-50"
+                                    title="Remover campo"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Options Editor for Select & Checkbox */}
+                              {isEditing && (field.type === "select" || field.type === "checkbox") && (
+                                <div className="pt-2 border-t border-slate-100 space-y-2 bg-slate-50/70 p-3 rounded-xl animate-in fade-in">
+                                  <div className="text-[11px] font-bold text-slate-700">
+                                    Alternativas pré-definidas da lista:
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {(field.options || []).map((opt: string, optIdx: number) => (
+                                      <span
+                                        key={optIdx}
+                                        className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700 shadow-2xs"
+                                      >
+                                        <span>{opt}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const copy = [...formFields];
+                                            copy[index].options = copy[index].options.filter(
+                                              (_: any, i: number) => i !== optIdx
+                                            );
+                                            setFormFields(copy);
+                                          }}
+                                          className="text-slate-400 hover:text-rose-600 ml-0.5"
+                                        >
+                                          ×
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <input
+                                      type="text"
+                                      placeholder="Digite uma nova opção e pressione Enter..."
+                                      value={newOptionText}
+                                      onChange={(e) => setNewOptionText(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && newOptionText.trim()) {
+                                          e.preventDefault();
+                                          const copy = [...formFields];
+                                          const opts = copy[index].options || [];
+                                          copy[index].options = [...opts, newOptionText.trim()];
+                                          setFormFields(copy);
+                                          setNewOptionText("");
+                                        }
+                                      }}
+                                      className="flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!newOptionText.trim()) return;
+                                        const copy = [...formFields];
+                                        const opts = copy[index].options || [];
+                                        copy[index].options = [...opts, newOptionText.trim()];
+                                        setFormFields(copy);
+                                        setNewOptionText("");
+                                      }}
+                                      className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-bold text-white hover:bg-slate-800"
+                                    >
+                                      Adicionar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {formFields.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-400">
+                            Nenhum campo personalizado adicionado ainda. Clique em um dos tipos no menu ao lado para incluir novas perguntas ao formulário.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Campos do Formulário Sidebar (matching screenshot with hover popover) */}
+                    <div className="lg:col-span-4 relative">
+                      <div className="sticky top-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs overflow-visible">
+                        <h4 className="text-sm font-bold text-slate-900 mb-4">
+                          Campos do Formulário
+                        </h4>
+
+                        {/* Group: Básico */}
+                        <div className="space-y-1 mb-5">
+                          <div className="px-1 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            Básico
+                          </div>
+                          {FORM_FIELD_TYPES.filter((t) => t.category === "Básico").map((item) => (
+                            <div
+                              key={item.type}
+                              className="relative"
+                              onMouseEnter={() => setHoveredFieldType(item.type)}
+                              onMouseLeave={() => setHoveredFieldType(null)}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleAddFieldOfType(item)}
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition text-left group cursor-pointer"
+                              >
+                                <div
+                                  className={`flex h-7 w-7 items-center justify-center rounded-lg ${item.iconBg} shadow-2xs shrink-0`}
+                                >
+                                  <item.icon className="h-4 w-4" />
+                                </div>
+                                <span className="group-hover:text-slate-900 font-medium">{item.label}</span>
+                              </button>
+
+                              {/* Hover Popover preview to the left */}
+                              {hoveredFieldType === item.type && (
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-64 rounded-2xl bg-white p-4 shadow-xl border border-slate-200/90 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                                  <div className="mb-3 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                                    {item.preview}
+                                  </div>
+                                  <h4 className="text-xs font-bold text-slate-900 mb-1">{item.label}</h4>
+                                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                                    {item.description}
+                                  </p>
+                                  {/* Pointer Arrow */}
+                                  <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 bg-white border-r border-t border-slate-200/90" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Group: Avançado */}
+                        <div className="space-y-1 border-t border-slate-100 pt-4">
+                          <div className="px-1 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            Avançado
+                          </div>
+                          {FORM_FIELD_TYPES.filter((t) => t.category === "Avançado").map((item) => (
+                            <div
+                              key={item.type}
+                              className="relative"
+                              onMouseEnter={() => setHoveredFieldType(item.type)}
+                              onMouseLeave={() => setHoveredFieldType(null)}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleAddFieldOfType(item)}
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition text-left group cursor-pointer"
+                              >
+                                <div
+                                  className={`flex h-7 w-7 items-center justify-center rounded-lg ${item.iconBg} shadow-2xs shrink-0`}
+                                >
+                                  <item.icon className="h-4 w-4" />
+                                </div>
+                                <span className="group-hover:text-slate-900 font-medium">{item.label}</span>
+                              </button>
+
+                              {/* Hover Popover preview to the left */}
+                              {hoveredFieldType === item.type && (
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-64 rounded-2xl bg-white p-4 shadow-xl border border-slate-200/90 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                                  <div className="mb-3 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                                    {item.preview}
+                                  </div>
+                                  <h4 className="text-xs font-bold text-slate-900 mb-1">{item.label}</h4>
+                                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                                    {item.description}
+                                  </p>
+                                  {/* Pointer Arrow */}
+                                  <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 bg-white border-r border-t border-slate-200/90" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Right Column: Campos do Formulário Sidebar (matching screenshot with hover popover) */}
-                <div className="lg:col-span-4 relative">
-                  <div className="sticky top-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs overflow-visible">
-                    <h3 className="text-sm font-bold text-slate-900 mb-4">
-                      Campos do Formulário
-                    </h3>
-
-                    {/* Group: Básico */}
-                    <div className="space-y-1 mb-5">
-                      <div className="px-1 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Básico
-                      </div>
-                      {FORM_FIELD_TYPES.filter((t) => t.category === "Básico").map((item) => (
-                        <div
-                          key={item.type}
-                          className="relative"
-                          onMouseEnter={() => setHoveredFieldType(item.type)}
-                          onMouseLeave={() => setHoveredFieldType(null)}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleAddFieldOfType(item)}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition text-left group cursor-pointer"
-                          >
-                            <div
-                              className={`flex h-7 w-7 items-center justify-center rounded-lg ${item.iconBg} shadow-2xs shrink-0`}
-                            >
-                              <item.icon className="h-4 w-4" />
-                            </div>
-                            <span className="group-hover:text-slate-900 font-medium">{item.label}</span>
-                          </button>
-
-                          {/* Hover Popover preview to the left */}
-                          {hoveredFieldType === item.type && (
-                            <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-64 rounded-2xl bg-white p-4 shadow-xl border border-slate-200/90 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                              <div className="mb-3 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                                {item.preview}
-                              </div>
-                              <h4 className="text-xs font-bold text-slate-900 mb-1">{item.label}</h4>
-                              <p className="text-[11px] text-slate-500 leading-relaxed">
-                                {item.description}
-                              </p>
-                              {/* Pointer Arrow */}
-                              <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 bg-white border-r border-t border-slate-200/90" />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Group: Avançado */}
-                    <div className="space-y-1 border-t border-slate-100 pt-4">
-                      <div className="px-1 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Avançado
-                      </div>
-                      {FORM_FIELD_TYPES.filter((t) => t.category === "Avançado").map((item) => (
-                        <div
-                          key={item.type}
-                          className="relative"
-                          onMouseEnter={() => setHoveredFieldType(item.type)}
-                          onMouseLeave={() => setHoveredFieldType(null)}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleAddFieldOfType(item)}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100/80 transition text-left group cursor-pointer"
-                          >
-                            <div
-                              className={`flex h-7 w-7 items-center justify-center rounded-lg ${item.iconBg} shadow-2xs shrink-0`}
-                            >
-                              <item.icon className="h-4 w-4" />
-                            </div>
-                            <span className="group-hover:text-slate-900 font-medium">{item.label}</span>
-                          </button>
-
-                          {/* Hover Popover preview to the left */}
-                          {hoveredFieldType === item.type && (
-                            <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 w-64 rounded-2xl bg-white p-4 shadow-xl border border-slate-200/90 z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                              <div className="mb-3 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                                {item.preview}
-                              </div>
-                              <h4 className="text-xs font-bold text-slate-900 mb-1">{item.label}</h4>
-                              <p className="text-[11px] text-slate-500 leading-relaxed">
-                                {item.description}
-                              </p>
-                              {/* Pointer Arrow */}
-                              <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rotate-45 bg-white border-r border-t border-slate-200/90" />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
