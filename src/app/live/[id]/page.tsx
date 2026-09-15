@@ -78,7 +78,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Video & audio player state
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Default to muted for guaranteed autoplay without browser blocking
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTheater, setIsTheater] = useState(false);
   const [soundTested, setSoundTested] = useState(false);
@@ -91,6 +91,22 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   // LiveKit Cloud Subscriber for Attendee
   const livekitRoomRef = useRef<Room | null>(null);
   const [hasLiveKitTracks, setHasLiveKitTracks] = useState(false);
+  const [subscribedVideoTrack, setSubscribedVideoTrack] = useState<RemoteTrack | null>(null);
+
+  // Unmute helper: unmutes both LiveKit audio elements and fallback video
+  const handleUnmute = () => {
+    setIsMuted(false);
+    document.querySelectorAll<HTMLAudioElement>("[data-livekit-audio]").forEach((el) => {
+      el.muted = false;
+      el.play().catch(() => {});
+    });
+    if (videoRef.current) {
+      if (!hasLiveKitTracks) {
+        videoRef.current.muted = false;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  };
 
   // Initialize WebRTC Viewer Receiver
   useEffect(() => {
@@ -136,19 +152,11 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
         const handleAttachTrack = (track: RemoteTrack) => {
           if (track.kind === Track.Kind.Video) {
+            setSubscribedVideoTrack(track);
             setHasLiveKitTracks(true);
-            if (videoRef.current && isLive) {
-              track.attach(videoRef.current);
-              videoRef.current.play().catch(() => {});
-            }
           }
           if (track.kind === Track.Kind.Audio) {
-            if (isLive) {
-              const el = track.attach();
-              el.setAttribute("data-livekit-audio", "true");
-              el.setAttribute("data-livekit-audio-id", track.sid || "audio");
-              document.body.appendChild(el);
-            }
+            setHasLiveKitTracks(true);
           }
         };
 
@@ -156,6 +164,9 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
           track.detach();
+          if (track.kind === Track.Kind.Video) {
+            setSubscribedVideoTrack((curr) => (curr?.sid === track.sid ? null : curr));
+          }
         });
 
         await room.connect(url, token);
@@ -191,71 +202,61 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId, userName]);
 
-  // Sync LiveKit video & audio tracks when transitioning between waiting room and live stage
+  // Synchronize LiveKit and WebRTC video track to videoRef element
   useEffect(() => {
-    const room = livekitRoomRef.current;
-    if (!room) return;
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
 
-    if (!isLive) {
-      // Detach all audio elements when not live to prevent green room audio leakage
-      document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+    if (!isLive || selectedSource !== "webrtc") {
+      videoEl.srcObject = null;
       return;
     }
 
-    // When LIVE, attach video to videoRef and audio to DOM
+    if (subscribedVideoTrack) {
+      subscribedVideoTrack.attach(videoEl);
+      videoEl.muted = true; // LiveKit video track is visual-only; audio is on separate elements
+      videoEl.play().catch((err) => console.warn("LiveKit video autoplay warning:", err));
+    } else if (remoteStream) {
+      videoEl.srcObject = remoteStream;
+      videoEl.muted = isMuted;
+      videoEl.play().catch((err) => {
+        console.warn("Autoplay with sound blocked by browser, trying muted:", err);
+        videoEl.muted = true;
+        setIsMuted(true);
+        videoEl.play().catch(() => {});
+      });
+    }
+  }, [isLive, subscribedVideoTrack, remoteStream, selectedSource, isMuted]);
+
+  // Synchronize LiveKit audio tracks to DOM audio elements
+  useEffect(() => {
+    if (!isLive) {
+      document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
+      return;
+    }
+
+    const room = livekitRoomRef.current;
+    if (!room) return;
+
     for (const p of room.remoteParticipants.values()) {
       for (const pub of p.trackPublications.values()) {
-        if (pub.track) {
-          if (pub.track.kind === Track.Kind.Video && videoRef.current) {
-            pub.track.attach(videoRef.current);
-            videoRef.current.play().catch(() => {});
-            setHasLiveKitTracks(true);
-          } else if (pub.track.kind === Track.Kind.Audio) {
-            const sid = pub.track.sid || "audio";
-            const existing = document.querySelector(`[data-livekit-audio-id="${sid}"]`);
-            if (!existing) {
-              const el = pub.track.attach();
-              el.setAttribute("data-livekit-audio", "true");
-              el.setAttribute("data-livekit-audio-id", sid);
-              document.body.appendChild(el);
-            }
+        if (pub.track && pub.track.kind === Track.Kind.Audio) {
+          const sid = pub.track.sid || "audio";
+          let el = document.querySelector(`[data-livekit-audio-id="${sid}"]`) as HTMLAudioElement | null;
+          if (!el) {
+            el = pub.track.attach() as HTMLAudioElement;
+            el.setAttribute("data-livekit-audio", "true");
+            el.setAttribute("data-livekit-audio-id", sid);
+            document.body.appendChild(el);
+          }
+          el.muted = isMuted;
+          if (!isMuted) {
+            el.play().catch(() => {});
           }
         }
       }
     }
-  }, [isLive, selectedSource, hasLiveKitTracks]);
-
-  // Bind remote WebRTC stream to HTML5 video element with autoplay fallback when live (and not using LiveKit tracks)
-  useEffect(() => {
-    if (!isLive) {
-      if (videoRef.current && !hasLiveKitTracks) {
-        videoRef.current.srcObject = null;
-      }
-      return;
-    }
-
-    if (videoRef.current && remoteStream && !hasLiveKitTracks) {
-      videoRef.current.srcObject = remoteStream;
-      videoRef.current.play().catch((err) => {
-        console.warn("Autoplay with sound blocked by browser, trying muted:", err);
-        if (videoRef.current) {
-          videoRef.current.muted = true;
-          setIsMuted(true);
-          videoRef.current.play().catch(() => {});
-        }
-      });
-    }
-  }, [isLive, remoteStream, hasLiveKitTracks]);
-
-  // Sync mute state to video element
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = isMuted;
-    }
-  }, [isMuted]);
+  }, [isLive, hasLiveKitTracks, isMuted]);
 
   // Survey state for completed webinar
   const [rating, setRating] = useState(5);
@@ -532,23 +533,31 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
               </div>
             ) : isLive ? (
               /* LIVE STAGE SCREEN WITH REAL WEBRTC / LIVEKIT VIDEO */
-              <div className="relative h-full w-full flex items-center justify-center bg-black">
+              <div
+                className="relative h-full w-full flex items-center justify-center bg-black cursor-pointer select-none"
+                onClick={() => {
+                  if (isMuted) handleUnmute();
+                }}
+              >
                 {/* HTML5 WebRTC / LiveKit Video Player */}
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  muted={isMuted}
-                  className="h-full w-full object-contain block"
+                  muted={hasLiveKitTracks ? true : isMuted}
+                  className="h-full w-full object-contain block pointer-events-none"
                 />
 
                 {/* Floating Unmute Prompt if audio is muted */}
                 {(hasLiveKitTracks || remoteStream) && isMuted && (
                   <button
-                    onClick={() => setIsMuted(false)}
-                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-slate-900/95 hover:bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-white shadow-2xl backdrop-blur-md transition transform hover:scale-105 active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnmute();
+                    }}
+                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-[#00b4fb] hover:from-sky-400 hover:to-[#00a3e3] px-5 py-2.5 text-xs font-black text-white shadow-2xl shadow-sky-500/50 backdrop-blur-md transition transform hover:scale-105 active:scale-95 animate-bounce border border-white/20"
                   >
-                    <VolumeX className="h-4 w-4 text-rose-400 animate-pulse" />
+                    <Volume2 className="h-4 w-4 fill-current" />
                     <span>Clique para Ativar Som 🔊</span>
                   </button>
                 )}
@@ -757,7 +766,19 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             {/* Bottom Floating Stage Controls */}
             <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2">
               <button
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={() => {
+                  if (isMuted) {
+                    handleUnmute();
+                  } else {
+                    setIsMuted(true);
+                    document.querySelectorAll<HTMLAudioElement>("[data-livekit-audio]").forEach((el) => {
+                      el.muted = true;
+                    });
+                    if (videoRef.current && !hasLiveKitTracks) {
+                      videoRef.current.muted = true;
+                    }
+                  }
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition"
                 title={isMuted ? "Ativar som" : "Silenciar áudio"}
               >

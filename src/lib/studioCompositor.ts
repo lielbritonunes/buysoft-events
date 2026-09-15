@@ -137,6 +137,8 @@ export class StudioCompositor {
   private ctx: CanvasRenderingContext2D;
   private animId: number | null = null;
   private tickerOffset = 1920;
+  private lastRenderTime = 0;
+  private keepaliveInterval: any = null;
 
   // Internal video elements to sample from
   private internalLocalVideo: HTMLVideoElement;
@@ -264,6 +266,13 @@ export class StudioCompositor {
     }
   }
 
+  public getAudioTrack(): MediaStreamTrack | null {
+    if (this.audioDest) {
+      return this.audioDest.stream.getAudioTracks()[0] || null;
+    }
+    return null;
+  }
+
   public getCompositeStream(): MediaStream {
     if (!this.outputStream) {
       const stream = this.canvas.captureStream(30);
@@ -271,13 +280,11 @@ export class StudioCompositor {
       if (vTrack) {
         vTrack.contentHint = "detail";
       }
-      if (this.audioDest) {
-        const audioTrack = this.audioDest.stream.getAudioTracks()[0];
-        if (audioTrack) {
-          stream.addTrack(audioTrack);
-        }
-      }
       this.outputStream = stream;
+    }
+    const aTrack = this.getAudioTrack();
+    if (aTrack && !this.outputStream.getAudioTracks().includes(aTrack)) {
+      this.outputStream.addTrack(aTrack);
     }
     return this.outputStream;
   }
@@ -285,9 +292,20 @@ export class StudioCompositor {
   private startRenderLoop() {
     const render = () => {
       this.renderFrame();
+      this.lastRenderTime = performance.now();
       this.animId = requestAnimationFrame(render);
     };
     this.animId = requestAnimationFrame(render);
+
+    // Keepalive interval for background tabs (ensures canvas capture stream never freezes when host switches windows)
+    if (typeof window !== "undefined") {
+      this.keepaliveInterval = setInterval(() => {
+        if (performance.now() - this.lastRenderTime > 75) {
+          this.renderFrame();
+          this.lastRenderTime = performance.now();
+        }
+      }, 75);
+    }
   }
 
   private renderFrame() {
@@ -582,6 +600,10 @@ export class StudioCompositor {
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
+    }
+    if (this.keepaliveInterval) {
+      clearInterval(this.keepaliveInterval);
+      this.keepaliveInterval = null;
     }
     if (this.audioCtx) {
       this.audioCtx.close().catch(() => {});

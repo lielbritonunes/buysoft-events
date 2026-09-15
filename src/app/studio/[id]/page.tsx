@@ -335,40 +335,49 @@ export default function StudioPage({ params, searchParams }: Props) {
           return;
         }
 
-        // Live webinar active: publish pristine 1080p Full HD composite stream (5 Mbps, simulcast disabled)
+        // Live webinar active: publish pristine 1080p Full HD composite stream (simulcast disabled)
         const compositeStream = compositorRef.current!.getCompositeStream();
         const cVt = compositeStream.getVideoTracks()[0];
-        const cAt = compositeStream.getAudioTracks()[0];
+        const cAt = compositorRef.current!.getAudioTrack() || compositeStream.getAudioTracks()[0];
 
         const existingVideoPub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
           (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
           cVt.contentHint = "detail";
-          await room.localParticipant.publishTrack(cVt, {
-            name: "stage-composite",
-            source: Track.Source.ScreenShare, // High-priority detail mode for text and presentations
-            simulcast: false, // Disables potato-quality 360p downscaling
-            degradationPreference: "maintain-resolution",
-            videoEncoding: {
-              maxBitrate: 5_000_000, // 5 Mbps Full HD
-              maxFramerate: 30,
-            },
-            videoCodec: "h264",
-          }).catch((err) => console.warn("Error publishing 1080p composite video:", err));
+          try {
+            await room.localParticipant.publishTrack(cVt, {
+              name: "stage-composite",
+              source: Track.Source.ScreenShare, // High-priority detail mode for text and presentations
+              simulcast: false, // Disables potato-quality 360p downscaling
+              degradationPreference: "maintain-resolution",
+              videoEncoding: {
+                maxBitrate: 4_000_000, // 4 Mbps Full HD
+                maxFramerate: 30,
+              },
+            });
+            console.log("LiveKit: 1080p composite stage track published successfully!");
+          } catch (pubErr) {
+            console.error("LiveKit: Error publishing composite stage track:", pubErr);
+          }
         }
 
         const existingAudioPub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
           (p) => p.trackName === "stage-audio"
         );
         if (cAt && !existingAudioPub) {
-          await room.localParticipant.publishTrack(cAt, {
-            name: "stage-audio",
-            source: Track.Source.Microphone,
-            audioPreset: {
-              maxBitrate: 96_000,
-            },
-          }).catch((err) => console.warn("Error publishing composite audio:", err));
+          try {
+            await room.localParticipant.publishTrack(cAt, {
+              name: "stage-audio",
+              source: Track.Source.Microphone,
+              audioPreset: {
+                maxBitrate: 96_000,
+              },
+            });
+            console.log("LiveKit: Studio audio track published successfully!");
+          } catch (audioErr) {
+            console.error("LiveKit: Error publishing studio audio track:", audioErr);
+          }
         }
       } catch (err) {
         console.warn("Error synchronizing composite tracks in LiveKit:", err);
