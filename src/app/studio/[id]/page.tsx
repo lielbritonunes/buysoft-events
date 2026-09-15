@@ -349,18 +349,17 @@ export default function StudioPage({ params, searchParams }: Props) {
           (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
-          cVt.contentHint = "motion";
+          cVt.contentHint = "detail";
           try {
             await room.localParticipant.publishTrack(cVt, {
               name: "stage-composite",
-              source: Track.Source.Camera, // Real-time video source prioritizing fluid 30fps motion
-              simulcast: true, // Enables dynamic multi-layer fallback so viewers don't buffer or freeze
-              degradationPreference: "maintain-framerate", // Preserves smooth framerate without stuttering
+              source: Track.Source.ScreenShare, // High-priority detail mode for razor-sharp text and presentations
+              simulcast: false, // Disables downscaling to 360p/540p potato quality
+              degradationPreference: "maintain-resolution", // Preserves pristine Full HD 1080p resolution
               videoEncoding: {
-                maxBitrate: 3_200_000, // 3.2 Mbps Full HD golden standard
+                maxBitrate: 4_500_000, // 4.5 Mbps Full HD crisp bitrate
                 maxFramerate: 30,
               },
-              videoCodec: "h264",
             });
             console.log("LiveKit: 1080p composite stage track published successfully!");
           } catch (pubErr) {
@@ -508,7 +507,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         });
         const vTrack = sStream.getVideoTracks()[0];
         if (vTrack) {
-          vTrack.contentHint = "motion";
+          vTrack.contentHint = "detail";
         }
         setScreenStream(sStream);
         setIsScreenSharing(true);

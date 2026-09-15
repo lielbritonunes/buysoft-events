@@ -146,11 +146,24 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         if (!token || !url || !isSubscribed) return;
 
         const room = new Room({
-          adaptiveStream: true, // Optimizes buffering and adapts to participant connection jitter
-          dynacast: true,
+          adaptiveStream: false, // Guarantees crisp, native 1080p without downscaling to potato quality
+          dynacast: false,
         });
 
         const handleAttachTrack = (track: RemoteTrack) => {
+          // Zero playout delay: eliminates WebRTC jitter buffer delay for real-time <200ms latency
+          try {
+            const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
+            if (receiver) {
+              if ("playoutDelayHint" in receiver) {
+                (receiver as any).playoutDelayHint = 0;
+              }
+              if ("jitterBufferTarget" in receiver) {
+                (receiver as any).jitterBufferTarget = 0;
+              }
+            }
+          } catch (_) {}
+
           if (track.kind === Track.Kind.Video) {
             setSubscribedVideoTrack(track);
             setHasLiveKitTracks(true);

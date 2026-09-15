@@ -75,7 +75,7 @@ function drawAspectFitVideo(
   ctx.fillStyle = "#000000";
   ctx.fillRect(x, y, w, h);
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "medium";
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(video, drawX, drawY, drawW, drawH);
 
   // Subtle border
@@ -179,7 +179,7 @@ export class StudioCompositor {
     if (!context) throw new Error("Could not create 2D canvas context");
     this.ctx = context;
     this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = "medium";
+    this.ctx.imageSmoothingQuality = "high";
 
     this.internalLocalVideo = document.createElement("video");
     this.internalLocalVideo.autoplay = true;
@@ -346,7 +346,7 @@ export class StudioCompositor {
       const stream = this.canvas.captureStream(30);
       const vTrack = stream.getVideoTracks()[0];
       if (vTrack) {
-        vTrack.contentHint = "motion";
+        vTrack.contentHint = "detail";
       }
       this.outputStream = stream;
     }
@@ -358,15 +358,8 @@ export class StudioCompositor {
   }
 
   private startRenderLoop() {
-    const render = (time: number) => {
-      if (!this.lastFrameTime) this.lastFrameTime = time;
-      const elapsed = time - this.lastFrameTime;
-      // Pace frame rate to ~30 FPS with slight margin
-      if (elapsed >= this.frameInterval - 2) {
-        this.lastFrameTime = time - (elapsed % this.frameInterval);
-        this.renderFrame();
-        this.lastRenderTime = performance.now();
-      }
+    const render = () => {
+      this.renderFrame();
       this.animId = requestAnimationFrame(render);
     };
     this.animId = requestAnimationFrame(render);
@@ -374,11 +367,10 @@ export class StudioCompositor {
     // Keepalive interval for background tabs (ensures canvas capture stream never freezes when host switches windows)
     if (typeof window !== "undefined") {
       this.keepaliveInterval = setInterval(() => {
-        if (performance.now() - this.lastRenderTime > 75) {
+        if (typeof document !== "undefined" && document.hidden) {
           this.renderFrame();
-          this.lastRenderTime = performance.now();
         }
-      }, 75);
+      }, 33);
     }
   }
 
