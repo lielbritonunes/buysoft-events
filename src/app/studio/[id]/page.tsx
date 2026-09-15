@@ -56,7 +56,7 @@ import {
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
-import { Room, Track, DataPacket_Kind } from "livekit-client";
+import { Room, RoomEvent, Track, DataPacket_Kind } from "livekit-client";
 import { StudioCompositor } from "@/lib/studioCompositor";
 
 interface Props {
@@ -303,6 +303,10 @@ export default function StudioPage({ params, searchParams }: Props) {
           return;
         }
 
+        room.on(RoomEvent.ParticipantConnected, () => {
+          publishOverlayState();
+        });
+
         livekitRoomRef.current = room;
         setIsLiveKitConnected(true);
       } catch (err) {
@@ -333,6 +337,9 @@ export default function StudioPage({ params, searchParams }: Props) {
         isScreenSharing,
         isCamOn,
         isOnStage,
+        isMicOn,
+        backgroundPresetId,
+        customBackgroundUrl,
         presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
         brandColor,
         lowerThird: { visible: lowerThirdVisible, name: lowerThirdName, role: lowerThirdRole, company: lowerThirdCompany },
@@ -345,7 +352,7 @@ export default function StudioPage({ params, searchParams }: Props) {
       );
     } catch (_) {}
   }, [
-    isLiveKitConnected, layoutMode, isScreenSharing, isCamOn, isOnStage, userRole, brandColor,
+    isLiveKitConnected, layoutMode, isScreenSharing, isCamOn, isOnStage, isMicOn, backgroundPresetId, customBackgroundUrl, userRole, brandColor,
     lowerThirdVisible, lowerThirdName, lowerThirdRole, lowerThirdCompany,
     tickerVisible, tickerText, bannerVisible, bannerTitle, bannerSubtitle,
   ]);
@@ -354,6 +361,15 @@ export default function StudioPage({ params, searchParams }: Props) {
   useEffect(() => {
     publishOverlayState();
   }, [publishOverlayState]);
+
+  // Periodic broadcast to ensure late-joining or refreshing viewers get current composition state
+  useEffect(() => {
+    if (!isLiveKitConnected || !isWebinarLive) return;
+    const interval = setInterval(() => {
+      publishOverlayState();
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isLiveKitConnected, isWebinarLive, publishOverlayState]);
 
   // Publish/unpublish native tracks directly to LiveKit when going live
   // This uses the OS hardware encoder (H.264) — bypasses canvas entirely

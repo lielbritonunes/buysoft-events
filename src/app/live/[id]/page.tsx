@@ -25,7 +25,11 @@ import {
   Award,
   ChevronRight,
   Info,
-  Zap
+  Zap,
+  Monitor,
+  Mic,
+  MicOff,
+  User,
 } from "lucide-react";
 import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
@@ -33,6 +37,7 @@ import FloatingReactions from "@/components/engagement/FloatingReactions";
 import { getLiveRoomState } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
+import { BACKGROUND_PRESETS } from "@/components/studio/StudioLayoutManager";
 
 function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -104,6 +109,9 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     isScreenSharing: boolean;
     isCamOn: boolean;
     isOnStage: boolean;
+    isMicOn?: boolean;
+    backgroundPresetId?: string;
+    customBackgroundUrl?: string;
     presenterName: string;
     brandColor: string;
     lowerThird: { visible: boolean; name: string; role: string; company: string };
@@ -578,157 +586,269 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 `}} />
 
                 {/* --- VIDEO LAYER (CSS COMPOSITION) --- */}
-                {/* 1. LiveKit Tracks Active: CSS Layout Stage */}
-                {(cameraTrack || screenTrack) ? (
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    {/* Mode A: SPLIT (Side by Side) */}
-                    {((overlayState?.layoutMode === "split" || (!overlayState?.layoutMode && cameraTrack && screenTrack))) && cameraTrack && screenTrack ? (
-                      <div className="flex flex-col md:flex-row items-center justify-center gap-3 w-full h-full p-2 sm:p-4">
-                        {/* Screen Share Tile */}
-                        <div className="flex-1 w-full h-full max-h-full flex items-center justify-center bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
-                          <video
-                            ref={screenVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-contain pointer-events-none"
-                          />
-                          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-slate-900/85 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-slate-300 border border-slate-700 pointer-events-none">
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#00b4fb]" />
-                            <span>Tela Compartilhada</span>
-                          </div>
-                        </div>
+                {(() => {
+                  const layoutMode = overlayState?.layoutMode || (screenTrack && cameraTrack ? "split" : "solo");
+                  const isScreenActive = Boolean(screenTrack);
+                  const isPresenterOnStage = overlayState ? overlayState.isOnStage : true;
+                  const presenterName = overlayState?.presenterName || roomState?.speakers?.[0]?.name || "Eliel Nunes (Host)";
+                  const isMicOn = overlayState?.isMicOn ?? true;
+                  const currentBg = BACKGROUND_PRESETS.find((p) => p.id === overlayState?.backgroundPresetId) || BACKGROUND_PRESETS[0];
+                  const backgroundStyle: React.CSSProperties = overlayState?.customBackgroundUrl
+                    ? {
+                        backgroundImage: `url(${overlayState.customBackgroundUrl})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }
+                    : currentBg.style || {};
 
-                        {/* Camera Tile */}
-                        <div className="flex-1 w-full h-full max-h-full flex items-center justify-center bg-slate-950 rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
-                          <video
-                            ref={cameraVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-cover pointer-events-none"
-                          />
-                          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-slate-900/85 backdrop-blur-md px-2.5 py-1 text-[11px] font-bold text-slate-300 border border-slate-700 pointer-events-none">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            <span>{overlayState?.presenterName || "Apresentador"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : overlayState?.layoutMode === "pip" && cameraTrack && screenTrack ? (
-                      /* Mode B: PiP (Picture in Picture) */
-                      <div className="relative w-full h-full flex items-center justify-center bg-black">
-                        {/* Main Screen Content */}
-                        <div className="w-full h-full flex items-center justify-center">
-                          <video
-                            ref={screenVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-contain pointer-events-none"
-                          />
-                        </div>
-
-                        {/* Inset Camera Float */}
-                        <div className="absolute bottom-12 right-6 w-44 sm:w-64 aspect-video rounded-2xl shadow-2xl border-2 border-slate-700/90 bg-slate-900 overflow-hidden z-20 flex items-center justify-center">
-                          <video
-                            ref={cameraVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-cover pointer-events-none"
-                          />
-                          <div className="absolute bottom-1.5 left-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white pointer-events-none">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            <span className="truncate max-w-[120px]">{overlayState?.presenterName || "Apresentador"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Mode C: SOLO or Screen-only / Camera-only */
-                      <div className="relative w-full h-full flex items-center justify-center bg-black">
-                        {screenTrack ? (
-                          <video
-                            ref={screenVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-contain pointer-events-none"
-                          />
-                        ) : (
-                          <video
-                            ref={cameraVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-contain pointer-events-none"
-                          />
-                        )}
-                        {/* Hidden companion video element mounted to ensure track ref stays attached */}
+                  if (!screenTrack && !cameraTrack) {
+                    if (remoteStream && remoteStream.getVideoTracks().length > 0) {
+                      return (
                         <video
-                          ref={screenTrack ? cameraVideoRef : screenVideoRef}
+                          ref={videoRef}
                           autoPlay
                           playsInline
-                          muted
-                          className="hidden"
+                          muted={isMuted}
+                          className="h-full w-full object-contain block pointer-events-none"
                         />
-                      </div>
-                    )}
-                  </div>
-                ) : remoteStream && remoteStream.getVideoTracks().length > 0 ? (
-                  /* 2. P2P WebRTC Fallback Track */
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted={isMuted}
-                    className="h-full w-full object-contain block pointer-events-none"
-                  />
-                ) : (
-                  /* 3. Waiting for Video Stream / Audio-Only Stage Visualizer */
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
-                    <div className="text-center space-y-4 p-6 z-10">
-                      <div className="relative inline-block">
-                        <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
-                          <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-extrabold">
-                            {roomState?.speakers?.[0]?.name ? roomState.speakers[0].name.charAt(0) : "B"}
+                      );
+                    }
+                    return (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
+                        <div className="text-center space-y-4 p-6 z-10">
+                          <div className="relative inline-block">
+                            <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
+                              <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-extrabold">
+                                {presenterName.charAt(0) || "B"}
+                              </div>
+                            </div>
+                            <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 ring-4 ring-slate-900 text-white text-[10px] font-bold">
+                              HD
+                            </span>
+                          </div>
+
+                          <div>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 backdrop-blur-md px-3 py-1 border border-slate-700">
+                              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                              <span className="text-xs font-bold text-slate-200">
+                                {presenterName}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                ({roomState?.speakers?.[0]?.company || "Buysoft"})
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2">
+                              Sessão Ao Vivo • Sincronizando transmissão em tempo real...
+                            </p>
+                          </div>
+
+                          {/* Animated Audio Equalizer */}
+                          <div className="flex items-center justify-center gap-1 pt-2">
+                            {[32, 48, 24, 56, 40, 60, 36, 52, 28, 44].map((h, i) => (
+                              <div
+                                key={i}
+                                className="w-1 rounded-full bg-[#00b4fb] transition-all duration-150 animate-pulse"
+                                style={{
+                                  height: `${h}px`,
+                                  animationDelay: `${i * 80}ms`,
+                                }}
+                              />
+                            ))}
                           </div>
                         </div>
-                        <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 ring-4 ring-slate-900 text-white text-[10px] font-bold">
-                          HD
-                        </span>
                       </div>
+                    );
+                  }
 
-                      <div>
-                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 backdrop-blur-md px-3 py-1 border border-slate-700">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                          <span className="text-xs font-bold text-slate-200">
-                            {roomState?.speakers?.[0]?.name || "Palestrante Principal"}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            ({roomState?.speakers?.[0]?.company || "Buysoft"})
-                          </span>
+                  return (
+                    <div className={`relative w-full h-full flex items-center justify-center transition-all duration-300 ${currentBg.className}`} style={backgroundStyle}>
+                      {/* Mode 1: SPLIT LAYOUT (Screen Share + Presenter Sidebar) */}
+                      {layoutMode === "split" && isScreenActive ? (
+                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center gap-3 sm:gap-4 transition-all duration-300">
+                          {/* Main Screen Share Tile */}
+                          <div className="relative flex-1 w-full h-full min-h-0 rounded-2xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                            <video
+                              ref={screenVideoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="h-full w-full object-contain pointer-events-none"
+                            />
+                            <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                              <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
+                              <span>Apresentação / Tela</span>
+                            </div>
+                          </div>
+
+                          {/* Presenter Sidebar */}
+                          {isPresenterOnStage && (
+                            <div className="relative w-full lg:w-72 h-48 lg:h-full flex flex-col justify-center shrink-0">
+                              <div className="relative h-48 lg:h-56 w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+                                <video
+                                  ref={cameraVideoRef}
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
+                                />
+                                {!cameraTrack && (
+                                  <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                                    <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl shadow-sky-500/25">
+                                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-2xl font-black">
+                                        {presenterName.charAt(0) || "P"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                                  <span>{presenterName}</span>
+                                  {isMicOn ? (
+                                    <Mic className="h-3 w-3 text-emerald-400" />
+                                  ) : (
+                                    <MicOff className="h-3 w-3 text-rose-400" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-2">
-                          Sessão Ao Vivo • Sincronizando transmissão em tempo real...
-                        </p>
-                      </div>
+                      ) : layoutMode === "pip" && isScreenActive ? (
+                        /* Mode 2: PICTURE-IN-PICTURE (Screen Share Full + Floating Presenter) */
+                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300">
+                          <div className="relative h-full w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                            <video
+                              ref={screenVideoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="h-full w-full object-contain pointer-events-none"
+                            />
+                            <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                              <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
+                              <span>Apresentação</span>
+                            </div>
 
-                      {/* Animated Audio Equalizer */}
-                      <div className="flex items-center justify-center gap-1 pt-2">
-                        {[32, 48, 24, 56, 40, 60, 36, 52, 28, 44].map((h, i) => (
-                          <div
-                            key={i}
-                            className="w-1 rounded-full bg-[#00b4fb] transition-all duration-150 animate-pulse"
-                            style={{
-                              height: `${h}px`,
-                              animationDelay: `${i * 80}ms`,
-                            }}
-                          />
-                        ))}
-                      </div>
+                            {/* Floating Presenter Bubble */}
+                            {isPresenterOnStage && (
+                              <div className="absolute bottom-4 right-4 z-20 h-36 w-52 rounded-xl border-2 border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden backdrop-blur-md flex items-center justify-center">
+                                <video
+                                  ref={cameraVideoRef}
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
+                                />
+                                {!cameraTrack && (
+                                  <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-md flex items-center justify-center pointer-events-none">
+                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-base font-black">
+                                      {presenterName.charAt(0) || "P"}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white flex items-center gap-1 pointer-events-none">
+                                  <span>{presenterName}</span>
+                                  {isMicOn ? (
+                                    <Mic className="h-2.5 w-2.5 text-emerald-400" />
+                                  ) : (
+                                    <MicOff className="h-2.5 w-2.5 text-rose-400" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : layoutMode === "grid" && isScreenActive ? (
+                        /* Mode 3: GRID LAYOUT */
+                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300">
+                          <div className="w-full h-full grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center">
+                            <div className="relative h-full max-h-[65vh] w-full rounded-2xl border border-slate-800/80 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                              <video
+                                ref={screenVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="h-full w-full object-contain pointer-events-none"
+                              />
+                              <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                                <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
+                                <span>Apresentação / Tela</span>
+                              </div>
+                            </div>
+                            {isPresenterOnStage && (
+                              <div className="relative h-full max-h-[65vh] w-full rounded-2xl border border-slate-800/80 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+                                <video
+                                  ref={cameraVideoRef}
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
+                                />
+                                {!cameraTrack && (
+                                  <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl pointer-events-none">
+                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl font-black">
+                                      {presenterName.charAt(0) || "P"}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                                  <span>{presenterName}</span>
+                                  {isMicOn ? <Mic className="h-3 w-3 text-emerald-400" /> : <MicOff className="h-3 w-3 text-rose-400" />}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Mode 4: SOLO LAYOUT */
+                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300">
+                          {isScreenActive ? (
+                            <div className="relative h-full w-full rounded-2xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                              <video
+                                ref={screenVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="h-full w-full object-contain pointer-events-none"
+                              />
+                              <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                                <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
+                                <span>Apresentação / Tela</span>
+                              </div>
+                              <video ref={cameraVideoRef} autoPlay playsInline muted className="hidden" />
+                            </div>
+                          ) : (
+                            <div className="relative h-full w-full max-w-4xl rounded-2xl border border-slate-800/80 bg-slate-900/90 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-xs">
+                              <video
+                                ref={cameraVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
+                              />
+                              {!cameraTrack && (
+                                <div className="flex flex-col items-center justify-center gap-3 pointer-events-none">
+                                  <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
+                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black">
+                                      {presenterName.charAt(0) || "P"}
+                                    </div>
+                                  </div>
+                                  <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold text-slate-300 border border-slate-700">
+                                    Palestrante Ao Vivo
+                                  </span>
+                                </div>
+                              )}
+                              <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
+                                <span>{presenterName}</span>
+                                {isMicOn ? <Mic className="h-3.5 w-3.5 text-emerald-400" /> : <MicOff className="h-3.5 w-3.5 text-rose-400" />}
+                              </div>
+                              <video ref={screenVideoRef} autoPlay playsInline muted className="hidden" />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* --- OVERLAYS LAYER (HTML/CSS VIA DATACHANNEL) --- */}
 
