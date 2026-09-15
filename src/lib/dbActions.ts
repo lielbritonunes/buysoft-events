@@ -200,6 +200,7 @@ export async function updateEvent(
     layoutType: string;
     advancedTheme: string;
     confirmationMessage: string | null;
+    customLandingJson?: string | null;
     customEmailsJson: string | null;
     seriesId: string | null;
     chatEnabled: boolean;

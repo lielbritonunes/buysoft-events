@@ -64,6 +64,9 @@ import {
 import MarketingTab from "@/components/workspace/MarketingTab";
 import AnalyticsTab from "@/components/workspace/AnalyticsTab";
 import RecordingsTab from "@/components/workspace/RecordingsTab";
+import ThemeSelectorModal from "@/components/workspace/ThemeSelectorModal";
+import LandingPageBuilder from "@/components/builder/LandingPageBuilder";
+import { PageBlock, getDefaultBlocksForTheme } from "@/components/builder/builderTemplates";
 
 interface FieldTypeDefinition {
   type: string;
@@ -293,6 +296,38 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
     event.advancedTheme || "crosby"
   );
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  const [customLandingBlocks, setCustomLandingBlocks] = useState<PageBlock[]>(() => {
+    if (event.customLandingJson) {
+      try {
+        const parsed = JSON.parse(event.customLandingJson);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return getDefaultBlocksForTheme(event.advancedTheme || "crosby", event);
+  });
+
+  const handleSelectThemeAndStart = (themeId: string) => {
+    setAdvancedTheme(themeId);
+    setLayoutType("advanced");
+    const freshBlocks = getDefaultBlocksForTheme(themeId, event);
+    setCustomLandingBlocks(freshBlocks);
+    setIsThemeModalOpen(false);
+    setIsBuilderOpen(true);
+  };
+
+  const handleSaveBuilder = async (blocks: PageBlock[], chosenTheme: string) => {
+    setCustomLandingBlocks(blocks);
+    setAdvancedTheme(chosenTheme);
+    setLayoutType("advanced");
+    const updated = await updateEvent(event.id, {
+      layoutType: "advanced",
+      advancedTheme: chosenTheme,
+      customLandingJson: JSON.stringify(blocks),
+    });
+    onUpdateEvent(updated);
+  };
+
   const [confirmationMessage, setConfirmationMessage] = useState<string>(
     event.confirmationMessage ||
       "Obrigado por se inscrever! Seu acesso ao webinar está confirmado. Enviamos as orientações e o link exclusivo para o seu e-mail."
@@ -436,6 +471,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
           layoutType,
           advancedTheme,
           confirmationMessage,
+          customLandingJson: JSON.stringify(customLandingBlocks),
         }),
         saveFormFields(
           event.id,
@@ -1128,33 +1164,26 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                       >
                         <div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                              Padrão Buysoft / RingCentral
-                            </span>
+                            <h5 className="text-base font-bold text-slate-900">Layout Clássico</h5>
                             {layoutType === "classic" && (
                               <span className="rounded-full bg-[#00b4fb] px-2.5 py-0.5 text-[10px] font-bold text-white">
                                 Ativo
                               </span>
                             )}
                           </div>
-                          <h5 className="text-base font-bold text-slate-900 mt-2">Layout Clássico</h5>
-                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                             Página de alta conversão, limpa e direta. Formulário lateral com cronômetro regressivo, detalhes do evento e oradores em destaque.
                           </p>
                         </div>
 
-                        <div className="mt-4 rounded-lg bg-slate-100 p-2 text-center text-[11px] font-medium text-slate-600">
-                          Ideal para webinars corporativos e lançamentos rápidos
+                        <div className="mt-4 rounded-lg bg-slate-100 p-2.5 text-center text-[11px] font-medium text-slate-600">
+                          {layoutType === "classic" ? "✓ Layout Clássico selecionado" : "Clique para usar o Layout Clássico"}
                         </div>
                       </div>
 
                       {/* Option 2: Avançado */}
                       <div
-                        onClick={() => {
-                          setLayoutType("advanced");
-                          setIsThemeModalOpen(true);
-                        }}
-                        className={`cursor-pointer rounded-2xl border-2 p-5 transition flex flex-col justify-between ${
+                        className={`rounded-2xl border-2 p-5 transition flex flex-col justify-between ${
                           layoutType === "advanced"
                             ? "border-[#00b4fb] bg-sky-50/40 shadow-xs"
                             : "border-slate-200 bg-white hover:border-slate-300"
@@ -1162,35 +1191,42 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                       >
                         <div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[#0084be]">
-                              Modular & Rico
-                            </span>
+                            <h5 className="text-base font-bold text-slate-900">Layout Avançado</h5>
                             {layoutType === "advanced" && (
                               <span className="rounded-full bg-[#00b4fb] px-2.5 py-0.5 text-[10px] font-bold text-white">
                                 Ativo: {advancedTheme.toUpperCase()}
                               </span>
                             )}
                           </div>
-                          <h5 className="text-base font-bold text-slate-900 mt-2">Layout Avançado (Temas)</h5>
-                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                            Construtor de páginas com templates modulares (Crosby, Seldon, Minimalist). Ideal para feiras, cúpulas e grandes congressos.
+                          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                            Construtor de páginas com templates modulares (Crosby, Seldon, Hazel, Nolan). Ideal para feiras, cúpulas e grandes congressos.
                           </p>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between pt-1">
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-1">
                           <span className="text-[11px] font-semibold text-[#00b4fb]">
-                            Tema selecionado: <b>{advancedTheme}</b>
+                            Tema selecionado: <b>{advancedTheme.toUpperCase()}</b>
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsThemeModalOpen(true);
-                            }}
-                            className="rounded-lg bg-white border border-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shadow-xs"
-                          >
-                            Trocar tema
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {layoutType === "advanced" && (
+                              <button
+                                type="button"
+                                onClick={() => setIsBuilderOpen(true)}
+                                className="rounded-xl border border-[#00b4fb] bg-white hover:bg-sky-50 px-3 py-1.5 text-xs font-bold text-[#0084be] shadow-2xs transition"
+                              >
+                                Personalizar no Construtor
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsThemeModalOpen(true);
+                              }}
+                              className="rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition active:scale-95"
+                            >
+                              Usar este layout
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2330,205 +2366,24 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
         </main>
       </div>
 
-      {/* MODAL: ESCOLHA O TEMA (MATCHING IMAGE 2 EXACTLY) */}
-      {isThemeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
-            {/* Modal Title */}
-            <div className="p-6 text-center border-b border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-900">Escolha o tema</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Selecione o estilo visual que melhor atende ao perfil do seu público
-              </p>
-            </div>
+      {/* Theme Selector Modal (Crosby, Seldon, Hazel, Nolan) */}
+      <ThemeSelectorModal
+        isOpen={isThemeModalOpen}
+        currentTheme={advancedTheme}
+        onClose={() => setIsThemeModalOpen(false)}
+        onSelectAndStart={handleSelectThemeAndStart}
+      />
 
-            {/* Themes Grid matching Image 2 */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Theme 1: Crosby */}
-                <div
-                  onClick={() => setAdvancedTheme("crosby")}
-                  className={`cursor-pointer rounded-2xl border-2 p-3 transition flex flex-col justify-between ${
-                    advancedTheme === "crosby"
-                      ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/20 bg-sky-50/20"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 p-2 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-700">your logo</span>
-                      <span className="text-[9px] text-slate-400">About • Speakers • Schedule</span>
-                    </div>
-                    <div className="my-auto text-left pl-2">
-                      <p className="text-sm font-extrabold text-slate-900">The future of everything</p>
-                      <p className="text-[9px] text-slate-500 line-clamp-1">Get ready for three days of disruptive ideas</p>
-                      <div className="mt-2 inline-block rounded bg-black px-2 py-0.5 text-[8px] font-bold text-white">
-                        Register
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">Crosby</h4>
-                      <p className="text-xs text-slate-500">University Events, Job Fairs, Expos/Tradeshows, Workshops</p>
-                    </div>
-
-                    {advancedTheme === "crosby" ? (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-                        ★ Selecionado
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        Selecione o tema
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Theme 2: Seldon */}
-                <div
-                  onClick={() => setAdvancedTheme("seldon")}
-                  className={`cursor-pointer rounded-2xl border-2 p-3 transition flex flex-col justify-between ${
-                    advancedTheme === "seldon"
-                      ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/20 bg-sky-50/20"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 p-2 flex flex-col justify-between text-white">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-bold text-white">your logo</span>
-                      <span className="text-[9px]">About • Speakers • Schedule</span>
-                    </div>
-                    <div className="my-auto text-center">
-                      <p className="text-sm font-extrabold text-white">The future of everything</p>
-                      <p className="text-[9px] text-slate-400 line-clamp-1">Get ready for three days of disruptive ideas</p>
-                      <div className="mt-2 inline-block rounded bg-[#00b4fb] px-2 py-0.5 text-[8px] font-bold text-white">
-                        Register
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">Seldon</h4>
-                      <p className="text-xs text-slate-500">Webinars, Meetups</p>
-                    </div>
-
-                    {advancedTheme === "seldon" ? (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-                        ★ Selecionado
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        Selecione o tema
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Theme 3: Minimalist */}
-                <div
-                  onClick={() => setAdvancedTheme("minimalist")}
-                  className={`cursor-pointer rounded-2xl border-2 p-3 transition flex flex-col justify-between ${
-                    advancedTheme === "minimalist"
-                      ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/20 bg-sky-50/20"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="aspect-[16/10] rounded-xl overflow-hidden bg-white border border-slate-200 p-2 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-900">your logo</span>
-                    </div>
-                    <div className="my-auto text-left pl-2">
-                      <p className="text-sm font-serif font-bold text-slate-900">The future of everything</p>
-                      <p className="text-[9px] text-slate-500">Tech talks, product announcements</p>
-                      <div className="mt-2 inline-block rounded border border-slate-900 px-2 py-0.5 text-[8px] font-bold text-slate-900">
-                        Register
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">Minimalist</h4>
-                      <p className="text-xs text-slate-500">Keynotes, Product Launches, High Tech</p>
-                    </div>
-
-                    {advancedTheme === "minimalist" ? (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-                        ★ Selecionado
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        Selecione o tema
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Theme 4: Criar do Zero */}
-                <div
-                  onClick={() => setAdvancedTheme("custom")}
-                  className={`cursor-pointer rounded-2xl border-2 p-3 transition flex flex-col justify-between ${
-                    advancedTheme === "custom"
-                      ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/20 bg-sky-50/20"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="aspect-[16/10] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-2 flex flex-col items-center justify-center text-center">
-                    <Sliders className="h-8 w-8 text-slate-400 mb-1" />
-                    <p className="text-xs font-bold text-slate-700">Criar do Zero</p>
-                    <p className="text-[10px] text-slate-400">Monte blocos de texto, vídeo e palestrantes</p>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900">Customizado</h4>
-                      <p className="text-xs text-slate-500">Construção livre modular</p>
-                    </div>
-
-                    {advancedTheme === "custom" ? (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200">
-                        ★ Selecionado
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        Selecione o tema
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer with "Começar" button */}
-            <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setLayoutType("advanced");
-                  setIsThemeModalOpen(false);
-                }}
-                className="rounded-xl bg-[#0084be] px-8 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#0073a6] transition"
-              >
-                Começar
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Visual Landing Page Builder Fullscreen Mode */}
+      {isBuilderOpen && (
+        <LandingPageBuilder
+          event={event}
+          initialTheme={advancedTheme}
+          initialBlocks={customLandingBlocks}
+          onBack={() => setIsBuilderOpen(false)}
+          onSave={handleSaveBuilder}
+          onPreviewPublic={() => window.open(`/e/${event.id}`, "_blank")}
+        />
       )}
     </div>
   );

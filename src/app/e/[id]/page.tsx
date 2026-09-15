@@ -17,6 +17,7 @@ import {
   Share2
 } from "lucide-react";
 import { getEventById, registerAttendee } from "@/lib/dbActions";
+import AdvancedLandingPage from "@/components/public/AdvancedLandingPage";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -185,6 +186,23 @@ export default function PublicEventPage({ params }: Props) {
       return iso;
     }
   };
+
+  if (event.layoutType === "advanced") {
+    return (
+      <AdvancedLandingPage
+        event={event}
+        formData={formData}
+        setFormData={setFormData}
+        isSubmitting={isSubmitting}
+        registrationResult={registrationResult}
+        onSubmit={handleSubmit}
+        onCopyLink={handleCopyLink}
+        copiedLink={copiedLink}
+        googleCalendarUrl={googleCalendarUrl}
+        formatDateString={formatDateString}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">

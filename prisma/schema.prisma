@@ -116,6 +116,7 @@ model Event {
   layoutType          String         @default("classic") // "classic" | "advanced"
   advancedTheme       String         @default("crosby") // "crosby" | "seldon" | "dark" | "clean"
   confirmationMessage String?
+  customLandingJson   String?        @db.Text
   customEmailsJson    String?
 
   // Series relationship
