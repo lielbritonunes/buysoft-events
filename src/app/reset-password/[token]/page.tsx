@@ -2,8 +2,23 @@
 
 import React, { useState, use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Radio, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Radio,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  KeyRound,
+  Video,
+  Monitor,
+  Heart,
+  PieChart,
+  Bookmark,
+  User,
+  ShieldCheck
+} from "lucide-react";
 import { resetPasswordAction } from "@/lib/authActions";
 
 interface Props {
@@ -11,7 +26,6 @@ interface Props {
 }
 
 export default function ResetPasswordPage({ params }: Props) {
-  const router = useRouter();
   const resolvedParams = use(params);
   const token = resolvedParams.token;
 
@@ -21,6 +35,8 @@ export default function ResetPasswordPage({ params }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const isFormValid = password.length >= 8 && password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,135 +55,246 @@ export default function ResetPasswordPage({ params }: Props) {
     try {
       const res = await resetPasswordAction(token, password);
       if (!res.success) {
-        setError(res.error || "Erro ao redefinir a senha.");
+        setError(res.error || "Erro ao redefinir a senha ou token expirado.");
         setLoading(false);
         return;
       }
 
       setSuccess(true);
     } catch {
-      setError("Erro inesperado ao salvar nova senha.");
+      setError("Erro inesperado ao salvar nova senha. Tente novamente.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 font-sans text-slate-100 selection:bg-[#00b4fb] selection:text-white">
-      <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
-        <div className="h-[500px] w-[500px] rounded-full bg-[#00b4fb]/10 blur-[130px]" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#00b4fb] to-sky-400 text-white shadow-lg shadow-[#00b4fb]/20 ring-1 ring-white/20">
-            <Radio className="h-7 w-7" />
+    <div className="relative min-h-screen w-full flex flex-col justify-between bg-[#eef5fe] font-sans selection:bg-[#00b4fb] selection:text-white overflow-hidden">
+      {/* 1. Header com Logo Superior Buysoft Events */}
+      <header className="relative z-20 w-full px-6 sm:px-10 py-5">
+        <Link href="/" className="inline-flex items-center gap-2.5 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-sm shadow-sky-200 transition-transform group-hover:scale-105">
+            <Radio className="h-5 w-5 animate-pulse" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-            Definir Nova Senha
-          </h1>
-          <p className="mt-1 text-xs font-medium text-slate-400">
-            Escolha uma senha forte com pelo menos 8 caracteres
-          </p>
+          <div className="flex items-center gap-1">
+            <span className="text-lg font-bold tracking-tight text-slate-900 leading-none">
+              buysoft
+            </span>
+            <span className="text-lg font-bold tracking-tight text-[#00b4fb] leading-none">
+              events
+            </span>
+          </div>
+        </Link>
+      </header>
+
+      {/* 2. Floating StreamYard-style stickers/illustrations background */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
+        {/* Chat bubble sticker (left) */}
+        <div className="hidden md:flex absolute left-[8%] lg:left-[12%] bottom-[30%] h-12 w-16 items-center justify-center rounded-2xl bg-white/90 text-sky-400 shadow-sm border border-sky-100">
+          <div className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-7 shadow-2xl backdrop-blur-xl sm:p-8">
+        {/* Webcam participant window (left) */}
+        <div className="hidden lg:flex absolute left-[11%] top-[42%] h-16 w-24 flex-col items-center justify-center rounded-xl bg-white/80 p-2 shadow-sm border border-sky-100/90">
+          <div className="h-6 w-6 rounded-full bg-sky-100 flex items-center justify-center text-sky-400">
+            <User className="h-4 w-4" />
+          </div>
+          <div className="mt-1.5 h-1.5 w-12 rounded-full bg-sky-100" />
+        </div>
+
+        {/* Monitor Screen sticker */}
+        <div className="hidden md:flex absolute left-[20%] bottom-[16%] h-14 w-18 items-center justify-center rounded-2xl bg-white/90 text-sky-400 shadow-sm border border-sky-100">
+          <Monitor className="h-6 w-6 text-sky-300" />
+        </div>
+
+        {/* Camera circle (left-center) */}
+        <div className="hidden sm:flex absolute left-[30%] bottom-[13%] h-10 w-10 items-center justify-center rounded-full bg-white/90 text-sky-400 shadow-sm border border-sky-100">
+          <Video className="h-4 w-4 text-sky-300" />
+        </div>
+
+        {/* Bookmark sticker (center-bottom) */}
+        <div className="hidden md:flex absolute left-[44%] bottom-[10%] h-12 w-10 items-center justify-center rounded-xl bg-white/90 text-sky-400 shadow-sm border border-sky-100">
+          <Bookmark className="h-5 w-5 text-sky-300 fill-sky-200" />
+        </div>
+
+        {/* Video Card sticker (center-right) */}
+        <div className="hidden md:flex absolute left-[54%] bottom-[14%] h-14 w-20 flex-col items-center justify-center rounded-xl bg-white/80 p-2 shadow-sm border border-sky-100">
+          <div className="h-6 w-6 rounded-full bg-sky-100 flex items-center justify-center text-sky-400">
+            <User className="h-4 w-4" />
+          </div>
+          <div className="mt-1.5 h-1 w-10 rounded-full bg-sky-100" />
+        </div>
+
+        {/* Pie chart sticker */}
+        <div className="hidden md:flex absolute right-[31%] bottom-[11%] h-12 w-12 items-center justify-center rounded-2xl bg-white/90 shadow-sm border border-sky-100">
+          <PieChart className="h-5 w-5 text-sky-300" />
+        </div>
+
+        {/* Heart bubble sticker */}
+        <div className="hidden md:flex absolute right-[23%] bottom-[32%] h-12 w-14 items-center justify-center rounded-2xl bg-white/90 shadow-sm border border-sky-100">
+          <Heart className="h-5 w-5 text-sky-300 fill-sky-200" />
+        </div>
+
+        {/* Video frame sticker (right) */}
+        <div className="hidden lg:flex absolute right-[13%] bottom-[24%] h-16 w-24 flex-col items-center justify-center rounded-xl bg-white/80 p-2 shadow-sm border border-sky-100">
+          <div className="h-6 w-6 rounded-full bg-sky-100 flex items-center justify-center text-sky-400">
+            <User className="h-4 w-4" />
+          </div>
+          <div className="mt-1.5 h-1.5 w-12 rounded-full bg-sky-100" />
+        </div>
+
+        {/* Camera circle (right) */}
+        <div className="hidden sm:flex absolute right-[18%] bottom-[12%] h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm border border-sky-100">
+          <Video className="h-4 w-4 text-sky-300" />
+        </div>
+
+        {/* Decorative dots */}
+        <div className="absolute left-[18%] bottom-[26%] h-2 w-2 rounded-full bg-sky-300/60" />
+        <div className="absolute left-[26%] bottom-[13%] h-2 w-2 rounded-full bg-sky-300/60" />
+        <div className="absolute right-[28%] bottom-[22%] h-2 w-2 rounded-full bg-sky-300/60" />
+        <div className="absolute right-[11%] bottom-[28%] h-2 w-2 rounded-full bg-sky-300/60" />
+      </div>
+
+      {/* 3. Center Reset Password Card */}
+      <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-8">
+        <div className="w-full max-w-[420px] rounded-2xl bg-white p-7 sm:p-9 shadow-lg shadow-sky-900/5 border border-slate-100/90 my-auto">
           {success ? (
-            <div className="text-center py-4 space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            /* Success Feedback */
+            <div className="text-center py-2 space-y-4 animate-in fade-in">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-2xs">
                 <CheckCircle2 className="h-7 w-7" />
               </div>
-              <h2 className="text-base font-bold text-white">Senha alterada com sucesso!</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Sua senha foi redefinida com segurança. Você já pode fazer login na plataforma.
-              </p>
-              <div className="pt-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Senha alterada com sucesso!</h2>
+                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                  Sua nova senha já está ativa. Você agora pode acessar sua conta normalmente.
+                </p>
+              </div>
+
+              <div className="pt-3">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#00b4fb] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#009edc] transition shadow-md shadow-[#00b4fb]/20"
+                  className="btn-buysoft-primary w-full inline-flex items-center justify-center gap-2 py-2.5 text-xs"
                 >
-                  <span>Acessar Conta Agora</span>
-                  <ArrowRight className="h-4 w-4" />
+                  <span>Ir para o Login</span>
+                  <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                 </Link>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            /* New Password Form */
+            <>
+              {/* Header Texts */}
+              <div className="mb-6 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-[#00b4fb] border border-sky-100 shadow-2xs">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                  Definir nova senha
+                </h1>
+                <p className="mt-1 text-xs sm:text-sm text-slate-500">
+                  Crie uma senha segura com no mínimo 8 caracteres.
+                </p>
+              </div>
+
+              {/* Error Message */}
               {error && (
-                <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-xs text-rose-300">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-600">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
                   <span>{error}</span>
                 </div>
               )}
 
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-                  Nova Senha
-                </label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-10 text-sm text-white placeholder-slate-500 transition focus:border-[#00b4fb] focus:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Nova Senha */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                    Nova Senha
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-                  Confirmar Nova Senha
-                </label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Digite a mesma senha"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-10 text-sm text-white placeholder-slate-500 transition focus:border-[#00b4fb] focus:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
-                  />
+                {/* Confirmar Nova Senha */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                    Confirmar Nova Senha
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita sua nova senha"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb]"
+                    />
+                  </div>
+                  {password && confirmPassword && password !== confirmPassword && (
+                    <p className="mt-1 text-[11px] text-rose-500">As senhas não coincidem.</p>
+                  )}
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading || password.length < 8 || password !== confirmPassword}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00b4fb] py-3 text-sm font-bold text-white shadow-md shadow-[#00b4fb]/20 transition hover:bg-[#009edc] focus:outline-none focus:ring-2 focus:ring-[#00b4fb]/50 disabled:opacity-50"
-              >
-                {loading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <>
-                    <span>Atualizar Senha & Concluir</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-
-              <div className="pt-2 text-center">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+                {/* Dynamic Button:
+                    - Azul apagado quando incompleto / inválido (#9cd9f7)
+                    - Azul #00b4fb vibrante ao preencher corretamente */}
+                <button
+                  type="submit"
+                  disabled={loading || !isFormValid}
+                  className={`w-full rounded-xl py-2.5 text-sm font-bold transition-all duration-200 ${
+                    !isFormValid
+                      ? "bg-[#9cd9f7] text-white cursor-not-allowed opacity-90 shadow-none"
+                      : "bg-[#00b4fb] hover:bg-[#009ce0] text-white cursor-pointer shadow-md shadow-sky-300/30 hover:shadow-lg hover:shadow-sky-400/40"
+                  }`}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Cancelar e voltar ao login</span>
-                </Link>
-              </div>
-            </form>
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Salvando nova senha...</span>
+                    </div>
+                  ) : (
+                    <span>Redefinir Senha</span>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition font-medium"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    <span>Voltar para o login</span>
+                  </Link>
+                </div>
+              </form>
+            </>
           )}
         </div>
-      </div>
+      </main>
+
+      {/* 4. Bottom Spacer */}
+      <footer className="relative z-10 py-4 text-center text-[11px] text-slate-400">
+        Buysoft Events &copy; {new Date().getFullYear()}
+      </footer>
     </div>
   );
 }
