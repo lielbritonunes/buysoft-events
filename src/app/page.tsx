@@ -150,6 +150,7 @@ export default function Home() {
         isOpen={isCreateWizardOpen}
         onClose={() => setIsCreateWizardOpen(false)}
         onCreateEvent={handleCreateEvent}
+        lastEvent={events[0]}
       />
 
       <OrganizationSettingsModal
