@@ -75,7 +75,7 @@ function drawAspectFitVideo(
   ctx.fillStyle = "#000000";
   ctx.fillRect(x, y, w, h);
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingQuality = "medium";
   ctx.drawImage(video, drawX, drawY, drawW, drawH);
 
   // Subtle border
@@ -140,6 +140,16 @@ export class StudioCompositor {
   private lastRenderTime = 0;
   private keepaliveInterval: any = null;
 
+  // Pre-rendered static background cache (gradient + grid)
+  private bgCanvas: HTMLCanvasElement | null = null;
+
+  // Frame pacing for stable, fluid 30 FPS
+  private lastFrameTime = 0;
+  private readonly targetFps = 30;
+  private readonly frameInterval = 1000 / 30; // ~33.33ms
+  private bgIntervalId: any = null;
+  private visibilityHandler: (() => void) | null = null;
+
   // Internal video elements to sample from
   private internalLocalVideo: HTMLVideoElement;
   private internalScreenVideo: HTMLVideoElement;
@@ -169,7 +179,7 @@ export class StudioCompositor {
     if (!context) throw new Error("Could not create 2D canvas context");
     this.ctx = context;
     this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = "high";
+    this.ctx.imageSmoothingQuality = "medium";
 
     this.internalLocalVideo = document.createElement("video");
     this.internalLocalVideo.autoplay = true;
@@ -181,8 +191,66 @@ export class StudioCompositor {
     this.internalScreenVideo.muted = true;
     this.internalScreenVideo.playsInline = true;
 
+    this.initBgCanvas();
     this.initAudio();
+    this.setupVisibilityHeartbeat();
     this.startRenderLoop();
+  }
+
+  // Pre-renders background gradient and grid once to eliminate heavy per-frame allocations
+  private initBgCanvas() {
+    if (typeof document === "undefined") return;
+    try {
+      this.bgCanvas = document.createElement("canvas");
+      this.bgCanvas.width = 1920;
+      this.bgCanvas.height = 1080;
+      const bgCtx = this.bgCanvas.getContext("2d", { alpha: false });
+      if (!bgCtx) return;
+
+      const bgGrad = bgCtx.createRadialGradient(960, 540, 200, 960, 540, 1100);
+      bgGrad.addColorStop(0, "#0b1329");
+      bgGrad.addColorStop(1, "#020617");
+      bgCtx.fillStyle = bgGrad;
+      bgCtx.fillRect(0, 0, 1920, 1080);
+
+      // Subtle studio grid accents
+      bgCtx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+      bgCtx.lineWidth = 1;
+      for (let x = 0; x < 1920; x += 120) {
+        bgCtx.beginPath();
+        bgCtx.moveTo(x, 0);
+        bgCtx.lineTo(x, 1080);
+        bgCtx.stroke();
+      }
+      for (let y = 0; y < 1080; y += 120) {
+        bgCtx.beginPath();
+        bgCtx.moveTo(0, y);
+        bgCtx.lineTo(1920, y);
+        bgCtx.stroke();
+      }
+    } catch (e) {
+      console.warn("StudioCompositor background cache initialization warning:", e);
+    }
+  }
+
+  // Ensures continuous 30fps frames when the presenter switches windows/tabs
+  private setupVisibilityHeartbeat() {
+    if (typeof document === "undefined") return;
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        if (!this.bgIntervalId) {
+          this.bgIntervalId = setInterval(() => {
+            this.renderFrame();
+          }, this.frameInterval);
+        }
+      } else {
+        if (this.bgIntervalId) {
+          clearInterval(this.bgIntervalId);
+          this.bgIntervalId = null;
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", this.visibilityHandler);
   }
 
   private initAudio() {
@@ -278,7 +346,7 @@ export class StudioCompositor {
       const stream = this.canvas.captureStream(30);
       const vTrack = stream.getVideoTracks()[0];
       if (vTrack) {
-        vTrack.contentHint = "detail";
+        vTrack.contentHint = "motion";
       }
       this.outputStream = stream;
     }
@@ -290,9 +358,15 @@ export class StudioCompositor {
   }
 
   private startRenderLoop() {
-    const render = () => {
-      this.renderFrame();
-      this.lastRenderTime = performance.now();
+    const render = (time: number) => {
+      if (!this.lastFrameTime) this.lastFrameTime = time;
+      const elapsed = time - this.lastFrameTime;
+      // Pace frame rate to ~30 FPS with slight margin
+      if (elapsed >= this.frameInterval - 2) {
+        this.lastFrameTime = time - (elapsed % this.frameInterval);
+        this.renderFrame();
+        this.lastRenderTime = performance.now();
+      }
       this.animId = requestAnimationFrame(render);
     };
     this.animId = requestAnimationFrame(render);
@@ -322,27 +396,12 @@ export class StudioCompositor {
       banner,
     } = this.state;
 
-    // 1. Background
-    const bgGrad = ctx.createRadialGradient(960, 540, 200, 960, 540, 1100);
-    bgGrad.addColorStop(0, "#0b1329");
-    bgGrad.addColorStop(1, "#020617");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, 1920, 1080);
-
-    // Subtle grid/studio accents
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < 1920; x += 120) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 1080);
-      ctx.stroke();
-    }
-    for (let y = 0; y < 1080; y += 120) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(1920, y);
-      ctx.stroke();
+    // 1. Background (fast pre-rendered drawImage avoiding per-frame radial gradient allocations)
+    if (this.bgCanvas) {
+      ctx.drawImage(this.bgCanvas, 0, 0);
+    } else {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, 1920, 1080);
     }
 
     const screenEl =
@@ -604,6 +663,14 @@ export class StudioCompositor {
     if (this.keepaliveInterval) {
       clearInterval(this.keepaliveInterval);
       this.keepaliveInterval = null;
+    }
+    if (this.bgIntervalId) {
+      clearInterval(this.bgIntervalId);
+      this.bgIntervalId = null;
+    }
+    if (this.visibilityHandler && typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.visibilityHandler);
+      this.visibilityHandler = null;
     }
     if (this.audioCtx) {
       this.audioCtx.close().catch(() => {});

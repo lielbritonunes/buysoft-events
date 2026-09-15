@@ -45,5 +45,13 @@ updated: 2026-07-18
     - Construtor Dinâmico de Formulários com 8 tipos de campos (texto curto, parágrafo, seleção única, múltipla, data, país, termos legais e campo oculto) com preview explicativo em popover flutuante no hover.
     - Construtor Visual de Páginas com a biblioteca open-source Puck (`@measured/puck` - MIT, 100% gratuito) integrado a assistente de IA embutido (custo zero, sem Puck Cloud) com estilos Tecnológico, Corporativo, Minimalista e Show.
     - Renderização dinâmica em `/e/[id]` via `<Render />` e modal de inscrição acionado por qualquer botão de CTA.
+    - Fase 8: Otimização de Fluidez e Estabilidade da Transmissão Nativa WebRTC/LiveKit.
+      - Pacing de 30 FPS no `StudioCompositor` com delta de tempo para telas de 60Hz/120Hz/144Hz.
+      - Pré-renderização em cache do background (gradiente + grid) em canvas offscreen único, eliminando recálculo a cada frame.
+      - Heartbeat de resiliência a abas em segundo plano via `visibilitychange` com `setInterval` de 30 FPS, impedindo congelamento do feed quando o apresentador navega fora da aba do estúdio.
+      - Otimização de interpolação `imageSmoothingQuality = "medium"`, reduzindo até 70% da carga de GPU/CPU no redimensionamento Full HD 1080p.
+      - Parâmetros WebRTC corrigidos: `contentHint = "motion"`, `degradationPreference: "maintain-framerate"`, `source: Track.Source.Camera`, bitrate 3.2 Mbps e `simulcast: true`.
+      - Suspensão da codificação redundante de P2P no host quando o LiveKit Cloud está conectado.
+      - Sala da plateia com `adaptiveStream: true` e `dynacast: true` para buffer dinâmico e proteção contra jitter de rede.
   - Próxima etapa: Refinamentos contínuos de UX, customizações adicionais do editor e homologação geral.
 

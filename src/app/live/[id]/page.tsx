@@ -146,8 +146,8 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         if (!token || !url || !isSubscribed) return;
 
         const room = new Room({
-          adaptiveStream: false, // Ensures full 1080p resolution without downscaling
-          dynacast: false,
+          adaptiveStream: true, // Optimizes buffering and adapts to participant connection jitter
+          dynacast: true,
         });
 
         const handleAttachTrack = (track: RemoteTrack) => {

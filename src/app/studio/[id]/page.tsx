@@ -249,17 +249,22 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [eventId]);
 
-  // Sync composite stream to WebRTC peer broadcaster
+  // Sync composite stream to WebRTC peer broadcaster (only as fallback when LiveKit Cloud is not connected)
   useEffect(() => {
     if (broadcasterRef.current && compositorRef.current) {
-      const compositeStream = compositorRef.current.getCompositeStream();
-      broadcasterRef.current.setStreams(
-        compositeStream,
-        null,
-        isWebinarLive
-      );
+      if (isLiveKitConnected) {
+        // Suspend P2P encoding to preserve 100% CPU/GPU performance for the LiveKit Cloud broadcast
+        broadcasterRef.current.setStreams(null, null, false);
+      } else {
+        const compositeStream = compositorRef.current.getCompositeStream();
+        broadcasterRef.current.setStreams(
+          compositeStream,
+          null,
+          isWebinarLive
+        );
+      }
     }
-  }, [localStream, screenStream, isWebinarLive, isOnStage, isScreenSharing, layoutMode]);
+  }, [localStream, screenStream, isWebinarLive, isOnStage, isScreenSharing, layoutMode, isLiveKitConnected]);
 
   // Connect to LiveKit Room once joined lobby
   useEffect(() => {
@@ -335,7 +340,7 @@ export default function StudioPage({ params, searchParams }: Props) {
           return;
         }
 
-        // Live webinar active: publish pristine 1080p Full HD composite stream (simulcast disabled)
+        // Live webinar active: publish pristine 1080p Full HD composite stream with high fluidity (3.2 Mbps, motion priority, simulcast enabled)
         const compositeStream = compositorRef.current!.getCompositeStream();
         const cVt = compositeStream.getVideoTracks()[0];
         const cAt = compositorRef.current!.getAudioTrack() || compositeStream.getAudioTracks()[0];
@@ -344,17 +349,18 @@ export default function StudioPage({ params, searchParams }: Props) {
           (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
-          cVt.contentHint = "detail";
+          cVt.contentHint = "motion";
           try {
             await room.localParticipant.publishTrack(cVt, {
               name: "stage-composite",
-              source: Track.Source.ScreenShare, // High-priority detail mode for text and presentations
-              simulcast: false, // Disables potato-quality 360p downscaling
-              degradationPreference: "maintain-resolution",
+              source: Track.Source.Camera, // Real-time video source prioritizing fluid 30fps motion
+              simulcast: true, // Enables dynamic multi-layer fallback so viewers don't buffer or freeze
+              degradationPreference: "maintain-framerate", // Preserves smooth framerate without stuttering
               videoEncoding: {
-                maxBitrate: 4_000_000, // 4 Mbps Full HD
+                maxBitrate: 3_200_000, // 3.2 Mbps Full HD golden standard
                 maxFramerate: 30,
               },
+              videoCodec: "h264",
             });
             console.log("LiveKit: 1080p composite stage track published successfully!");
           } catch (pubErr) {
@@ -502,7 +508,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         });
         const vTrack = sStream.getVideoTracks()[0];
         if (vTrack) {
-          vTrack.contentHint = "detail";
+          vTrack.contentHint = "motion";
         }
         setScreenStream(sStream);
         setIsScreenSharing(true);
