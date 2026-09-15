@@ -346,7 +346,7 @@ export class StudioCompositor {
       const stream = this.canvas.captureStream(30);
       const vTrack = stream.getVideoTracks()[0];
       if (vTrack) {
-        vTrack.contentHint = "detail";
+        vTrack.contentHint = "motion"; // Prioritize framerate stability over static sharpness
       }
       this.outputStream = stream;
     }
@@ -358,20 +358,16 @@ export class StudioCompositor {
   }
 
   private startRenderLoop() {
-    const render = () => {
-      this.renderFrame();
+    const render = (now: number) => {
+      const elapsed = now - this.lastFrameTime;
+      if (elapsed >= this.frameInterval) {
+        this.lastFrameTime = now - (elapsed % this.frameInterval);
+        this.renderFrame();
+      }
       this.animId = requestAnimationFrame(render);
     };
     this.animId = requestAnimationFrame(render);
-
-    // Keepalive interval for background tabs (ensures canvas capture stream never freezes when host switches windows)
-    if (typeof window !== "undefined") {
-      this.keepaliveInterval = setInterval(() => {
-        if (typeof document !== "undefined" && document.hidden) {
-          this.renderFrame();
-        }
-      }, 33);
-    }
+    // Background tab keepalive is handled by setupVisibilityHeartbeat (bgIntervalId)
   }
 
   private renderFrame() {

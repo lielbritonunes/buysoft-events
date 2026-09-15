@@ -253,9 +253,10 @@ export default function StudioPage({ params, searchParams }: Props) {
   useEffect(() => {
     if (broadcasterRef.current && compositorRef.current) {
       if (isLiveKitConnected) {
-        // Suspend P2P encoding to preserve 100% CPU/GPU performance for the LiveKit Cloud broadcast
-        broadcasterRef.current.setStreams(null, null, false);
+        // Fully suspend P2P to free 100% CPU/GPU for the LiveKit Cloud broadcast
+        broadcasterRef.current.stop();
       } else {
+        broadcasterRef.current.start();
         const compositeStream = compositorRef.current.getCompositeStream();
         broadcasterRef.current.setStreams(
           compositeStream,
@@ -349,15 +350,15 @@ export default function StudioPage({ params, searchParams }: Props) {
           (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
-          cVt.contentHint = "detail";
+          cVt.contentHint = "motion"; // Prioritize framerate stability for fluid live streaming
           try {
             await room.localParticipant.publishTrack(cVt, {
               name: "stage-composite",
-              source: Track.Source.ScreenShare, // High-priority detail mode for razor-sharp text and presentations
-              simulcast: false, // Disables downscaling to 360p/540p potato quality
-              degradationPreference: "maintain-resolution", // Preserves pristine Full HD 1080p resolution
+              source: Track.Source.ScreenShare,
+              simulcast: true, // Enable adaptive quality layers for viewers with varying bandwidth
+              degradationPreference: "maintain-framerate", // Never drop frames; reduce resolution gracefully under pressure
               videoEncoding: {
-                maxBitrate: 4_500_000, // 4.5 Mbps Full HD crisp bitrate
+                maxBitrate: 3_500_000, // 3.5 Mbps: sweet spot for 1080p30 without saturating upload
                 maxFramerate: 30,
               },
             });

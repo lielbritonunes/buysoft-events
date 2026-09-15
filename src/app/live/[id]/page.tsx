@@ -146,20 +146,20 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
         if (!token || !url || !isSubscribed) return;
 
         const room = new Room({
-          adaptiveStream: false, // Guarantees crisp, native 1080p without downscaling to potato quality
-          dynacast: false,
+          adaptiveStream: true, // Adapts quality to viewer's bandwidth and player size
+          dynacast: true, // Only sends layers that viewers actually need
         });
 
         const handleAttachTrack = (track: RemoteTrack) => {
-          // Zero playout delay: eliminates WebRTC jitter buffer delay for real-time <200ms latency
+          // Minimal playout buffer: absorbs network jitter without perceptible delay
           try {
             const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
             if (receiver) {
               if ("playoutDelayHint" in receiver) {
-                (receiver as any).playoutDelayHint = 0;
+                (receiver as any).playoutDelayHint = 0.05; // 50ms: absorbs jitter without perceptible delay
               }
               if ("jitterBufferTarget" in receiver) {
-                (receiver as any).jitterBufferTarget = 0;
+                (receiver as any).jitterBufferTarget = 50; // 50ms minimum buffer
               }
             }
           } catch (_) {}

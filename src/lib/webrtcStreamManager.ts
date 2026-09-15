@@ -226,7 +226,7 @@ export class HostBroadcaster {
       : null;
 
     if (videoTrack) {
-      videoTrack.contentHint = "detail";
+      videoTrack.contentHint = "motion"; // Prioritize framerate stability for fluid playback
     }
 
     // Pick audio track: presenter microphone (or screen audio if present) when live
