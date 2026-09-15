@@ -341,7 +341,7 @@ export default function StudioPage({ params, searchParams }: Props) {
           return;
         }
 
-        // Live webinar active: publish pristine 1080p Full HD composite stream with high fluidity (3.2 Mbps, motion priority, simulcast enabled)
+        // Live webinar active: publish 720p composite stream optimized for fluidity
         const compositeStream = compositorRef.current!.getCompositeStream();
         const cVt = compositeStream.getVideoTracks()[0];
         const cAt = compositorRef.current!.getAudioTrack() || compositeStream.getAudioTracks()[0];
@@ -350,19 +350,19 @@ export default function StudioPage({ params, searchParams }: Props) {
           (p) => p.trackName === "stage-composite"
         );
         if (cVt && !existingVideoPub) {
-          cVt.contentHint = "motion"; // Prioritize framerate stability for fluid live streaming
+          cVt.contentHint = "motion";
           try {
             await room.localParticipant.publishTrack(cVt, {
               name: "stage-composite",
               source: Track.Source.ScreenShare,
-              simulcast: true, // Enable adaptive quality layers for viewers with varying bandwidth
-              degradationPreference: "maintain-framerate", // Never drop frames; reduce resolution gracefully under pressure
+              simulcast: true,
+              degradationPreference: "maintain-framerate",
               videoEncoding: {
-                maxBitrate: 3_500_000, // 3.5 Mbps: sweet spot for 1080p30 without saturating upload
+                maxBitrate: 2_000_000, // 2 Mbps: optimal for 720p30 — lightweight on upload
                 maxFramerate: 30,
               },
             });
-            console.log("LiveKit: 1080p composite stage track published successfully!");
+            console.log("LiveKit: 720p composite stage track published successfully!");
           } catch (pubErr) {
             console.error("LiveKit: Error publishing composite stage track:", pubErr);
           }

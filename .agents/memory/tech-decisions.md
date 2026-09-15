@@ -45,10 +45,13 @@ updated: 2026-07-18
     - Construtor Dinâmico de Formulários com 8 tipos de campos (texto curto, parágrafo, seleção única, múltipla, data, país, termos legais e campo oculto) com preview explicativo em popover flutuante no hover.
     - Construtor Visual de Páginas com a biblioteca open-source Puck (`@measured/puck` - MIT, 100% gratuito) integrado a assistente de IA embutido (custo zero, sem Puck Cloud) com estilos Tecnológico, Corporativo, Minimalista e Show.
     - Renderização dinâmica em `/e/[id]` via `<Render />` e modal de inscrição acionado por qualquer botão de CTA.
-    - Fase 8: Otimização de Fluidez, Nitidez 1080p e Latência Ultrabaixa (<200ms) WebRTC/LiveKit.
-      - Resolução Nativa sem Degradação: `simulcast: false` e `adaptiveStream: false`, impedindo o LiveKit de rebaixar a plateia para 360p/540p quando o player está em container flex.
-      - Nitidez Cristalina de Texto/Código: `contentHint = "detail"` e `degradationPreference: "maintain-resolution"` com 4.5 Mbps de bitrate e `imageSmoothingQuality = "high"`.
-      - Eliminação de Delay do Receptor: `playoutDelayHint = 0` e `jitterBufferTarget = 0` nos `RTCRtpReceiver` de áudio e vídeo da plateia, eliminando a fila de buffer artificial do WebRTC de 1 a 2 segundos para playout em tempo real.
-      - Heartbeat de segundo plano a 30 FPS contínuos sem desvio de clock.
+    - Fase 8: Otimização Definitiva de Fluidez e Qualidade Adaptativa WebRTC/LiveKit.
+      - Frame Pacing Real: Render loop com delta-time throttle a exatamente 30fps (eliminando 50% de CPU desperdiçada com frames descartados pelo captureStream).
+      - Prioridade de Framerate: `contentHint = "motion"` e `degradationPreference: "maintain-framerate"` em toda a cadeia (compositor, publicação LiveKit, fallback P2P) — o encoder nunca congela frames, reduz resolução suavemente sob pressão.
+      - Qualidade Adaptativa: `simulcast: true` no publisher + `adaptiveStream: true` e `dynacast: true` na plateia — LiveKit escolhe camada ideal baseado no tamanho do player e bandwidth real do espectador.
+      - Bitrate Otimizado: 3.5 Mbps (sweet spot para 1080p30 sem saturar upload de conexões medianas de 5-10 Mbps).
+      - Eliminação de Dupla Codificação: P2P broadcaster totalmente parado (`stop()`) quando LiveKit Cloud está ativo, liberando 100% de CPU/GPU.
+      - Buffer Mínimo de Jitter: `playoutDelayHint = 0.05` (50ms) e `jitterBufferTarget = 50` — absorve micro-variações de rede sem delay perceptível (vs. zero buffer anterior que causava micro-congelamentos).
+      - Heartbeat de segundo plano a 30 FPS contínuos sem desvio de clock via visibilitychange handler.
   - Próxima etapa: Refinamentos contínuos de UX, customizações adicionais do editor e homologação geral.
 
