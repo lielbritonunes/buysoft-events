@@ -39,6 +39,11 @@ updated: 2026-07-18
     - SSO corporativo com Google OAuth 2.0 ("Continuar com Google") em `/login` e `/register`, conectado via Google Identity Services.
     - Autenticação em Duas Etapas (MFA/2FA) com Google Authenticator via RFC 6238 TOTP: assistente com QR Code visual, validação de teste, desafio de login (`/login/mfa`) e geração de 8 códigos de backup para emergência.
     - Gestão de Equipe e RBAC (`admin`, `organizer`, `speaker`) no modal da organização, com links de convite `/invite/[token]` expiráveis e remoção de membros.
-    - Conta administrativa padrão inicial criada: `lielbritonunesbuysoft@gmail.com` (senha: `Buysoft@2026`).
-  - Próxima etapa: Fase X (Verificação Final de Ponta a Ponta e Homologação).
+    - Fase 7: Redesign Visual Moderno, Construtor de Formulários e Construtor de Páginas Visual Puck com IA (100% Gratuita).
+    - Redesign de telas inspirado em StreamYard e RingCentral: Login, MFA, Recuperação de Senha, Cadastro, Criação de Evento em passo único e Dashboard.
+    - Página de Inscrições organizada em sub-abas: "Página inicial do evento" e "Formulário de inscrições".
+    - Construtor Dinâmico de Formulários com 8 tipos de campos (texto curto, parágrafo, seleção única, múltipla, data, país, termos legais e campo oculto) com preview explicativo em popover flutuante no hover.
+    - Construtor Visual de Páginas com a biblioteca open-source Puck (`@measured/puck` - MIT, 100% gratuito) integrado a assistente de IA embutido (custo zero, sem Puck Cloud) com estilos Tecnológico, Corporativo, Minimalista e Show.
+    - Renderização dinâmica em `/e/[id]` via `<Render />` e modal de inscrição acionado por qualquer botão de CTA.
+  - Próxima etapa: Refinamentos contínuos de UX, customizações adicionais do editor e homologação geral.
 
