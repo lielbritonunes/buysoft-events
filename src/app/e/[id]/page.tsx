@@ -17,7 +17,8 @@ import {
   Share2
 } from "lucide-react";
 import { getEventById, registerAttendee } from "@/lib/dbActions";
-import AdvancedLandingPage from "@/components/public/AdvancedLandingPage";
+import PuckPublicRenderer from "@/components/puck/PuckPublicRenderer";
+import { generateAIPuckPage } from "@/components/puck/aiPageGenerator";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -188,9 +189,23 @@ export default function PublicEventPage({ params }: Props) {
   };
 
   if (event.layoutType === "advanced") {
+    let puckData = null;
+    if (event.customLandingJson) {
+      try {
+        const parsed = JSON.parse(event.customLandingJson);
+        if (parsed && parsed.content && Array.isArray(parsed.content)) {
+          puckData = parsed;
+        }
+      } catch {}
+    }
+    if (!puckData) {
+      puckData = generateAIPuckPage({ event, style: "tecnologico" });
+    }
+
     return (
-      <AdvancedLandingPage
+      <PuckPublicRenderer
         event={event}
+        puckData={puckData}
         formData={formData}
         setFormData={setFormData}
         isSubmitting={isSubmitting}
@@ -199,7 +214,6 @@ export default function PublicEventPage({ params }: Props) {
         onCopyLink={handleCopyLink}
         copiedLink={copiedLink}
         googleCalendarUrl={googleCalendarUrl}
-        formatDateString={formatDateString}
       />
     );
   }

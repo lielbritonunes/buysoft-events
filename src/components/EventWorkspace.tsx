@@ -64,9 +64,8 @@ import {
 import MarketingTab from "@/components/workspace/MarketingTab";
 import AnalyticsTab from "@/components/workspace/AnalyticsTab";
 import RecordingsTab from "@/components/workspace/RecordingsTab";
-import ThemeSelectorModal from "@/components/workspace/ThemeSelectorModal";
-import LandingPageBuilder from "@/components/builder/LandingPageBuilder";
-import { PageBlock, getDefaultBlocksForTheme } from "@/components/builder/builderTemplates";
+import PuckEditorModal from "@/components/puck/PuckEditorModal";
+import type { Data as PuckData } from "@measured/puck";
 
 interface FieldTypeDefinition {
   type: string;
@@ -295,35 +294,25 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
   const [advancedTheme, setAdvancedTheme] = useState<string>(
     event.advancedTheme || "crosby"
   );
-  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
-  const [customLandingBlocks, setCustomLandingBlocks] = useState<PageBlock[]>(() => {
+  const [isPuckOpen, setIsPuckOpen] = useState(false);
+  const [puckData, setPuckData] = useState<PuckData | null>(() => {
     if (event.customLandingJson) {
       try {
         const parsed = JSON.parse(event.customLandingJson);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (parsed && parsed.content && Array.isArray(parsed.content)) {
+          return parsed;
+        }
       } catch {}
     }
-    return getDefaultBlocksForTheme(event.advancedTheme || "crosby", event);
+    return null;
   });
 
-  const handleSelectThemeAndStart = (themeId: string) => {
-    setAdvancedTheme(themeId);
-    setLayoutType("advanced");
-    const freshBlocks = getDefaultBlocksForTheme(themeId, event);
-    setCustomLandingBlocks(freshBlocks);
-    setIsThemeModalOpen(false);
-    setIsBuilderOpen(true);
-  };
-
-  const handleSaveBuilder = async (blocks: PageBlock[], chosenTheme: string) => {
-    setCustomLandingBlocks(blocks);
-    setAdvancedTheme(chosenTheme);
+  const handleSavePuck = async (publishedData: PuckData) => {
+    setPuckData(publishedData);
     setLayoutType("advanced");
     const updated = await updateEvent(event.id, {
       layoutType: "advanced",
-      advancedTheme: chosenTheme,
-      customLandingJson: JSON.stringify(blocks),
+      customLandingJson: JSON.stringify(publishedData),
     });
     onUpdateEvent(updated);
   };
@@ -471,7 +460,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
           layoutType,
           advancedTheme,
           confirmationMessage,
-          customLandingJson: JSON.stringify(customLandingBlocks),
+          customLandingJson: puckData ? JSON.stringify(puckData) : event.customLandingJson || undefined,
         }),
         saveFormFields(
           event.id,
@@ -1181,7 +1170,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                         </div>
                       </div>
 
-                      {/* Option 2: Avançado */}
+                      {/* Option 2: Avançado com Puck */}
                       <div
                         className={`rounded-2xl border-2 p-5 transition flex flex-col justify-between ${
                           layoutType === "advanced"
@@ -1191,40 +1180,33 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                       >
                         <div>
                           <div className="flex items-center justify-between">
-                            <h5 className="text-base font-bold text-slate-900">Layout Avançado</h5>
+                            <h5 className="text-base font-bold text-slate-900">Layout Avançado (Construtor Visual Puck)</h5>
                             {layoutType === "advanced" && (
                               <span className="rounded-full bg-[#00b4fb] px-2.5 py-0.5 text-[10px] font-bold text-white">
-                                Ativo: {advancedTheme.toUpperCase()}
+                                Ativo
                               </span>
                             )}
                           </div>
                           <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                            Construtor de páginas com templates modulares (Crosby, Seldon, Hazel, Nolan). Ideal para feiras, cúpulas e grandes congressos.
+                            Construtor visual com arrastar e soltar (Puck), assistente de IA gratuito em 1 clique e blocos sincronizados com oradores e agenda.
                           </p>
                         </div>
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-1">
                           <span className="text-[11px] font-semibold text-[#00b4fb]">
-                            Tema selecionado: <b>{advancedTheme.toUpperCase()}</b>
+                            Status: <b>{puckData ? "Página Personalizada Salva" : "Modelo Disponível"}</b>
                           </span>
                           <div className="flex items-center gap-2">
-                            {layoutType === "advanced" && (
-                              <button
-                                type="button"
-                                onClick={() => setIsBuilderOpen(true)}
-                                className="rounded-xl border border-[#00b4fb] bg-white hover:bg-sky-50 px-3 py-1.5 text-xs font-bold text-[#0084be] shadow-2xs transition"
-                              >
-                                Personalizar no Construtor
-                              </button>
-                            )}
                             <button
                               type="button"
                               onClick={() => {
-                                setIsThemeModalOpen(true);
+                                setLayoutType("advanced");
+                                setIsPuckOpen(true);
                               }}
-                              className="rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition active:scale-95"
+                              className="rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-4 py-2 text-xs font-bold text-white shadow-xs transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
                             >
-                              Usar este layout
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span>{layoutType === "advanced" ? "Abrir Construtor com IA" : "Usar este layout"}</span>
                             </button>
                           </div>
                         </div>
@@ -2366,25 +2348,15 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
         </main>
       </div>
 
-      {/* Theme Selector Modal (Crosby, Seldon, Hazel, Nolan) */}
-      <ThemeSelectorModal
-        isOpen={isThemeModalOpen}
-        currentTheme={advancedTheme}
-        onClose={() => setIsThemeModalOpen(false)}
-        onSelectAndStart={handleSelectThemeAndStart}
+      {/* Puck Visual Editor Modal with Free AI Generator */}
+      <PuckEditorModal
+        isOpen={isPuckOpen}
+        event={event}
+        initialData={puckData}
+        onClose={() => setIsPuckOpen(false)}
+        onSave={handleSavePuck}
+        onPreview={() => window.open(`/e/${event.id}`, "_blank")}
       />
-
-      {/* Visual Landing Page Builder Fullscreen Mode */}
-      {isBuilderOpen && (
-        <LandingPageBuilder
-          event={event}
-          initialTheme={advancedTheme}
-          initialBlocks={customLandingBlocks}
-          onBack={() => setIsBuilderOpen(false)}
-          onSave={handleSaveBuilder}
-          onPreviewPublic={() => window.open(`/e/${event.id}`, "_blank")}
-        />
-      )}
     </div>
   );
 }

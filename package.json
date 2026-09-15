@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@measured/puck": "^0.20.2",
     "@prisma/client": "^6.4.1",
+    "@puckeditor/core": "^0.23.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.12",
     "livekit-client": "^2.22.3",
