@@ -110,7 +110,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     lowerThird: { visible: boolean; name: string; role: string; company: string };
     ticker: { visible: boolean; text: string };
     banner: { visible: boolean; title: string; subtitle: string };
-    displayedComment?: { id: string; senderName: string; message: string } | null;
+    displayedComment?: { id: string; senderName: string; message?: string; text?: string } | null;
     showCommentsOnStage?: boolean;
     chatOverlaySettings?: {
       size: "normal" | "tall" | "wide";
@@ -843,7 +843,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       <span>{overlayState.displayedComment.senderName}</span>
                     </div>
                     <div className="bg-white text-slate-900 px-5 py-3.5 rounded-b-2xl rounded-tr-2xl shadow-2xl border border-gray-100 text-xs sm:text-sm font-medium leading-relaxed">
-                      {overlayState.displayedComment.message}
+                      {overlayState.displayedComment.text || overlayState.displayedComment.message}
                     </div>
                   </div>
                 )}
@@ -924,7 +924,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                                   )}
                                 </div>
                                 <p className={`text-white/95 font-medium leading-relaxed break-words ${msgSize}`}>
-                                  {c.message}
+                                  {c.text || c.message}
                                 </p>
                               </div>
                             </div>

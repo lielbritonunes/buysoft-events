@@ -167,7 +167,8 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [displayedComment, setDisplayedComment] = useState<{
     id: string;
     senderName: string;
-    message: string;
+    message?: string;
+    text?: string;
   } | null>(null);
   const [starredCommentIds, setStarredCommentIds] = useState<string[]>([]);
   const [commentsSubTab, setCommentsSubTab] = useState<"live" | "starred">("live");
@@ -1047,7 +1048,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     <span>{displayedComment.senderName}</span>
                   </div>
                   <div className="bg-white text-slate-900 px-5 py-3.5 rounded-b-2xl rounded-tr-2xl shadow-2xl border border-gray-100 text-xs sm:text-sm font-medium leading-relaxed">
-                    {displayedComment.message}
+                    {displayedComment.text || displayedComment.message}
                   </div>
                 </div>
               )}
@@ -1073,6 +1074,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                               {
                                 id: "sample-widget-1",
                                 senderName: "Buysoft Events",
+                                text: "Os comentários ao vivo aparecem aqui no palco.",
                                 message: "Os comentários ao vivo aparecem aqui no palco.",
                                 createdAt: new Date().toISOString(),
                               },
@@ -1136,7 +1138,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                 )}
                               </div>
                               <p className={`text-white/95 font-medium leading-relaxed break-words ${msgSize}`}>
-                                {c.message}
+                                {c.text || c.message}
                               </p>
                             </div>
                           </div>
@@ -1521,6 +1523,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                   const defaultSampleComment = {
                     id: "sample-be-1",
                     senderName: "Buysoft Events",
+                    text:
+                      "Os comentários do público ao vivo aparecem no Buysoft Events. Este é um exemplo. Clique em um comentário para exibi-lo na tela.",
                     message:
                       "Os comentários do público ao vivo aparecem no Buysoft Events. Este é um exemplo. Clique em um comentário para exibi-lo na tela.",
                     createdAt: new Date().toISOString(),
@@ -1740,7 +1744,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                                     setDisplayedComment({
                                       id: msg.id,
                                       senderName: msg.senderName,
-                                      message: msg.message,
+                                      text: msg.text || msg.message,
+                                      message: msg.text || msg.message,
                                     });
                                   }
                                 }}
@@ -1774,7 +1779,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                       isSelected ? "text-white" : "text-slate-600"
                                     }`}
                                   >
-                                    {msg.message}
+                                    {msg.text || msg.message}
                                   </p>
                                 </div>
 
