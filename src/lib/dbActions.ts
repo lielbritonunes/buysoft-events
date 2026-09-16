@@ -352,6 +352,7 @@ export async function getLiveRoomState(eventId: string) {
     select: {
       id: true,
       title: true,
+      description: true,
       status: true,
       chatEnabled: true,
       qaEnabled: true,

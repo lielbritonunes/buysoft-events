@@ -24,22 +24,56 @@ import {
   Flame,
   Award,
   ChevronRight,
+  ChevronDown,
   Info,
   Zap,
   Monitor,
   Mic,
   MicOff,
   User,
+  X,
+  Send,
 } from "lucide-react";
-import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
 import FloatingReactions from "@/components/engagement/FloatingReactions";
-import { getLiveRoomState } from "@/lib/dbActions";
+import { getLiveRoomState, sendChatMessage } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
 import { BACKGROUND_PRESETS } from "@/components/studio/StudioLayoutManager";
 
+export interface AttendeeProfile {
+  firstName: string;
+  lastName: string;
+  fullName: string;
+}
 
+const AVATAR_PALETTE = [
+  { bg: "bg-[#e8f0fe]", text: "text-[#1967d2]", border: "border-[#d2e3fc]" }, // blue
+  { bg: "bg-[#fce8e6]", text: "text-[#c5221f]", border: "border-[#fad2cf]" }, // red
+  { bg: "bg-[#e6f4ea]", text: "text-[#137333]", border: "border-[#ceead6]" }, // green
+  { bg: "bg-[#fef7e0]", text: "text-[#b06000]", border: "border-[#feefc3]" }, // yellow/orange
+  { bg: "bg-[#f3e8fd]", text: "text-[#7627bb]", border: "border-[#e9d2fd]" }, // purple/violet
+  { bg: "bg-[#f5e6e8]", text: "text-[#8a3b4d]", border: "border-[#ecccd1]" }, // soft pink
+  { bg: "bg-[#e0f2f1]", text: "text-[#00695c]", border: "border-[#b2dfdb]" }, // teal
+];
+
+function getAvatarColors(name: string) {
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[index];
+}
+
+function getInitials(name: string): string {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -56,6 +90,17 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const isLive = roomState?.status === "live";
   const isCompleted = roomState?.status === "completed";
   const [isLoading, setIsLoading] = useState(true);
+
+  // Attendee profile: must enter First Name & Last Name to chat
+  const [attendeeProfile, setAttendeeProfile] = useState<AttendeeProfile | null>(null);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [firstNameInput, setFirstNameInput] = useState("");
+  const [lastNameInput, setLastNameInput] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
   const [userName, setUserName] = useState<string>(() => {
     if (resolvedSearchParams?.name) return resolvedSearchParams.name;
     if (typeof window !== "undefined") {
@@ -313,7 +358,91 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     return () => clearInterval(interval);
   }, [eventId]);
 
-  // Save attendee name to localStorage
+  // Load attendee profile from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(`buysoft_attendee_profile_${eventId}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed?.firstName && parsed?.lastName) {
+            setAttendeeProfile({
+              firstName: parsed.firstName,
+              lastName: parsed.lastName,
+              fullName: `${parsed.firstName} ${parsed.lastName}`,
+            });
+            setUserName(`${parsed.firstName} ${parsed.lastName}`);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Check legacy name or searchParams if already provided
+      const legacyName = resolvedSearchParams?.name || localStorage.getItem(`attendee_name_${eventId}`);
+      if (legacyName && legacyName !== "Participante Convidado") {
+        const parts = legacyName.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const fName = parts[0];
+          const lName = parts.slice(1).join(" ");
+          const prof = { firstName: fName, lastName: lName, fullName: `${fName} ${lName}` };
+          setAttendeeProfile(prof);
+          setUserName(prof.fullName);
+          localStorage.setItem(`buysoft_attendee_profile_${eventId}`, JSON.stringify(prof));
+        }
+      }
+    }
+  }, [eventId, resolvedSearchParams?.name]);
+
+  // Auto-scroll chat messages when new messages arrive
+  useEffect(() => {
+    chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [roomState?.chatMessages]);
+
+  // Save Attendee Profile (First Name & Last Name)
+  const handleSaveAttendeeProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const fName = firstNameInput.trim();
+    const lName = lastNameInput.trim();
+    if (!fName || !lName) return;
+
+    const prof: AttendeeProfile = {
+      firstName: fName,
+      lastName: lName,
+      fullName: `${fName} ${lName}`,
+    };
+
+    setAttendeeProfile(prof);
+    setUserName(prof.fullName);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`buysoft_attendee_profile_${eventId}`, JSON.stringify(prof));
+      localStorage.setItem(`attendee_name_${eventId}`, prof.fullName);
+    }
+    setShowNameModal(false);
+  };
+
+  // Send Chat Message with entered Name and Surname
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    if (!attendeeProfile) {
+      setShowNameModal(true);
+      return;
+    }
+
+    const text = chatInput.trim();
+    setChatInput("");
+    setIsSendingMessage(true);
+    try {
+      await sendChatMessage(eventId, attendeeProfile.fullName, "attendee", text);
+      await fetchRoom();
+    } catch (err) {
+      console.error("Erro ao enviar mensagem:", err);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // Save attendee name to localStorage (legacy)
   const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tempName.trim()) return;
@@ -366,10 +495,10 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
   if (isLoading && !roomState) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white font-sans">
+      <div className="flex min-h-screen items-center justify-center bg-white text-slate-900 font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-[#00b4fb]" />
-          <p className="text-sm font-semibold text-slate-400">Conectando à sala do webinar...</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#0066ff]" />
+          <p className="text-sm font-semibold text-slate-500">Conectando à sala do webinar...</p>
         </div>
       </div>
     );
@@ -380,112 +509,55 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   return (
     <div
       ref={containerRef}
-      className="flex min-h-screen flex-col bg-slate-950 text-slate-100 font-sans select-none overflow-hidden"
+      className="flex min-h-screen flex-col bg-white text-slate-900 font-sans select-none overflow-x-hidden"
     >
-      {/* Top Navigation Bar */}
-      <header className="flex h-14 w-full items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 sm:px-6 backdrop-blur-md z-30">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-md shadow-sky-500/25">
-            <Radio className="h-4 w-4" />
+      {/* Top Navigation Bar - Clean StreamYard Spectator Style */}
+      <header className="h-14 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
+        {/* Left: Buysoft Events Logo */}
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-[#0066ff] text-white flex items-center justify-center font-black text-sm shadow-xs">
+            <span className="tracking-tighter">BE</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-extrabold tracking-tight text-white">
-                Buysoft <span className="text-[#00b4fb]">Events</span>
-              </span>
-              {isLive ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/30 animate-pulse">
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                  AO VIVO
-                </span>
-              ) : isCompleted ? (
-                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-400 border border-slate-700">
-                  ENCERRADO (REPLAY)
-                </span>
-              ) : (
-                <span className="rounded-full bg-[#00b4fb]/20 px-2 py-0.5 text-[10px] font-bold text-[#00b4fb] border border-[#00b4fb]/30">
-                  EM BREVE
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-400 truncate max-w-[200px] sm:max-w-md">
-              {roomState?.title || "Webinar Corporativo"}
-            </p>
+          <div className="hidden sm:flex items-baseline gap-1">
+            <span className="text-sm font-black tracking-tight text-slate-900">
+              buysoft
+            </span>
+            <span className="text-sm font-bold text-[#0066ff]">events</span>
           </div>
         </div>
 
-        {/* User Identity & Utility Tools */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Sound Check Quick Test */}
-          <button
-            onClick={playSoundCheck}
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition"
-            title="Testar saída de áudio"
-          >
-            <Volume2 className="h-3.5 w-3.5 text-[#00b4fb]" />
-            <span>{soundTested ? "Som OK! ✓" : "Testar Áudio"}</span>
-          </button>
-
-          {/* Attendee Name Pill */}
-          <div className="relative">
-            {isEditingName ? (
-              <form onSubmit={handleSaveName} className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  placeholder="Seu nome..."
-                  className="rounded-lg border border-[#00b4fb] bg-slate-800 px-2.5 py-1 text-xs text-white focus:outline-none w-32"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#00b4fb] px-2 py-1 text-xs font-bold text-white hover:bg-[#009ce0]"
-                >
-                  OK
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => {
-                  setTempName(userName);
-                  setIsEditingName(true);
-                }}
-                className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs text-slate-300 hover:border-slate-500 hover:text-white transition"
-                title="Clique para alterar seu nome no chat"
-              >
-                <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="font-semibold max-w-[120px] truncate">{userName}</span>
-                <span className="text-[10px] text-slate-400 underline">editar</span>
-              </button>
-            )}
-          </div>
-
-          {/* Share webinar link */}
+        {/* Right: Live pill & Share */}
+        <div className="flex items-center gap-3">
+          {isLive && (
+            <span className="flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold text-rose-600 animate-pulse">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              AO VIVO
+            </span>
+          )}
           <button
             onClick={handleShare}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-slate-600 hover:bg-gray-50 hover:text-slate-900 transition shadow-2xs cursor-pointer"
             title="Copiar link da transmissão"
           >
-            {copiedLink ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+            {copiedLink ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4 text-slate-500" />}
           </button>
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main Split Layout */}
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden relative">
-        {/* Left / Center: Stage Screen Player */}
-        <main className={`flex flex-col flex-1 bg-slate-950 p-2 sm:p-4 transition-all duration-300 ${isTheater ? "lg:pr-4" : ""}`}>
-          
-          {/* Active CTA Banner (Shows at top of stage if triggered by host) */}
-          {activeCta && (
-            <div className="mb-3">
-              <LiveCtaBanner cta={activeCta} />
-            </div>
-          )}
+        {/* Left Column: Stage & Details */}
+        <main className={`flex flex-col flex-1 overflow-y-auto bg-white p-3 sm:p-5 lg:p-6 transition-all duration-300 ${isTheater ? "lg:pr-6" : ""}`}>
+          <div className="w-full max-w-5xl mx-auto flex flex-col">
+            {/* Active CTA Banner (Shows at top of stage if triggered by host) */}
+            {activeCta && (
+              <div className="mb-3">
+                <LiveCtaBanner cta={activeCta} />
+              </div>
+            )}
 
-          {/* Video / Stage Area */}
-          <div className="relative flex-1 flex items-center justify-center rounded-2xl bg-black border border-slate-800 overflow-hidden shadow-2xl min-h-[320px] sm:min-h-[480px]">
+            {/* Video / Stage Area (16:9 Aspect Ratio) */}
+            <div className="relative w-full aspect-video rounded-xl bg-black border border-gray-200 overflow-hidden shadow-xl flex items-center justify-center">
             {isLive ? (
               /* LIVE STAGE SCREEN WITH DUAL TRACKS (CAMERA + SCREEN) & HTML OVERLAYS */
               <div
@@ -849,22 +921,22 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 )}
 
                 {/* Chat Overlay Widget on Stage (Audience Spectator View) */}
-                {overlayState?.showCommentsOnStage && (
+                {(overlayState?.showCommentsOnStage ?? true) && (
                   <div
                     className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-25 pointer-events-none transition-all duration-300 ${
-                      overlayState.chatOverlaySettings?.size === "tall"
+                      overlayState?.chatOverlaySettings?.size === "tall"
                         ? "w-64 sm:w-72 max-h-64 sm:max-h-80"
-                        : overlayState.chatOverlaySettings?.size === "wide"
+                        : overlayState?.chatOverlaySettings?.size === "wide"
                         ? "w-80 sm:w-96 max-h-44 sm:max-h-52"
                         : "w-64 sm:w-72 max-h-44 sm:max-h-52"
                     }`}
                   >
                     <div className="bg-black/50 backdrop-blur-md border border-white/15 rounded-2xl p-3 shadow-2xl flex flex-col justify-end gap-2.5 overflow-hidden">
                       {(() => {
-                        const count = overlayState.chatOverlaySettings?.size === "tall" ? 6 : 4;
+                        const count = overlayState?.chatOverlaySettings?.size === "tall" ? 6 : 4;
                         const messagesToDisplay = (roomState?.chatMessages || []).slice(-count);
 
-                        const fontSize = overlayState.chatOverlaySettings?.fontSize || "small";
+                        const fontSize = overlayState?.chatOverlaySettings?.fontSize || "small";
                         const authorSize =
                           fontSize === "large"
                             ? "text-sm"
@@ -902,15 +974,18 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                             }
                           })();
 
+                          const colors = getAvatarColors(c.senderName || "U");
+                          const initials = getInitials(c.senderName || "U");
+
                           return (
                             <div
                               key={c.id}
                               className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
                             >
                               <div
-                                className={`rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
+                                className={`rounded-full ${colors.bg} ${colors.text} ${colors.border} border font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
                               >
-                                {c.senderName ? c.senderName.slice(0, 1).toUpperCase() : "U"}
+                                {initials}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-1.5">
@@ -1125,21 +1200,282 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
               </button>
             </div>
           </div>
+
+          {/* Video Footer Info (StreamYard Spectator Style) */}
+            <div className="mt-3 flex flex-col">
+              {/* Troubleshooting Link (Aligned to Right) */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowHelpModal(true)}
+                  className="text-xs text-[#0066ff] hover:underline font-semibold cursor-pointer transition"
+                >
+                  Está tendo problemas?
+                </button>
+              </div>
+
+              {/* Event Title */}
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {roomState?.title || "teste"}
+              </h1>
+
+              {/* Viewer Count */}
+              <p className="text-xs font-semibold text-slate-500 mt-1">
+                1 assistindo agora
+              </p>
+
+              {/* Event Description */}
+              {roomState?.description && (
+                <div className="text-sm text-slate-700 mt-3 whitespace-pre-wrap leading-relaxed">
+                  {roomState.description}
+                </div>
+              )}
+            </div>
+          </div>
         </main>
 
-        {/* Right Column: Live Engagement Sidebar (Chat, Q&A, Polls) */}
+        {/* Right Column: Chat Sidebar (Clean White) */}
         {!isTheater && (
-          <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-slate-800 bg-slate-900 flex flex-col h-[480px] lg:h-auto">
-            <LiveEngagementSidebar
-              eventId={eventId}
-              userName={userName}
-              userRole="attendee"
-              roomState={roomState}
-              onRefresh={fetchRoom}
-            />
+          <aside className="w-full lg:w-80 xl:w-96 border-t lg:border-t-0 lg:border-l border-gray-200 bg-white flex flex-col h-[480px] lg:h-[calc(100vh-3.5rem)] shrink-0">
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {(!roomState?.chatMessages || roomState.chatMessages.length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
+                  <MessageSquare className="h-8 w-8 text-slate-300 stroke-[1.5] mb-2" />
+                  <p className="text-xs font-medium text-slate-600">Nenhum comentário ainda.</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Participe enviando uma mensagem no chat!</p>
+                </div>
+              ) : (
+                roomState.chatMessages.map((msg: any) => {
+                  const timeStr = (() => {
+                    try {
+                      const d = new Date(msg.createdAt || Date.now());
+                      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    } catch (_) {
+                      return "";
+                    }
+                  })();
+
+                  const colors = getAvatarColors(msg.senderName || "Participante");
+                  const initials = getInitials(msg.senderName || "Participante");
+
+                  return (
+                    <div key={msg.id} className="flex items-start gap-3 group animate-in fade-in duration-150">
+                      <div
+                        className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border shadow-2xs ${colors.bg} ${colors.text} ${colors.border}`}
+                      >
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs font-bold text-slate-800 tracking-tight truncate">
+                            {msg.senderName}
+                          </span>
+                          {timeStr && (
+                            <span className="text-[11px] text-slate-400 font-normal shrink-0">
+                              {timeStr}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-700 leading-relaxed break-words mt-0.5 whitespace-pre-wrap">
+                          {msg.text || msg.message}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatMessagesEndRef} />
+            </div>
+
+            {/* Chat Footer: [ Entrar no chat ] OR [ User Avatar + Message Input ] */}
+            {!attendeeProfile ? (
+              <div className="p-4 border-t border-gray-100 bg-white">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFirstNameInput("");
+                    setLastNameInput("");
+                    setShowNameModal(true);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-lg border-2 border-[#0066ff] text-[#0066ff] hover:bg-blue-50/50 font-bold text-xs tracking-wide transition shadow-xs flex items-center justify-center cursor-pointer"
+                >
+                  Entrar no chat
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 sm:p-4 border-t border-gray-200 bg-white">
+                <div className="flex items-center gap-2">
+                  {/* Profile Pill with Dropdown Chevron */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFirstNameInput(attendeeProfile.firstName);
+                      setLastNameInput(attendeeProfile.lastName);
+                      setShowNameModal(true);
+                    }}
+                    title="Clique para alterar seu nome no chat"
+                    className="flex items-center gap-1 hover:opacity-80 transition group shrink-0 cursor-pointer"
+                  >
+                    <div
+                      className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center border shadow-2xs ${
+                        getAvatarColors(attendeeProfile.fullName).bg
+                      } ${getAvatarColors(attendeeProfile.fullName).text} ${
+                        getAvatarColors(attendeeProfile.fullName).border
+                      }`}
+                    >
+                      {getInitials(attendeeProfile.fullName)}
+                    </div>
+                    <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition" />
+                  </button>
+
+                  {/* Message Input Form */}
+                  <form onSubmit={handleSendChatMessage} className="flex-1 flex items-center relative">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Escrever uma mensagem..."
+                      className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition shadow-2xs"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || isSendingMessage}
+                      className="absolute right-2 text-slate-400 hover:text-[#0066ff] disabled:opacity-30 transition p-1 cursor-pointer"
+                      title="Enviar mensagem"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
           </aside>
         )}
       </div>
+
+      {/* Modal: Entrar no chat (Exact StreamYard Style) */}
+      {showNameModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-900">Entrar no chat</h3>
+              <button
+                type="button"
+                onClick={() => setShowNameModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition p-1 rounded-md cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAttendeeProfile}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Nome
+                  </label>
+                  <input
+                    type="text"
+                    value={firstNameInput}
+                    onChange={(e) => setFirstNameInput(e.target.value)}
+                    placeholder="Digite seu nome"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition"
+                    autoFocus
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Sobrenome
+                  </label>
+                  <input
+                    type="text"
+                    value={lastNameInput}
+                    onChange={(e) => setLastNameInput(e.target.value)}
+                    placeholder="Digite seu sobrenome"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNameModal(false)}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-800 px-4 py-2 rounded-md transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!firstNameInput.trim() || !lastNameInput.trim()}
+                  className="text-xs font-bold bg-[#0066ff] hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-md transition shadow-xs cursor-pointer"
+                >
+                  Entrar no chat
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Está tendo problemas? */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-[#0066ff]" />
+                <h3 className="text-base font-bold text-slate-900">Está tendo problemas?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition p-1 rounded-md cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+              <div className="p-3 rounded-lg bg-blue-50/70 border border-blue-100">
+                <p className="font-bold text-slate-800 mb-1">🔊 Sem som no vídeo?</p>
+                <p>
+                  Por padrão, navegadores bloqueiam o áudio automático.
+                  Clique no botão <strong>&quot;Clique para Ativar Som 🔊&quot;</strong> exibido na tela da transmissão.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <p className="font-bold text-slate-800 mb-1">🔄 Imagem travando ou atrasada?</p>
+                <p>
+                  Atualize a página pressionando <strong>F5</strong> (ou <strong>Ctrl+R</strong>) para restabelecer a conexão de baixa latência em tempo real.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <p className="font-bold text-slate-800 mb-1">🌐 Conexão e Navegador</p>
+                <p>
+                  Para melhor estabilidade, recomendamos utilizar <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong> atualizados e conexão cabeada ou Wi-Fi estável.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(false)}
+                className="text-xs font-bold bg-[#0066ff] hover:bg-blue-700 text-white px-4 py-2 rounded-md transition cursor-pointer shadow-xs"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
