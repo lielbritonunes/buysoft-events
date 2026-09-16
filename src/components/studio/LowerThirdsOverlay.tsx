@@ -56,28 +56,38 @@ interface TickerTapeProps {
   isVisible: boolean;
   text: string;
   themeColor?: string;
+  position?: "top" | "bottom";
+  speed?: "slow" | "normal" | "fast";
 }
 
 export function TickerTape({
   isVisible,
   text,
   themeColor = "#00b4fb",
+  position = "bottom",
+  speed = "normal",
 }: TickerTapeProps) {
   if (!isVisible || !text) return null;
 
-  return (
-    <div className="absolute bottom-0 inset-x-0 z-30 h-8 bg-slate-950/95 border-t border-slate-800 flex items-center overflow-hidden backdrop-blur-md pointer-events-none">
-      <div
-        className="h-full px-3 flex items-center gap-1.5 text-white text-[10px] font-black uppercase tracking-wider shrink-0"
-        style={{ backgroundColor: themeColor }}
-      >
-        <Megaphone className="h-3 w-3" />
-        <span>Aviso</span>
-      </div>
+  const durationMap = {
+    slow: "32s",
+    normal: "20s",
+    fast: "12s",
+  };
+  const animationDuration = durationMap[speed] || "20s";
 
-      <div className="flex-1 whitespace-nowrap overflow-hidden">
-        <div className="inline-block animate-marquee pl-4 text-xs font-semibold text-slate-200">
-          {text} &nbsp; • &nbsp; {text} &nbsp; • &nbsp; {text}
+  return (
+    <div
+      className={`absolute ${
+        position === "top" ? "top-0 border-b" : "bottom-0 border-t"
+      } inset-x-0 z-30 h-10 sm:h-12 bg-slate-950/95 border-white/15 flex items-center overflow-hidden backdrop-blur-md pointer-events-none shadow-lg`}
+    >
+      <div className="w-full whitespace-nowrap overflow-hidden flex items-center">
+        <div
+          className="inline-block animate-marquee text-sm sm:text-base font-semibold text-white tracking-wide"
+          style={{ animationDuration }}
+        >
+          {text}
         </div>
       </div>
     </div>
@@ -127,10 +137,10 @@ export function FixedBanner({
   if (!isVisible || !text) return null;
 
   return (
-    <div className="absolute bottom-8 sm:bottom-10 inset-x-0 z-30 flex justify-center px-6 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none">
+    <div className="absolute bottom-6 sm:bottom-8 left-6 z-30 max-w-xl flex justify-start animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none">
       <div
-        className="max-w-2xl bg-white/95 text-slate-900 font-bold text-sm sm:text-base px-6 py-3 rounded-xl shadow-2xl border-b-4 text-center leading-snug backdrop-blur-md"
-        style={{ borderBottomColor: themeColor }}
+        className="bg-white/95 text-slate-900 font-bold text-sm sm:text-base px-5 py-3 rounded-xl shadow-2xl border-l-4 text-left leading-snug backdrop-blur-md"
+        style={{ borderLeftColor: themeColor }}
       >
         {text}
       </div>

@@ -56,7 +56,11 @@ import {
   GripVertical,
   ChevronLeft,
   Pencil,
-  Trash2
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Gauge
 } from "lucide-react";
 
 import PreflightLobby from "@/components/studio/PreflightLobby";
@@ -137,7 +141,13 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [bannerFolders, setBannerFolders] = useState<Array<{
     id: string;
     name: string;
-    banners: Array<{ id: string; text: string; isTicker: boolean }>;
+    banners: Array<{
+      id: string;
+      text: string;
+      isTicker: boolean;
+      position?: "top" | "bottom";
+      speed?: "slow" | "normal" | "fast";
+    }>;
   }>>([
     {
       id: "folder-default",
@@ -152,6 +162,8 @@ export default function StudioPage({ params, searchParams }: Props) {
           id: "banner-2",
           text: "Esté é um exemplo de banner com rolagem na tela.",
           isTicker: true,
+          position: "bottom",
+          speed: "normal",
         },
       ],
     },
@@ -165,6 +177,8 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [bannerTextInput, setBannerTextInput] = useState("");
   const [bannerIsTickerInput, setBannerIsTickerInput] = useState(false);
+  const [bannerPositionInput, setBannerPositionInput] = useState<"top" | "bottom">("bottom");
+  const [bannerSpeedInput, setBannerSpeedInput] = useState<"slow" | "normal" | "fast">("normal");
 
   // Folder Create / Rename state
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -436,6 +450,11 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [hasJoinedLobby, eventId, userRole]);
 
+  const currentFolder =
+    bannerFolders.find((f) => f.id === currentBannerFolderId) || null;
+  const allBanners = bannerFolders.flatMap((f) => f.banners);
+  const activeBanner = allBanners.find((b) => b.id === activeBannerId) || null;
+
   // Send overlay and composition state to all spectators via LiveKit DataChannel
   const publishOverlayState = React.useCallback(() => {
     const room = livekitRoomRef.current;
@@ -450,8 +469,18 @@ export default function StudioPage({ params, searchParams }: Props) {
         isMicOn,
         backgroundPresetId,
         customBackgroundUrl,
-        presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+        presenterName,
+        presenterHeadline,
         brandColor,
+        activeBanner: activeBanner
+          ? {
+              id: activeBanner.id,
+              text: activeBanner.text,
+              isTicker: activeBanner.isTicker,
+              position: activeBanner.position || "bottom",
+              speed: activeBanner.speed || "normal",
+            }
+          : null,
         lowerThird: {
           visible: lowerThirdVisible,
           name: lowerThirdName,
@@ -481,8 +510,10 @@ export default function StudioPage({ params, searchParams }: Props) {
     isMicOn,
     backgroundPresetId,
     customBackgroundUrl,
-    userRole,
+    presenterName,
+    presenterHeadline,
     brandColor,
+    activeBanner,
     lowerThirdVisible,
     lowerThirdName,
     lowerThirdRole,
@@ -909,7 +940,13 @@ export default function StudioPage({ params, searchParams }: Props) {
             ...folder,
             banners: folder.banners.map((b) =>
               b.id === editingBannerId
-                ? { ...b, text: bannerTextInput.trim(), isTicker: bannerIsTickerInput }
+                ? {
+                    ...b,
+                    text: bannerTextInput.trim(),
+                    isTicker: bannerIsTickerInput,
+                    position: bannerPositionInput,
+                    speed: bannerSpeedInput,
+                  }
                 : b
             ),
           };
@@ -922,6 +959,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                 id: `banner-${Date.now()}`,
                 text: bannerTextInput.trim(),
                 isTicker: bannerIsTickerInput,
+                position: bannerPositionInput,
+                speed: bannerSpeedInput,
               },
             ],
           };
@@ -933,6 +972,8 @@ export default function StudioPage({ params, searchParams }: Props) {
     setEditingBannerId(null);
     setBannerTextInput("");
     setBannerIsTickerInput(false);
+    setBannerPositionInput("bottom");
+    setBannerSpeedInput("normal");
   };
 
   const handleDeleteBanner = (bannerId: string) => {
@@ -947,10 +988,18 @@ export default function StudioPage({ params, searchParams }: Props) {
     );
   };
 
-  const handleStartEditBanner = (banner: { id: string; text: string; isTicker: boolean }) => {
+  const handleStartEditBanner = (banner: {
+    id: string;
+    text: string;
+    isTicker: boolean;
+    position?: "top" | "bottom";
+    speed?: "slow" | "normal" | "fast";
+  }) => {
     setEditingBannerId(banner.id);
     setBannerTextInput(banner.text);
     setBannerIsTickerInput(banner.isTicker);
+    setBannerPositionInput(banner.position || "bottom");
+    setBannerSpeedInput(banner.speed || "normal");
     setIsBannerFormOpen(true);
   };
 
@@ -1009,11 +1058,6 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
     setOpenFolderMenuId(null);
   };
-
-  const currentFolder =
-    bannerFolders.find((f) => f.id === currentBannerFolderId) || null;
-  const allBanners = bannerFolders.flatMap((f) => f.banners);
-  const activeBanner = allBanners.find((b) => b.id === activeBannerId) || null;
 
   const audienceUrl = typeof window !== "undefined" ? `${window.location.origin}/live/${eventId}` : `/live/${eventId}`;
 
@@ -1246,6 +1290,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                 isVisible={!!(activeBanner && activeBanner.isTicker) || tickerVisible}
                 text={activeBanner?.isTicker ? activeBanner.text : tickerText}
                 themeColor={brandColor}
+                position={activeBanner?.position || "bottom"}
+                speed={activeBanner?.speed || "normal"}
               />
 
               {/* Legacy Overlays (Headline, LowerThird) */}
@@ -2446,44 +2492,129 @@ export default function StudioPage({ params, searchParams }: Props) {
                         </div>
                       </div>
 
-                      {/* Banner Form (Create / Edit) */}
+                      {/* Banner Form (Create / Edit - StreamYard style) */}
                       {isBannerFormOpen && (
-                        <div className="p-3 rounded-xl border border-[#00b4fb]/50 bg-white shadow-sm space-y-2.5 animate-in fade-in">
-                          <span className="text-xs font-bold text-slate-800 block">
-                            {editingBannerId ? "Editar banner" : "Criar um banner"}
-                          </span>
-                          <textarea
-                            value={bannerTextInput}
-                            onChange={(e) => setBannerTextInput(e.target.value)}
-                            placeholder="Digite a mensagem do banner..."
-                            rows={3}
-                            maxLength={200}
-                            className="w-full rounded-lg border border-gray-300 p-2 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none resize-none"
-                            autoFocus
-                          />
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 select-none">
+                        <div className="p-3.5 rounded-xl border border-gray-200 bg-white shadow-md space-y-3 animate-in fade-in">
+                          <div>
+                            <textarea
+                              value={bannerTextInput}
+                              onChange={(e) => setBannerTextInput(e.target.value)}
+                              placeholder="Digite a mensagem do banner..."
+                              rows={2}
+                              maxLength={1000}
+                              className="w-full rounded-xl border-2 border-[#00b4fb] p-2.5 text-xs text-slate-800 focus:outline-none resize-none font-normal leading-relaxed"
+                              autoFocus
+                            />
+                            <div className="flex justify-end pr-1 text-[11px] font-medium text-slate-400 mt-0.5">
+                              {bannerTextInput.length}/1000
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-0.5">
+                            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700 select-none">
                               <input
                                 type="checkbox"
                                 checked={bannerIsTickerInput}
                                 onChange={(e) => setBannerIsTickerInput(e.target.checked)}
-                                className="rounded border-gray-300 text-[#00b4fb] focus:ring-[#00b4fb]"
+                                className="h-4 w-4 rounded border-gray-300 text-[#00b4fb] focus:ring-[#00b4fb] cursor-pointer"
                               />
-                              <span>Rolar na tela (ticker)</span>
+                              <span>Rolagem na tela (contador)</span>
                             </label>
-                            <span className="text-[10px] text-gray-400">
-                              {bannerTextInput.length}/200
-                            </span>
+
+                            {bannerIsTickerInput && (
+                              <div className="space-y-2.5 pl-6 animate-in fade-in">
+                                {/* Posição */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+                                    <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>Posição</span>
+                                  </div>
+                                  <div className="flex items-center border border-gray-200 rounded-lg p-0.5 bg-gray-50/60 shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => setBannerPositionInput("top")}
+                                      className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+                                        bannerPositionInput === "top"
+                                          ? "bg-[#e6f7fe] text-[#00b4fb]"
+                                          : "text-slate-600 hover:bg-gray-100"
+                                      }`}
+                                      title="Parte superior"
+                                    >
+                                      <ArrowUp className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBannerPositionInput("bottom")}
+                                      className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+                                        bannerPositionInput === "bottom"
+                                          ? "bg-[#e6f7fe] text-[#00b4fb]"
+                                          : "text-slate-600 hover:bg-gray-100"
+                                      }`}
+                                      title="Parte inferior"
+                                    >
+                                      <ArrowDown className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Velocidade */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+                                    <Gauge className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>Velocidade</span>
+                                  </div>
+                                  <div className="flex items-center border border-gray-200 rounded-lg p-0.5 bg-gray-50/60 shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => setBannerSpeedInput("slow")}
+                                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                                        bannerSpeedInput === "slow"
+                                          ? "bg-[#e6f7fe] text-[#00b4fb]"
+                                          : "text-slate-600 hover:bg-gray-100"
+                                      }`}
+                                    >
+                                      Lenta
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBannerSpeedInput("normal")}
+                                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                                        bannerSpeedInput === "normal"
+                                          ? "bg-[#e6f7fe] text-[#00b4fb]"
+                                          : "text-slate-600 hover:bg-gray-100"
+                                      }`}
+                                    >
+                                      Normal
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBannerSpeedInput("fast")}
+                                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                                        bannerSpeedInput === "fast"
+                                          ? "bg-[#e6f7fe] text-[#00b4fb]"
+                                          : "text-slate-600 hover:bg-gray-100"
+                                      }`}
+                                    >
+                                      Rápida
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center justify-end gap-2 pt-1">
+
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                             <button
                               type="button"
                               onClick={() => {
                                 setIsBannerFormOpen(false);
                                 setEditingBannerId(null);
                                 setBannerTextInput("");
+                                setBannerIsTickerInput(false);
+                                setBannerPositionInput("bottom");
+                                setBannerSpeedInput("normal");
                               }}
-                              className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-slate-600 hover:bg-gray-50"
+                              className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-slate-600 hover:bg-gray-50 transition"
                             >
                               Cancelar
                             </button>
@@ -2491,7 +2622,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                               type="button"
                               onClick={handleSaveBanner}
                               disabled={!bannerTextInput.trim()}
-                              className="px-3 py-1.5 rounded-lg bg-[#00b4fb] text-white text-xs font-semibold hover:bg-[#009fdc] disabled:opacity-50 transition shadow-xs"
+                              className="px-3.5 py-1.5 rounded-lg bg-[#00b4fb] text-white text-xs font-semibold hover:bg-[#009fdc] disabled:opacity-50 transition shadow-xs"
                             >
                               {editingBannerId ? "Salvar alterações" : "Adicionar banner"}
                             </button>

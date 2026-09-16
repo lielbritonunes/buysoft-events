@@ -41,6 +41,7 @@ import { getLiveRoomState, sendChatMessage } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
 import { BACKGROUND_PRESETS } from "@/components/studio/StudioLayoutManager";
+import { FixedBanner, TickerTape } from "@/components/studio/LowerThirdsOverlay";
 
 export interface AttendeeProfile {
   firstName: string;
@@ -264,7 +265,15 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     backgroundPresetId?: string;
     customBackgroundUrl?: string;
     presenterName: string;
+    presenterHeadline?: string;
     brandColor: string;
+    activeBanner?: {
+      id: string;
+      text: string;
+      isTicker: boolean;
+      position?: "top" | "bottom";
+      speed?: "slow" | "normal" | "fast";
+    } | null;
     lowerThird: { visible: boolean; name: string; role: string; company: string };
     ticker: { visible: boolean; text: string };
     banner: { visible: boolean; title: string; subtitle: string };
@@ -378,29 +387,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           try {
             const msg = JSON.parse(new TextDecoder().decode(data));
             if (msg.type === "overlay") {
-              setOverlayState((prev) => {
-                if (
-                  prev &&
-                  prev.layoutMode === msg.layoutMode &&
-                  prev.isScreenSharing === msg.isScreenSharing &&
-                  prev.isCamOn === msg.isCamOn &&
-                  prev.isOnStage === msg.isOnStage &&
-                  prev.isMicOn === msg.isMicOn &&
-                  prev.backgroundPresetId === msg.backgroundPresetId &&
-                  prev.customBackgroundUrl === msg.customBackgroundUrl &&
-                  prev.displayedComment?.id === msg.displayedComment?.id &&
-                  prev.showCommentsOnStage === msg.showCommentsOnStage &&
-                  prev.lowerThird?.visible === msg.lowerThird?.visible &&
-                  prev.lowerThird?.name === msg.lowerThird?.name &&
-                  prev.ticker?.visible === msg.ticker?.visible &&
-                  prev.ticker?.text === msg.ticker?.text &&
-                  prev.banner?.visible === msg.banner?.visible &&
-                  prev.banner?.title === msg.banner?.title
-                ) {
-                  return prev;
-                }
-                return msg as OverlayState;
-              });
+              setOverlayState(msg as OverlayState);
             } else if (msg.type === "reaction" && msg.emoji) {
               triggerFloatingReaction(msg.emoji);
             }
@@ -845,12 +832,19 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                                     </div>
                                   }
                                 />
-                                <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
-                                  <span>{presenterName}</span>
-                                  {isMicOn ? (
-                                    <Mic className="h-3 w-3 text-emerald-400" />
-                                  ) : (
-                                    <MicOff className="h-3 w-3 text-rose-400" />
+                                <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/85 px-3 py-1.5 text-white flex flex-col justify-center backdrop-blur-xs border-l-4 border-[#00b4fb] shadow-xl pointer-events-none">
+                                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                                    <span>{presenterName}</span>
+                                    {isMicOn ? (
+                                      <Mic className="h-3 w-3 text-emerald-400" />
+                                    ) : (
+                                      <MicOff className="h-3 w-3 text-rose-400" />
+                                    )}
+                                  </div>
+                                  {overlayState?.presenterHeadline && (
+                                    <span className="text-[10px] font-medium text-slate-300 mt-0.5">
+                                      {overlayState.presenterHeadline}
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -885,12 +879,19 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                                     </div>
                                   }
                                 />
-                                <div className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white flex items-center gap-1 pointer-events-none">
-                                  <span>{presenterName}</span>
-                                  {isMicOn ? (
-                                    <Mic className="h-2.5 w-2.5 text-emerald-400" />
-                                  ) : (
-                                    <MicOff className="h-2.5 w-2.5 text-rose-400" />
+                                <div className="absolute bottom-1.5 left-1.5 rounded bg-black/85 px-2 py-1 text-white flex flex-col justify-center border-l-2 border-[#00b4fb] pointer-events-none">
+                                  <div className="flex items-center gap-1 text-[9px] font-bold">
+                                    <span>{presenterName}</span>
+                                    {isMicOn ? (
+                                      <Mic className="h-2.5 w-2.5 text-emerald-400" />
+                                    ) : (
+                                      <MicOff className="h-2.5 w-2.5 text-rose-400" />
+                                    )}
+                                  </div>
+                                  {overlayState?.presenterHeadline && (
+                                    <span className="text-[8px] font-medium text-slate-300 truncate max-w-[140px]">
+                                      {overlayState.presenterHeadline}
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -925,9 +926,16 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                                     </div>
                                   }
                                 />
-                                <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
-                                  <span>{presenterName}</span>
-                                  {isMicOn ? <Mic className="h-3 w-3 text-emerald-400" /> : <MicOff className="h-3 w-3 text-rose-400" />}
+                                <div className="absolute bottom-3 left-3 rounded-lg bg-black/85 px-3 py-1.5 text-white flex flex-col justify-center backdrop-blur-xs border-l-4 border-[#00b4fb] shadow-xl pointer-events-none">
+                                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                                    <span>{presenterName}</span>
+                                    {isMicOn ? <Mic className="h-3 w-3 text-emerald-400" /> : <MicOff className="h-3 w-3 text-rose-400" />}
+                                  </div>
+                                  {overlayState?.presenterHeadline && (
+                                    <span className="text-[10px] font-medium text-slate-300 mt-0.5">
+                                      {overlayState.presenterHeadline}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -966,9 +974,16 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                                   </div>
                                 }
                               />
-                              <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
-                                <span>{presenterName}</span>
-                                {isMicOn ? <Mic className="h-3.5 w-3.5 text-emerald-400" /> : <MicOff className="h-3.5 w-3.5 text-rose-400" />}
+                              <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/85 px-3 py-1.5 text-white flex flex-col justify-center backdrop-blur-xs border-l-4 border-[#00b4fb] shadow-xl pointer-events-none">
+                                <div className="flex items-center gap-1.5 text-xs font-bold">
+                                  <span>{presenterName}</span>
+                                  {isMicOn ? <Mic className="h-3.5 w-3.5 text-emerald-400" /> : <MicOff className="h-3.5 w-3.5 text-rose-400" />}
+                                </div>
+                                {overlayState?.presenterHeadline && (
+                                  <span className="text-[10px] font-medium text-slate-300 mt-0.5">
+                                    {overlayState.presenterHeadline}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1023,19 +1038,31 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   </div>
                 )}
 
-                {/* Ticker Overlay */}
-                {overlayState?.ticker?.visible && overlayState.ticker.text && (
-                  <div className="absolute bottom-0 inset-x-0 z-30 bg-slate-950/95 border-t border-slate-800/90 py-1.5 px-4 overflow-hidden backdrop-blur-md flex items-center pointer-events-none">
-                    <div className="shrink-0 mr-3 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#00b4fb] text-[10px] font-black uppercase tracking-wider text-white shadow-xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                      Notícias
-                    </div>
-                    <div className="overflow-hidden whitespace-nowrap flex-1">
-                      <span className="animate-ticker-marquee text-xs font-semibold text-slate-200">
-                        {overlayState.ticker.text}
-                      </span>
-                    </div>
-                  </div>
+                {/* StreamYard Banners on Spectator Stage */}
+                {overlayState?.activeBanner && !overlayState.activeBanner.isTicker && (
+                  <FixedBanner
+                    isVisible={true}
+                    text={overlayState.activeBanner.text}
+                    themeColor={overlayState.brandColor || "#00b4fb"}
+                  />
+                )}
+                {overlayState?.activeBanner && overlayState.activeBanner.isTicker && (
+                  <TickerTape
+                    isVisible={true}
+                    text={overlayState.activeBanner.text}
+                    themeColor={overlayState.brandColor || "#00b4fb"}
+                    position={overlayState.activeBanner.position || "bottom"}
+                    speed={overlayState.activeBanner.speed || "normal"}
+                  />
+                )}
+                {!overlayState?.activeBanner && overlayState?.ticker?.visible && overlayState.ticker.text && (
+                  <TickerTape
+                    isVisible={true}
+                    text={overlayState.ticker.text}
+                    themeColor={overlayState.brandColor || "#00b4fb"}
+                    position="bottom"
+                    speed="normal"
+                  />
                 )}
 
                 {/* Displayed Comment Banner (StreamYard Highlight) */}
