@@ -35,8 +35,7 @@ import {
 } from "@/lib/authActions";
 import {
   updateOrganizationAction,
-  testSmtpConnectionAction,
-  disconnectYouTubeAction
+  testSmtpConnectionAction
 } from "@/lib/dbActions";
 
 interface Props {
@@ -57,7 +56,7 @@ export default function OrganizationSettingsModal({
   onUpdateCurrentUser,
 }: Props) {
   const [activeTab, setActiveTab] = useState<
-    "profile" | "security" | "team" | "smtp" | "youtube" | "billing"
+    "profile" | "security" | "team" | "smtp" | "billing"
   >("profile");
 
   const [formData, setFormData] = useState({
@@ -333,20 +332,6 @@ export default function OrganizationSettingsModal({
     }
   };
 
-  const handleDisconnectYouTube = async () => {
-    if (!confirm("Tem certeza que deseja desconectar o canal do YouTube desta organização?")) return;
-    try {
-      await disconnectYouTubeAction(organization.id);
-      onUpdateOrg({ ...organization, youtubeIntegration: null });
-      alert("Canal desconectado com sucesso.");
-    } catch {
-      alert("Erro ao desconectar canal.");
-    }
-  };
-
-  const handleConnectYouTube = () => {
-    window.location.href = "/api/integrations/youtube/auth";
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto font-sans">
@@ -1162,7 +1147,7 @@ export default function OrganizationSettingsModal({
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>Estúdio Broadcast com Lower Thirds, Ticker e Egress YouTube Live</span>
+                      <span>Estúdio Broadcast com Lower Thirds, Ticker e Layouts Customizados</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-emerald-500" />
