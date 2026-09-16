@@ -1250,8 +1250,8 @@ export default function StudioPage({ params, searchParams }: Props) {
         </div>
 
         {/* Right: Actions, Spectator Link, Status & Go Live Button */}
-        <div className="flex items-center gap-3">
-          {/* Share with audience button */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Share with audience button (desktop text, mobile icon) */}
           <button
             onClick={() => {
               navigator.clipboard.writeText(audienceUrl);
@@ -1259,18 +1259,18 @@ export default function StudioPage({ params, searchParams }: Props) {
               showToast("Link da transmissão copiado para a área de transferência!");
               setTimeout(() => setCopiedLink(false), 2500);
             }}
-            className="hidden md:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition px-2.5 py-1.5 rounded-lg hover:bg-gray-100"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition p-2 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-gray-100"
             title="Copiar link para convidar espectadores"
           >
             {copiedLink ? (
               <>
                 <Check className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-emerald-700 font-semibold">Copiado!</span>
+                <span className="text-emerald-700 font-semibold hidden md:inline">Copiado!</span>
               </>
             ) : (
               <>
                 <Share2 className="h-3.5 w-3.5 text-slate-500" />
-                <span>Compartilhar com os espectadores</span>
+                <span className="hidden md:inline">Compartilhar com os espectadores</span>
               </>
             )}
           </button>
@@ -1290,15 +1290,15 @@ export default function StudioPage({ params, searchParams }: Props) {
           {/* Programado / Ao Vivo Pill Badge */}
           <div className="flex items-center">
             {isWebinarLive ? (
-              <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-2.5 py-1 text-xs font-bold text-red-600">
+              <div className="flex items-center gap-1.5 sm:gap-2 rounded-md bg-red-50 border border-red-200 px-2 sm:px-2.5 py-1 text-xs font-bold text-red-600">
                 <span className="h-2 w-2 rounded-full bg-red-600 animate-ping" />
                 <span>AO VIVO</span>
-                <span className="font-mono text-slate-800 border-l border-red-200 pl-2">
+                <span className="font-mono text-slate-800 border-l border-red-200 pl-1.5 sm:pl-2">
                   {formatDuration(liveDuration)}
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 rounded-md bg-gray-100 border border-gray-200 px-2.5 py-1 text-xs text-slate-600">
+              <div className="flex items-center gap-1 sm:gap-1.5 rounded-md bg-gray-100 border border-gray-200 px-2 sm:px-2.5 py-1 text-xs text-slate-600">
                 <Clock className="h-3.5 w-3.5 text-slate-400" />
                 <span className="font-medium">Programação</span>
                 <span className="text-slate-400 hidden sm:inline">• É hora do show!</span>
@@ -1310,7 +1310,7 @@ export default function StudioPage({ params, searchParams }: Props) {
           <button
             onClick={handleToggleGoLive}
             disabled={isStartingBroadcast}
-            className={`flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-md transition shadow-xs ${
+            className={`flex items-center gap-1.5 sm:gap-2 text-xs font-semibold px-3 sm:px-4 py-2 rounded-md transition shadow-xs ${
               isStartingBroadcast
                 ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                 : isWebinarLive
@@ -1326,12 +1326,14 @@ export default function StudioPage({ params, searchParams }: Props) {
             ) : isWebinarLive ? (
               <>
                 <Square className="h-3 w-3 fill-current" />
-                <span>Encerrar transmissão</span>
+                <span className="hidden xs:inline">Encerrar transmissão</span>
+                <span className="xs:hidden">Encerrar</span>
               </>
             ) : (
               <>
                 <Play className="h-3 w-3 fill-current" />
-                <span>Transmitir ao vivo</span>
+                <span className="hidden xs:inline">Transmitir ao vivo</span>
+                <span className="xs:hidden">Transmitir</span>
               </>
             )}
           </button>
@@ -1575,8 +1577,8 @@ export default function StudioPage({ params, searchParams }: Props) {
             {/* =================================================================== */}
             {/* STREAMYARD LAYOUT SELECTOR BAR (Directly under the stage)           */}
             {/* =================================================================== */}
-            <div className="flex items-center justify-center gap-2 mt-3 mb-1">
-              <div className="flex items-center bg-white rounded-lg border border-gray-300 p-0.5 shadow-2xs">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-3 mb-1 max-w-full overflow-x-auto px-1 sm:px-2">
+              <div className="flex items-center bg-white rounded-lg border border-gray-300 p-0.5 shadow-2xs shrink-0">
                 {/* 1. Solo */}
                 <button
                   type="button"
@@ -1709,11 +1711,11 @@ export default function StudioPage({ params, searchParams }: Props) {
           {/* =================================================================== */}
           {/* BOTTOM SHELF: Left cards + Center floating toolbar + Right help    */}
           {/* =================================================================== */}
-          <div className="w-full max-w-[1040px] mx-auto flex items-end justify-between gap-3 pt-2">
+          <div className="w-full max-w-[1040px] mx-auto flex flex-col md:flex-row items-center md:items-end justify-between gap-3 pt-2">
             {/* Left: Participant & Presentation Cards (StreamYard Tray) */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto max-w-full pb-1">
               {/* Card 1: Local User Card */}
-              <div className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border border-gray-300 bg-slate-800 relative overflow-hidden shadow-xs flex flex-col justify-between p-1.5 select-none">
+              <div className="w-28 sm:w-36 h-18 sm:h-24 rounded-xl border border-gray-300 bg-slate-800 relative overflow-hidden shadow-xs flex flex-col justify-between p-1.5 select-none shrink-0">
                 {/* Video / Cam off thumbnail */}
                 {isCamOn && localStream ? (
                   <video
@@ -1762,7 +1764,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   </span>
                   <button
                     onClick={() => setIsOnStage(!isOnStage)}
-                    className="text-[9px] font-bold text-[#00b4fb] hover:underline"
+                    className="text-[9px] font-bold text-[#00b4fb] hover:underline cursor-pointer"
                     title={isOnStage ? "Remover do palco" : "Adicionar ao palco"}
                   >
                     {isOnStage ? "Remover" : "Entrar"}
@@ -1773,25 +1775,25 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Card 2: Apresentar ou convidar card (StreamYard exact style) */}
               <div
                 onClick={() => setShowPresentMenu(true)}
-                className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#00b4fb] bg-white hover:bg-[#e6f7fe]/30 cursor-pointer flex flex-col items-center justify-center text-center p-2 transition shadow-xs select-none"
+                className="w-28 sm:w-36 h-18 sm:h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#00b4fb] bg-white hover:bg-[#e6f7fe]/30 cursor-pointer flex flex-col items-center justify-center text-center p-2 transition shadow-xs select-none shrink-0"
               >
                 <div className="flex items-center gap-1 text-gray-500 mb-1">
                   <Monitor className="h-4 w-4" />
                   <Plus className="h-3 w-3" />
                 </div>
-                <span className="text-[11px] font-semibold text-slate-700 leading-tight">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 leading-tight">
                   Apresentar ou convidar
                 </span>
               </div>
             </div>
 
             {/* Center: StreamYard Floating Toolbar */}
-            <div className="flex items-center gap-1.5 sm:gap-2 bg-white rounded-2xl border border-gray-200 p-1.5 shadow-md">
+            <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-2xl border border-gray-200 p-1 sm:p-1.5 shadow-md overflow-x-auto max-w-full">
               {/* Mic Button */}
               <div className="relative flex items-center">
                 <button
                   onClick={handleToggleMic}
-                  className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                  className={`flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition cursor-pointer ${
                     isMicOn
                       ? "bg-gray-100 hover:bg-gray-200 text-slate-700"
                       : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
@@ -1806,7 +1808,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               <div className="relative flex items-center">
                 <button
                   onClick={handleToggleCam}
-                  className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                  className={`flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition cursor-pointer ${
                     isCamOn
                       ? "bg-gray-100 hover:bg-gray-200 text-slate-700"
                       : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
@@ -1820,7 +1822,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Present / Screen Button */}
               <button
                 onClick={handleToggleScreenShare}
-                className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                className={`flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition cursor-pointer ${
                   isScreenSharing
                     ? "bg-[#00b4fb] text-white shadow-xs"
                     : "bg-gray-100 hover:bg-gray-200 text-slate-700"
@@ -1837,7 +1839,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Convidar (Invite Guest) Button */}
               <button
                 onClick={() => setShowInviteModal(true)}
-                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition"
+                className="flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition cursor-pointer"
                 title="Convidar palestrante ou co-host"
               >
                 <Users className="h-4 w-4" />
@@ -1846,7 +1848,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Banners shortcut */}
               <button
                 onClick={() => setActiveRightTab("banners")}
-                className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                className={`flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition cursor-pointer ${
                   activeRightTab === "banners"
                     ? "bg-[#00b4fb] text-white"
                     : "bg-gray-100 hover:bg-gray-200 text-slate-700"
@@ -1859,7 +1861,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Configurações (Settings) */}
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition"
+                className="flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition cursor-pointer"
                 title="Configurações de dispositivos"
               >
                 <Settings className="h-4 w-4" />
@@ -1872,7 +1874,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     window.location.href = `/events/${eventId}`;
                   }
                 }}
-                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-red-600 hover:bg-red-700 text-white transition shadow-2xs"
+                className="flex items-center justify-center h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-red-600 hover:bg-red-700 text-white transition shadow-2xs cursor-pointer"
                 title="Sair do estúdio"
               >
                 <LogOut className="h-4 w-4" />
@@ -1898,26 +1900,33 @@ export default function StudioPage({ params, searchParams }: Props) {
         {/* 2.2 STREAMYARD RIGHT DRAWER PANEL (Content for active tab)             */}
         {/* ======================================================================= */}
         {activeRightTab && (
-          <aside className="w-72 sm:w-80 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden shadow-sm shrink-0 z-10">
-            {/* Drawer Header */}
-            <div className="h-12 border-b border-gray-200 px-4 flex items-center justify-between shrink-0 bg-gray-50/50">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 capitalize">
-                  {activeRightTab === "media" && "Ativos de mídia / Marca"}
-                  {activeRightTab === "banners" && "Banners & Letreiros"}
-                  {activeRightTab === "comments" && "Comentários ao Vivo"}
-                  {activeRightTab === "widgets" && "Widgets & Live CTA"}
-                  {activeRightTab === "people" && "Pessoas no Estúdio"}
-                  {activeRightTab === "private_chat" && "Chat Privado"}
-                </span>
+          <>
+            {/* Mobile Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden"
+              onClick={() => setActiveRightTab(null)}
+            />
+            <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-80 md:relative md:inset-auto md:z-10 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden shadow-2xl md:shadow-sm shrink-0">
+              {/* Drawer Header */}
+              <div className="h-12 border-b border-gray-200 px-4 flex items-center justify-between shrink-0 bg-gray-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900 capitalize">
+                    {activeRightTab === "media" && "Ativos de mídia / Marca"}
+                    {activeRightTab === "banners" && "Banners & Letreiros"}
+                    {activeRightTab === "comments" && "Comentários ao Vivo"}
+                    {activeRightTab === "widgets" && "Widgets & Live CTA"}
+                    {activeRightTab === "people" && "Pessoas no Estúdio"}
+                    {activeRightTab === "private_chat" && "Chat Privado"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setActiveRightTab(null)}
+                  className="text-gray-400 hover:text-slate-600 text-xs p-1.5 rounded-lg hover:bg-gray-100 transition cursor-pointer"
+                  title="Fechar painel"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => setActiveRightTab(null)}
-                className="text-gray-400 hover:text-slate-600 text-xs p-1 rounded"
-              >
-                ✕
-              </button>
-            </div>
 
             {/* Drawer Content */}
             {activeRightTab === "comments" ? (
@@ -3161,88 +3170,89 @@ export default function StudioPage({ params, searchParams }: Props) {
               </div>
             )}
           </aside>
-        )}
+        </>
+      )}
 
         {/* ======================================================================= */}
         {/* 2.3 STREAMYARD VERTICAL RAIL (Far right toolbar)                        */}
         {/* ======================================================================= */}
-        <nav className="w-18 sm:w-20 bg-white border-l border-gray-200 py-3 flex flex-col items-center gap-4 select-none shrink-0 z-20">
+        <nav className="w-14 sm:w-20 bg-white border-l border-gray-200 py-2 sm:py-3 flex flex-col items-center gap-2 sm:gap-4 select-none shrink-0 z-20 overflow-y-auto">
           {/* Comentários */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "comments" ? null : "comments")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "comments"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <MessageSquare className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Comentários</span>
+            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Comentários</span>
           </button>
 
           {/* Banners */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "banners" ? null : "banners")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "banners"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <Layers className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Banners</span>
+            <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Banners</span>
           </button>
 
           {/* Ativos de mídia / Marca */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "media" ? null : "media")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "media"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <Palette className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Ativos de mídia</span>
+            <Palette className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Ativos</span>
           </button>
 
           {/* Widgets */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "widgets" ? null : "widgets")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "widgets"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <Zap className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Widgets</span>
+            <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Widgets</span>
           </button>
 
           {/* Pessoas */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "people" ? null : "people")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "people"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <Users className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Pessoas</span>
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Pessoas</span>
           </button>
 
           {/* Chat Privado */}
           <button
             onClick={() => setActiveRightTab(activeRightTab === "private_chat" ? null : "private_chat")}
-            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-xl transition w-12 sm:w-16 text-center cursor-pointer ${
               activeRightTab === "private_chat"
                 ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
-            <MessagesSquare className="h-5 w-5" />
-            <span className="text-[10px] leading-tight">Chat privado</span>
+            <MessagesSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight line-clamp-1">Chat priv.</span>
           </button>
         </nav>
       </div>

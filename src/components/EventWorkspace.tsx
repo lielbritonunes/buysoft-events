@@ -567,15 +567,16 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
         </div>
 
         {/* Top Right Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           <a
             href={hostStudioUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-600 hover:from-[#009ce0] hover:to-sky-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs shadow-sky-500/25 transition"
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-600 hover:from-[#009ce0] hover:to-sky-700 px-3 sm:px-3.5 py-1.5 text-xs font-bold text-white shadow-xs shadow-sky-500/25 transition"
           >
             <Radio className="h-3.5 w-3.5 animate-pulse" />
-            <span>Abrir Estúdio (Host)</span>
+            <span className="hidden xs:inline">Abrir Estúdio (Host)</span>
+            <span className="xs:hidden">Estúdio</span>
           </a>
 
           <a
@@ -600,24 +601,25 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
           <button
             onClick={handleTogglePublish}
-            className={`rounded-xl px-4 py-1.5 text-xs font-bold text-white shadow-xs transition ${
+            className={`rounded-xl px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs transition ${
               event.status === "published"
                 ? "bg-slate-700 hover:bg-slate-800"
                 : "bg-[#ff6d00] hover:bg-[#e66200]"
             }`}
           >
-            {event.status === "published" ? "Despublicar evento" : "Atualizar para publicar"}
+            <span className="hidden sm:inline">{event.status === "published" ? "Despublicar evento" : "Atualizar para publicar"}</span>
+            <span className="sm:hidden">{event.status === "published" ? "Despublicar" : "Publicar"}</span>
           </button>
         </div>
       </header>
 
       {/* Main Workspace Layout with Left Sidebar */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Left Sidebar Menu */}
-        <aside className="w-60 border-r border-slate-200 bg-white p-4 flex flex-col justify-between shrink-0">
-          <div className="space-y-6">
-            {/* Event Name & Time Info */}
-            <div className="pb-3 border-b border-slate-100">
+        <aside className="w-full lg:w-60 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-2.5 sm:p-4 flex flex-col lg:justify-between shrink-0">
+          <div className="space-y-2 lg:space-y-6">
+            {/* Event Name & Time Info (Desktop only) */}
+            <div className="hidden lg:block pb-3 border-b border-slate-100">
               <h2 className="text-sm font-bold text-slate-900 truncate">{event.title}</h2>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 {new Date(event.startDate).toLocaleDateString("pt-BR", {
@@ -630,11 +632,11 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
               </p>
             </div>
 
-            {/* Navigation Tabs */}
-            <nav className="space-y-1 text-xs font-semibold">
+            {/* Navigation Tabs (Scrollable on mobile) */}
+            <nav className="flex lg:flex-col overflow-x-auto gap-1 py-1 lg:space-y-1 text-xs font-semibold scrollbar-none">
               <button
                 onClick={() => setActiveTab("overview")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "overview"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -651,7 +653,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("registration")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "registration"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -663,7 +665,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("settings")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "settings"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -673,12 +675,12 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                 <span>Configuração</span>
               </button>
 
-              {/* Sub-menu of Configuração if on settings tab */}
+              {/* Sub-menu of Configuração (Desktop view) */}
               {activeTab === "settings" && (
-                <div className="pl-6 pt-1 pb-2 space-y-1">
+                <div className="hidden lg:block pl-6 pt-1 pb-2 space-y-1">
                   <button
                     onClick={() => setSettingsSubTab("basic")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
                       settingsSubTab === "basic"
                         ? "text-[#00b4fb] font-bold"
                         : "text-slate-500 hover:text-slate-800"
@@ -689,7 +691,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("branding")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
                       settingsSubTab === "branding"
                         ? "text-[#00b4fb] font-bold"
                         : "text-slate-500 hover:text-slate-800"
@@ -700,7 +702,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("agenda")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
                       settingsSubTab === "agenda"
                         ? "text-[#00b4fb] font-bold"
                         : "text-slate-500 hover:text-slate-800"
@@ -711,7 +713,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("sponsors")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
                       settingsSubTab === "sponsors"
                         ? "text-[#00b4fb] font-bold"
                         : "text-slate-500 hover:text-slate-800"
@@ -722,7 +724,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("speakers")}
-                    className={`flex items-center justify-between w-full text-left py-1 px-2 rounded text-[11px] font-medium transition ${
+                    className={`flex items-center justify-between w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
                       settingsSubTab === "speakers"
                         ? "text-[#00b4fb] font-bold"
                         : "text-slate-500 hover:text-slate-800"
@@ -736,7 +738,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("marketing")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "marketing"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -748,7 +750,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("analytics")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "analytics"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -760,7 +762,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("recordings")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 transition ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "recordings"
                     ? "bg-[#e6f7fe] text-[#0084be]"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -770,9 +772,65 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                 <span>Gravações</span>
               </button>
             </nav>
+
+            {/* Mobile Sub-menu of Configuração */}
+            {activeTab === "settings" && (
+              <div className="flex lg:hidden overflow-x-auto gap-1.5 pt-1.5 pb-1 border-t border-slate-100">
+                <button
+                  onClick={() => setSettingsSubTab("basic")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    settingsSubTab === "basic"
+                      ? "bg-[#00b4fb] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Básico
+                </button>
+                <button
+                  onClick={() => setSettingsSubTab("branding")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    settingsSubTab === "branding"
+                      ? "bg-[#00b4fb] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Branding
+                </button>
+                <button
+                  onClick={() => setSettingsSubTab("agenda")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    settingsSubTab === "agenda"
+                      ? "bg-[#00b4fb] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Agenda
+                </button>
+                <button
+                  onClick={() => setSettingsSubTab("sponsors")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    settingsSubTab === "sponsors"
+                      ? "bg-[#00b4fb] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Patrocinadores
+                </button>
+                <button
+                  onClick={() => setSettingsSubTab("speakers")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    settingsSubTab === "speakers"
+                      ? "bg-[#00b4fb] text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  Orador ⭐
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-slate-100 pt-3 flex items-center gap-2.5 text-xs text-slate-600">
+          <div className="hidden lg:flex border-t border-slate-100 pt-3 items-center gap-2.5 text-xs text-slate-600">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 font-bold text-white text-[10px]">
               EN
             </div>
@@ -781,7 +839,8 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-6 sm:p-8 max-w-6xl overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-6xl overflow-y-auto">
+
           {/* TAB 1: VISÃO GERAL */}
           {activeTab === "overview" && (
             <div className="space-y-6">

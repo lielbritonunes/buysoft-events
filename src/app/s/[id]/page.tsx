@@ -299,7 +299,7 @@ export default function PublicSeriesPage({ params }: Props) {
           </div>
 
           {/* Right Column: Registration Card or Success Card */}
-          <div className="lg:col-span-5">
+          <div id="series-registration-form" className="lg:col-span-5">
             {registrationResult ? (
               /* Success State */
               <div className="sticky top-24 rounded-2xl border border-emerald-200 bg-white p-6 sm:p-8 shadow-sm">
@@ -427,6 +427,22 @@ export default function PublicSeriesPage({ params }: Props) {
           </div>
         </div>
       </main>
+
+      {/* Mobile Sticky CTA Bar */}
+      {!registrationResult && (
+        <div className="fixed bottom-0 inset-x-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 lg:hidden z-40 flex items-center justify-between gap-3 shadow-lg">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Trilha de Webinars</span>
+            <span className="text-xs font-extrabold text-slate-900 truncate block">{selectedEventIds.length} evento(s) selecionado(s)</span>
+          </div>
+          <a
+            href="#series-registration-form"
+            className="rounded-xl bg-[#00b4fb] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#009ce0] transition shrink-0"
+          >
+            Inscrever-se
+          </a>
+        </div>
+      )}
     </div>
   );
 }

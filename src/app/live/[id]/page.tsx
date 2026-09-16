@@ -175,6 +175,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const [chatInput, setChatInput] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const [mobileTab, setMobileTab] = useState<"chat" | "info">("chat");
 
   const [userName, setUserName] = useState<string>(() => {
     if (resolvedSearchParams?.name) return resolvedSearchParams.name;
@@ -620,6 +621,124 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
       </div>
     );
   }
+
+  const renderChatBody = () => (
+    <>
+      {/* Comments List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {(!roomState?.chatMessages || roomState.chatMessages.length === 0) ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
+            <MessageSquare className="h-8 w-8 text-slate-300 stroke-[1.5] mb-2" />
+            <p className="text-xs font-medium text-slate-600">Nenhum comentário ainda.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Participe enviando uma mensagem no chat!</p>
+          </div>
+        ) : (
+          roomState.chatMessages.map((msg: any) => {
+            const timeStr = (() => {
+              try {
+                const d = new Date(msg.createdAt || Date.now());
+                return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              } catch (_) {
+                return "";
+              }
+            })();
+
+            const colors = getAvatarColors(msg.senderName || "Participante");
+            const initials = getInitials(msg.senderName || "Participante");
+
+            return (
+              <div key={msg.id} className="flex items-start gap-3 group animate-in fade-in duration-150">
+                <div
+                  className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border shadow-2xs ${colors.bg} ${colors.text} ${colors.border}`}
+                >
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-bold text-slate-800 tracking-tight truncate">
+                      {msg.senderName}
+                    </span>
+                    {timeStr && (
+                      <span className="text-[11px] text-slate-400 font-normal shrink-0">
+                        {timeStr}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed break-words mt-0.5 whitespace-pre-wrap">
+                    {msg.text || msg.message}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={chatMessagesEndRef} />
+      </div>
+
+      {/* Chat Footer: [ Entrar no chat ] OR [ User Avatar + Message Input ] */}
+      {!attendeeProfile ? (
+        <div className="p-3 sm:p-4 border-t border-gray-100 bg-white">
+          <button
+            type="button"
+            onClick={() => {
+              setFirstNameInput("");
+              setLastNameInput("");
+              setShowNameModal(true);
+            }}
+            className="w-full py-2.5 px-4 rounded-lg border-2 border-[#00b4fb] text-[#00b4fb] hover:bg-[#e6f7fe]/50 font-bold text-xs tracking-wide transition shadow-xs flex items-center justify-center cursor-pointer"
+          >
+            Entrar no chat
+          </button>
+        </div>
+      ) : (
+        <div className="p-3 sm:p-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center gap-2">
+            {/* Profile Pill with Dropdown Chevron */}
+            <button
+              type="button"
+              onClick={() => {
+                setFirstNameInput(attendeeProfile.firstName);
+                setLastNameInput(attendeeProfile.lastName);
+                setShowNameModal(true);
+              }}
+              title="Clique para alterar seu nome no chat"
+              className="flex items-center gap-1 hover:opacity-80 transition group shrink-0 cursor-pointer"
+            >
+              <div
+                className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center border shadow-2xs ${
+                  getAvatarColors(attendeeProfile.fullName).bg
+                } ${getAvatarColors(attendeeProfile.fullName).text} ${
+                  getAvatarColors(attendeeProfile.fullName).border
+                }`}
+              >
+                {getInitials(attendeeProfile.fullName)}
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition" />
+            </button>
+
+            {/* Message Input Form */}
+            <form onSubmit={handleSendChatMessage} className="flex-1 flex items-center relative">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Escrever uma mensagem..."
+                className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-sm text-slate-800 placeholder:text-gray-400 focus:outline-none focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] transition shadow-2xs"
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || isSendingMessage}
+                className="absolute right-2 text-slate-400 hover:text-[#00b4fb] disabled:opacity-30 transition p-1 cursor-pointer"
+                title="Enviar mensagem"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   const activeCta = roomState?.liveCtas?.[0] || null;
 
@@ -1417,8 +1536,46 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             )}
           </div>
 
-          {/* Video Footer Info (StreamYard Spectator Style) */}
-            <div className="mt-3 flex flex-col">
+            {/* Mobile Navigation Tabs (Chat vs Info) */}
+            <div className="flex lg:hidden items-center border-b border-gray-200 mt-3 bg-white sticky top-0 z-20">
+              <button
+                type="button"
+                onClick={() => setMobileTab("chat")}
+                className={`flex-1 py-2.5 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  mobileTab === "chat"
+                    ? "border-[#00b4fb] text-[#00b4fb]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Chat ao Vivo</span>
+                {roomState?.chatMessages?.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-sky-50 text-[10px] text-[#00b4fb] font-black border border-sky-100">
+                    {roomState.chatMessages.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab("info")}
+                className={`flex-1 py-2.5 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  mobileTab === "info"
+                    ? "border-[#00b4fb] text-[#00b4fb]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Info className="h-4 w-4" />
+                <span>Detalhes</span>
+              </button>
+            </div>
+
+            {/* Mobile Chat Box (visible only on mobile when mobileTab === 'chat') */}
+            <div className={`lg:hidden flex-col h-[400px] border border-gray-200 rounded-xl overflow-hidden mt-3 bg-white shadow-xs ${mobileTab === "chat" ? "flex" : "hidden"}`}>
+              {renderChatBody()}
+            </div>
+
+            {/* Video Footer Info (StreamYard Spectator Style - always visible on desktop, tabbed on mobile) */}
+            <div className={`mt-3 flex-col ${mobileTab === "info" ? "flex" : "hidden lg:flex"}`}>
               {/* Troubleshooting Link (Aligned to Right) */}
               <div className="flex justify-end">
                 <button
@@ -1432,7 +1589,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
               {/* Event Title */}
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-                {roomState?.title || "teste"}
+                {roomState?.title || "Buysoft Event"}
               </h1>
 
               {/* Viewer Count */}
@@ -1450,122 +1607,10 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           </div>
         </main>
 
-        {/* Right Column: Chat Sidebar (Clean White) */}
+        {/* Right Column: Chat Sidebar (Desktop Clean White) */}
         {!isTheater && (
-          <aside className="w-full lg:w-80 xl:w-96 border-t lg:border-t-0 lg:border-l border-gray-200 bg-white flex flex-col h-[480px] lg:h-[calc(100vh-3.5rem)] shrink-0">
-            {/* Comments List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {(!roomState?.chatMessages || roomState.chatMessages.length === 0) ? (
-                <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
-                  <MessageSquare className="h-8 w-8 text-slate-300 stroke-[1.5] mb-2" />
-                  <p className="text-xs font-medium text-slate-600">Nenhum comentário ainda.</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Participe enviando uma mensagem no chat!</p>
-                </div>
-              ) : (
-                roomState.chatMessages.map((msg: any) => {
-                  const timeStr = (() => {
-                    try {
-                      const d = new Date(msg.createdAt || Date.now());
-                      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                    } catch (_) {
-                      return "";
-                    }
-                  })();
-
-                  const colors = getAvatarColors(msg.senderName || "Participante");
-                  const initials = getInitials(msg.senderName || "Participante");
-
-                  return (
-                    <div key={msg.id} className="flex items-start gap-3 group animate-in fade-in duration-150">
-                      <div
-                        className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border shadow-2xs ${colors.bg} ${colors.text} ${colors.border}`}
-                      >
-                        {initials}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs font-bold text-slate-800 tracking-tight truncate">
-                            {msg.senderName}
-                          </span>
-                          {timeStr && (
-                            <span className="text-[11px] text-slate-400 font-normal shrink-0">
-                              {timeStr}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed break-words mt-0.5 whitespace-pre-wrap">
-                          {msg.text || msg.message}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatMessagesEndRef} />
-            </div>
-
-            {/* Chat Footer: [ Entrar no chat ] OR [ User Avatar + Message Input ] */}
-            {!attendeeProfile ? (
-              <div className="p-4 border-t border-gray-100 bg-white">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFirstNameInput("");
-                    setLastNameInput("");
-                    setShowNameModal(true);
-                  }}
-                  className="w-full py-2.5 px-4 rounded-lg border-2 border-[#00b4fb] text-[#00b4fb] hover:bg-[#e6f7fe]/50 font-bold text-xs tracking-wide transition shadow-xs flex items-center justify-center cursor-pointer"
-                >
-                  Entrar no chat
-                </button>
-              </div>
-            ) : (
-              <div className="p-3 sm:p-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-2">
-                  {/* Profile Pill with Dropdown Chevron */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFirstNameInput(attendeeProfile.firstName);
-                      setLastNameInput(attendeeProfile.lastName);
-                      setShowNameModal(true);
-                    }}
-                    title="Clique para alterar seu nome no chat"
-                    className="flex items-center gap-1 hover:opacity-80 transition group shrink-0 cursor-pointer"
-                  >
-                    <div
-                      className={`h-8 w-8 rounded-full font-bold text-xs flex items-center justify-center border shadow-2xs ${
-                        getAvatarColors(attendeeProfile.fullName).bg
-                      } ${getAvatarColors(attendeeProfile.fullName).text} ${
-                        getAvatarColors(attendeeProfile.fullName).border
-                      }`}
-                    >
-                      {getInitials(attendeeProfile.fullName)}
-                    </div>
-                    <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition" />
-                  </button>
-
-                  {/* Message Input Form */}
-                  <form onSubmit={handleSendChatMessage} className="flex-1 flex items-center relative">
-                    <input
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Escrever uma mensagem..."
-                      className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-gray-400 focus:outline-none focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] transition shadow-2xs"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!chatInput.trim() || isSendingMessage}
-                      className="absolute right-2 text-slate-400 hover:text-[#00b4fb] disabled:opacity-30 transition p-1 cursor-pointer"
-                      title="Enviar mensagem"
-                    >
-                      <Send className="h-4 w-4" />
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
+          <aside className="hidden lg:flex w-full lg:w-80 xl:w-96 border-l border-gray-200 bg-white flex-col lg:h-[calc(100vh-3.5rem)] shrink-0">
+            {renderChatBody()}
           </aside>
         )}
       </div>

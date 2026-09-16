@@ -154,8 +154,8 @@ export default function CreateEventWizard({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
-      <div className="relative w-full max-w-[530px] rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-100 my-auto animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
+      <div className="relative w-full max-w-[530px] rounded-2xl bg-white p-5 sm:p-7 shadow-2xl border border-slate-100 my-auto max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
         {/* Header: Title & Close Button */}
         <div className="flex items-center justify-between pb-4">
           <h2 className="text-xl sm:text-[22px] font-bold tracking-tight text-slate-900">

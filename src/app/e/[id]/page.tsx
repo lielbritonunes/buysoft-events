@@ -365,7 +365,7 @@ export default function PublicEventPage({ params }: Props) {
           </div>
 
           {/* Right Column: Registration Box (5 cols) */}
-          <div className="lg:col-span-5 sticky top-20">
+          <div id="registration-form" className="lg:col-span-5 sticky top-20">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl">
               {registrationResult ? (
                 /* Success State */
@@ -652,6 +652,22 @@ export default function PublicEventPage({ params }: Props) {
           </div>
         </div>
       </main>
+
+      {/* Mobile Sticky CTA Bar */}
+      {!registrationResult && (
+        <div className="fixed bottom-0 inset-x-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 lg:hidden z-40 flex items-center justify-between gap-3 shadow-lg">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Inscrições Abertas</span>
+            <span className="text-xs font-extrabold text-slate-900 truncate block">100% Gratuito</span>
+          </div>
+          <a
+            href="#registration-form"
+            className="rounded-xl bg-[#00b4fb] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#009ce0] transition shrink-0"
+          >
+            Garantir Vaga
+          </a>
+        </div>
+      )}
     </div>
   );
 }
