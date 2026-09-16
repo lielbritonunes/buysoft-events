@@ -29,12 +29,17 @@ function VideoStreamTile({
   const activeRef = videoRef || localRef;
 
   React.useEffect(() => {
-    if (activeRef.current) {
+    const el = activeRef.current;
+    if (el) {
       if (stream) {
-        activeRef.current.srcObject = stream;
-        activeRef.current.play().catch(() => {});
+        if (el.srcObject !== stream) {
+          el.srcObject = stream;
+          el.play().catch(() => {});
+        }
       } else {
-        activeRef.current.srcObject = null;
+        if (el.srcObject !== null) {
+          el.srcObject = null;
+        }
       }
     }
   }, [activeRef, stream]);

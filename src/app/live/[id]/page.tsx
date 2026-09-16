@@ -75,6 +75,79 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// LiveTrackVideo: self-contained tile at module scope
+// Stays mounted stably across parent re-renders and attaches tracks cleanly without blinking
+interface LiveTrackVideoProps {
+  track: RemoteTrack | null;
+  className?: string;
+  muted?: boolean;
+  fallback?: React.ReactNode;
+  showFallback?: boolean;
+}
+
+const LiveTrackVideo = React.memo(function LiveTrackVideo({
+  track,
+  className = "",
+  muted = true,
+  fallback,
+  showFallback = false,
+}: LiveTrackVideoProps) {
+  const videoElRef = useRef<HTMLVideoElement>(null);
+  const attachedTrackSidRef = useRef<string | null | undefined>(null);
+
+  useEffect(() => {
+    const el = videoElRef.current;
+    if (!el || !track) return;
+
+    if (attachedTrackSidRef.current !== track.sid) {
+      if (attachedTrackSidRef.current) {
+        try {
+          track.detach(el);
+        } catch (_) {}
+      }
+      attachedTrackSidRef.current = track.sid;
+      try {
+        track.attach(el);
+        el.muted = muted;
+        el.play().catch(() => {
+          el.muted = true;
+          el.play().catch(() => {});
+        });
+      } catch (err) {
+        console.warn("LiveTrackVideo attach warning:", err);
+      }
+    } else {
+      if (el.muted !== muted) {
+        el.muted = muted;
+      }
+    }
+
+    return () => {
+      if (track && el && attachedTrackSidRef.current === track.sid) {
+        try {
+          track.detach(el);
+        } catch (_) {}
+        attachedTrackSidRef.current = null;
+      }
+    };
+  }, [track, track?.sid, muted]);
+
+  const shouldShowVideo = Boolean(track && !showFallback);
+
+  return (
+    <>
+      <video
+        ref={videoElRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        className={`${className} ${shouldShowVideo ? "block" : "hidden"}`}
+      />
+      {!shouldShowVideo && fallback}
+    </>
+  );
+});
+
 interface Props {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ name?: string; email?: string; token?: string }>;
@@ -304,7 +377,29 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           try {
             const msg = JSON.parse(new TextDecoder().decode(data));
             if (msg.type === "overlay") {
-              setOverlayState(msg as OverlayState);
+              setOverlayState((prev) => {
+                if (
+                  prev &&
+                  prev.layoutMode === msg.layoutMode &&
+                  prev.isScreenSharing === msg.isScreenSharing &&
+                  prev.isCamOn === msg.isCamOn &&
+                  prev.isOnStage === msg.isOnStage &&
+                  prev.isMicOn === msg.isMicOn &&
+                  prev.backgroundPresetId === msg.backgroundPresetId &&
+                  prev.customBackgroundUrl === msg.customBackgroundUrl &&
+                  prev.displayedComment?.id === msg.displayedComment?.id &&
+                  prev.showCommentsOnStage === msg.showCommentsOnStage &&
+                  prev.lowerThird?.visible === msg.lowerThird?.visible &&
+                  prev.lowerThird?.name === msg.lowerThird?.name &&
+                  prev.ticker?.visible === msg.ticker?.visible &&
+                  prev.ticker?.text === msg.ticker?.text &&
+                  prev.banner?.visible === msg.banner?.visible &&
+                  prev.banner?.title === msg.banner?.title
+                ) {
+                  return prev;
+                }
+                return msg as OverlayState;
+              });
             } else if (msg.type === "reaction" && msg.emoji) {
               triggerFloatingReaction(msg.emoji);
             }
@@ -338,61 +433,6 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
       document.querySelectorAll("[data-livekit-audio]").forEach((el) => el.remove());
     };
   }, [eventId, userName]);
-
-  // LiveTrackVideo: self-contained tile that manages LiveKit track attachment lifecycle
-  // Automatically attaches on mount, detaches on unmount, and handles layout switching flawlessly
-  const LiveTrackVideo = React.memo(function LiveTrackVideo({
-    track,
-    className = "",
-    muted = true,
-    fallback,
-    showFallback = false,
-  }: {
-    track: RemoteTrack | null;
-    className?: string;
-    muted?: boolean;
-    fallback?: React.ReactNode;
-    showFallback?: boolean;
-  }) {
-    const videoElRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-      const el = videoElRef.current;
-      if (!el || !track) return;
-
-      try {
-        track.attach(el);
-        el.muted = muted;
-        el.play().catch(() => {
-          el.muted = true;
-          el.play().catch(() => {});
-        });
-      } catch (err) {
-        console.warn("LiveTrackVideo attach warning:", err);
-      }
-
-      return () => {
-        try {
-          track.detach(el);
-        } catch (_) {}
-      };
-    }, [track, muted]);
-
-    const shouldShowVideo = Boolean(track && !showFallback);
-
-    return (
-      <>
-        <video
-          ref={videoElRef}
-          autoPlay
-          playsInline
-          muted={muted}
-          className={`${className} ${shouldShowVideo ? "block" : "hidden"}`}
-        />
-        {!shouldShowVideo && fallback}
-      </>
-    );
-  });
 
   // Unmute all LiveKit audio elements when user clicks unmute
   useEffect(() => {

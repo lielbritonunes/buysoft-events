@@ -598,9 +598,7 @@ export default function StudioPage({ params, searchParams }: Props) {
     isCamOn,
     isOnStage,
     isMicOn,
-    layoutMode,
     hasJoinedLobby,
-    publishOverlayState,
   ]);
 
   // Load and poll live room state
@@ -639,17 +637,23 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [roomState?.status]);
 
-  // Bind local stream to video element
+  // Bind local stream to video element (only if not already set)
   useEffect(() => {
     if (hasJoinedLobby && localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
+      if (localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(() => {});
+      }
     }
   }, [hasJoinedLobby, localStream, layoutMode]);
 
-  // Bind screen share stream
+  // Bind screen share stream (only if not already set)
   useEffect(() => {
     if (screenStream && screenVideoRef.current) {
-      screenVideoRef.current.srcObject = screenStream;
+      if (screenVideoRef.current.srcObject !== screenStream) {
+        screenVideoRef.current.srcObject = screenStream;
+        screenVideoRef.current.play().catch(() => {});
+      }
     }
   }, [screenStream, layoutMode]);
 
@@ -1358,7 +1362,10 @@ export default function StudioPage({ params, searchParams }: Props) {
                 {isCamOn && localStream ? (
                   <video
                     ref={(el) => {
-                      if (el && localStream) el.srcObject = localStream;
+                      if (el && localStream && el.srcObject !== localStream) {
+                        el.srcObject = localStream;
+                        el.play().catch(() => {});
+                      }
                     }}
                     autoPlay
                     playsInline
