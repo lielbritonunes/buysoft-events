@@ -112,3 +112,29 @@ export function HeadlineBanner({
     </div>
   );
 }
+
+interface FixedBannerProps {
+  isVisible: boolean;
+  text: string;
+  themeColor?: string;
+}
+
+export function FixedBanner({
+  isVisible,
+  text,
+  themeColor = "#00b4fb",
+}: FixedBannerProps) {
+  if (!isVisible || !text) return null;
+
+  return (
+    <div className="absolute bottom-8 sm:bottom-10 inset-x-0 z-30 flex justify-center px-6 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none">
+      <div
+        className="max-w-2xl bg-white/95 text-slate-900 font-bold text-sm sm:text-base px-6 py-3 rounded-xl shadow-2xl border-b-4 text-center leading-snug backdrop-blur-md"
+        style={{ borderBottomColor: themeColor }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+

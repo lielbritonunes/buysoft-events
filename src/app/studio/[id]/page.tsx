@@ -50,7 +50,13 @@ import {
   Smile,
   Star,
   PlusCircle,
-  MinusCircle
+  MinusCircle,
+  Folder,
+  FolderPlus,
+  GripVertical,
+  ChevronLeft,
+  Pencil,
+  Trash2
 } from "lucide-react";
 
 import PreflightLobby from "@/components/studio/PreflightLobby";
@@ -62,6 +68,7 @@ import {
   LowerThird,
   TickerTape,
   HeadlineBanner,
+  FixedBanner,
 } from "@/components/studio/LowerThirdsOverlay";
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
 import {
@@ -120,7 +127,52 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [logoPosition, setLogoPosition] = useState<"left" | "right">("right");
   const [fadeOverlays, setFadeOverlays] = useState(true);
 
-  // Lower Third & Banners
+  // Presenter identity & Lower Third from Preflight
+  const [presenterName, setPresenterName] = useState(
+    initialRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado"
+  );
+  const [presenterHeadline, setPresenterHeadline] = useState("");
+
+  // StreamYard Folders & Banners System
+  const [bannerFolders, setBannerFolders] = useState<Array<{
+    id: string;
+    name: string;
+    banners: Array<{ id: string; text: string; isTicker: boolean }>;
+  }>>([
+    {
+      id: "folder-default",
+      name: "Pasta",
+      banners: [
+        {
+          id: "banner-1",
+          text: "Este é um exemplo de banner fixo.",
+          isTicker: false,
+        },
+        {
+          id: "banner-2",
+          text: "Esté é um exemplo de banner com rolagem na tela.",
+          isTicker: true,
+        },
+      ],
+    },
+  ]);
+  const [currentBannerFolderId, setCurrentBannerFolderId] = useState<string | null>("folder-default");
+  const [activeBannerId, setActiveBannerId] = useState<string | null>(null);
+  const [openFolderMenuId, setOpenFolderMenuId] = useState<string | null>(null);
+
+  // Banner Create / Edit state
+  const [isBannerFormOpen, setIsBannerFormOpen] = useState(false);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerTextInput, setBannerTextInput] = useState("");
+  const [bannerIsTickerInput, setBannerIsTickerInput] = useState(false);
+
+  // Folder Create / Rename state
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
+  const [folderModalTargetId, setFolderModalTargetId] = useState<string | null>(null);
+  const [folderNameInput, setFolderNameInput] = useState("");
+
+  // Legacy Lower Third & Custom overlays (maintained for compatibility)
   const [lowerThirdVisible, setLowerThirdVisible] = useState(false);
   const [lowerThirdName, setLowerThirdName] = useState(
     initialRole === "host" ? "Eliel Nunes" : "Palestrante Especialista"
@@ -844,17 +896,138 @@ export default function StudioPage({ params, searchParams }: Props) {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  // StreamYard Folders & Banners Operations
+  const handleSaveBanner = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!bannerTextInput.trim() || !currentBannerFolderId) return;
+
+    setBannerFolders((prev) =>
+      prev.map((folder) => {
+        if (folder.id !== currentBannerFolderId) return folder;
+        if (editingBannerId) {
+          return {
+            ...folder,
+            banners: folder.banners.map((b) =>
+              b.id === editingBannerId
+                ? { ...b, text: bannerTextInput.trim(), isTicker: bannerIsTickerInput }
+                : b
+            ),
+          };
+        } else {
+          return {
+            ...folder,
+            banners: [
+              ...folder.banners,
+              {
+                id: `banner-${Date.now()}`,
+                text: bannerTextInput.trim(),
+                isTicker: bannerIsTickerInput,
+              },
+            ],
+          };
+        }
+      })
+    );
+
+    setIsBannerFormOpen(false);
+    setEditingBannerId(null);
+    setBannerTextInput("");
+    setBannerIsTickerInput(false);
+  };
+
+  const handleDeleteBanner = (bannerId: string) => {
+    if (activeBannerId === bannerId) {
+      setActiveBannerId(null);
+    }
+    setBannerFolders((prev) =>
+      prev.map((folder) => ({
+        ...folder,
+        banners: folder.banners.filter((b) => b.id !== bannerId),
+      }))
+    );
+  };
+
+  const handleStartEditBanner = (banner: { id: string; text: string; isTicker: boolean }) => {
+    setEditingBannerId(banner.id);
+    setBannerTextInput(banner.text);
+    setBannerIsTickerInput(banner.isTicker);
+    setIsBannerFormOpen(true);
+  };
+
+  const handleSaveFolder = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!folderNameInput.trim()) return;
+
+    if (folderModalMode === "create") {
+      const newFolderId = `folder-${Date.now()}`;
+      setBannerFolders((prev) => [
+        ...prev,
+        {
+          id: newFolderId,
+          name: folderNameInput.trim(),
+          banners: [],
+        },
+      ]);
+      setCurrentBannerFolderId(newFolderId);
+    } else if (folderModalMode === "rename" && folderModalTargetId) {
+      setBannerFolders((prev) =>
+        prev.map((f) =>
+          f.id === folderModalTargetId ? { ...f, name: folderNameInput.trim() } : f
+        )
+      );
+    }
+
+    setIsFolderModalOpen(false);
+    setFolderNameInput("");
+    setFolderModalTargetId(null);
+  };
+
+  const handleDuplicateFolder = (folderId: string) => {
+    const targetFolder = bannerFolders.find((f) => f.id === folderId);
+    if (!targetFolder) return;
+    const duplicatedFolder = {
+      id: `folder-${Date.now()}`,
+      name: `${targetFolder.name} (cópia)`,
+      banners: targetFolder.banners.map((b) => ({
+        ...b,
+        id: `banner-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      })),
+    };
+    setBannerFolders((prev) => [...prev, duplicatedFolder]);
+    setOpenFolderMenuId(null);
+  };
+
+  const handleDeleteFolder = (folderId: string) => {
+    if (bannerFolders.length <= 1) {
+      setBannerFolders([{ id: "folder-default", name: "Pasta", banners: [] }]);
+      setCurrentBannerFolderId("folder-default");
+    } else {
+      setBannerFolders((prev) => prev.filter((f) => f.id !== folderId));
+      if (currentBannerFolderId === folderId) {
+        setCurrentBannerFolderId(null);
+      }
+    }
+    setOpenFolderMenuId(null);
+  };
+
+  const currentFolder =
+    bannerFolders.find((f) => f.id === currentBannerFolderId) || null;
+  const allBanners = bannerFolders.flatMap((f) => f.banners);
+  const activeBanner = allBanners.find((b) => b.id === activeBannerId) || null;
+
   const audienceUrl = typeof window !== "undefined" ? `${window.location.origin}/live/${eventId}` : `/live/${eventId}`;
 
   // If not joined lobby yet, render StreamYard Preflight Lobby
   if (!hasJoinedLobby) {
     return (
       <PreflightLobby
-        userName={userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado"}
+        userName={presenterName}
         userRole={userRole}
         onRoleChange={setUserRole}
-        onJoin={(st) => {
+        onJoin={(st, dName, hLine) => {
           setLocalStream(st);
+          if (dName) setPresenterName(dName);
+          if (hLine) setPresenterHeadline(hLine);
           setHasJoinedLobby(true);
         }}
       />
@@ -1035,7 +1208,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                 customBackgroundUrl={customBackgroundUrl}
                 presenter={{
                   id: "local_presenter",
-                  name: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+                  name: presenterName,
+                  headline: presenterHeadline,
                   videoRef: localVideoRef,
                   stream: isOnStage && isCamOn ? localStream : null,
                   isMicOn: isMicOn,
@@ -1062,7 +1236,19 @@ export default function StudioPage({ params, searchParams }: Props) {
                 }
               />
 
-              {/* Overlays: Headline, LowerThird, Ticker */}
+              {/* StreamYard Banners Overlays (Fixed text banner & Scrolling Ticker) */}
+              <FixedBanner
+                isVisible={!!(activeBanner && !activeBanner.isTicker)}
+                text={activeBanner?.text || ""}
+                themeColor={brandColor}
+              />
+              <TickerTape
+                isVisible={!!(activeBanner && activeBanner.isTicker) || tickerVisible}
+                text={activeBanner?.isTicker ? activeBanner.text : tickerText}
+                themeColor={brandColor}
+              />
+
+              {/* Legacy Overlays (Headline, LowerThird) */}
               <HeadlineBanner
                 isVisible={bannerVisible}
                 title={bannerTitle}
@@ -1074,11 +1260,6 @@ export default function StudioPage({ params, searchParams }: Props) {
                 name={lowerThirdName}
                 role={lowerThirdRole}
                 company={lowerThirdCompany}
-                themeColor={brandColor}
-              />
-              <TickerTape
-                isVisible={tickerVisible}
-                text={tickerText}
                 themeColor={brandColor}
               />
 
@@ -1402,7 +1583,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 {/* Bottom card bar with name and toggle */}
                 <div className="relative z-10 flex items-center justify-between bg-black/60 backdrop-blur-xs rounded-md px-1.5 py-0.5 text-white">
                   <span className="text-[10px] font-semibold truncate max-w-[80px]">
-                    {userRole === "host" ? "Eliel Nunes" : "Convidado"}
+                    {presenterName}
                   </span>
                   <button
                     onClick={() => setIsOnStage(!isOnStage)}
@@ -2194,113 +2375,319 @@ export default function StudioPage({ params, searchParams }: Props) {
                 </div>
               )}
 
-              {/* TAB 2: BANNERS & LETREIROS */}
+              {/* TAB 2: STREAMYARD BANNERS & FOLDERS */}
               {activeRightTab === "banners" && (
-                <div className="space-y-4">
-                  {/* Lower Third Editor */}
-                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Lower Third (Nome)</span>
-                      <button
-                        onClick={() => setLowerThirdVisible(!lowerThirdVisible)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
-                          lowerThirdVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {lowerThirdVisible ? "Visível" : "Oculto"}
-                      </button>
-                    </div>
+                <div className="space-y-3">
+                  {currentFolder ? (
+                    /* INSIDE A FOLDER */
+                    <div className="space-y-3">
+                      {/* Folder View Header */}
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentBannerFolderId(null);
+                            setIsBannerFormOpen(false);
+                            setOpenFolderMenuId(null);
+                          }}
+                          className="flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-[#00b4fb] transition"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          <span className="truncate max-w-[170px]">{currentFolder.name}</span>
+                        </button>
 
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
-                          Nome
-                        </label>
-                        <input
-                          type="text"
-                          value={lowerThirdName}
-                          onChange={(e) => setLowerThirdName(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                        />
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenFolderMenuId(
+                                openFolderMenuId === "current_folder" ? null : "current_folder"
+                              )
+                            }
+                            className="p-1 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+
+                          {openFolderMenuId === "current_folder" && (
+                            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-white shadow-xl border border-gray-200 py-1.5 z-40 text-xs text-slate-700 animate-in fade-in">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFolderModalMode("rename");
+                                  setFolderModalTargetId(currentFolder.id);
+                                  setFolderNameInput(currentFolder.name);
+                                  setIsFolderModalOpen(true);
+                                  setOpenFolderMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-gray-50 text-left"
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-slate-600" />
+                                <span>Renomear pasta</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateFolder(currentFolder.id)}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-gray-50 text-left"
+                              >
+                                <Copy className="h-3.5 w-3.5 text-slate-600" />
+                                <span>Duplicar pasta</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFolder(currentFolder.id)}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-red-50 text-red-600 text-left"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                <span>Excluir pasta</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
-                          Cargo / Especialidade
-                        </label>
-                        <input
-                          type="text"
-                          value={lowerThirdRole}
-                          onChange={(e) => setLowerThirdRole(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                        />
+
+                      {/* Banner Form (Create / Edit) */}
+                      {isBannerFormOpen && (
+                        <div className="p-3 rounded-xl border border-[#00b4fb]/50 bg-white shadow-sm space-y-2.5 animate-in fade-in">
+                          <span className="text-xs font-bold text-slate-800 block">
+                            {editingBannerId ? "Editar banner" : "Criar um banner"}
+                          </span>
+                          <textarea
+                            value={bannerTextInput}
+                            onChange={(e) => setBannerTextInput(e.target.value)}
+                            placeholder="Digite a mensagem do banner..."
+                            rows={3}
+                            maxLength={200}
+                            className="w-full rounded-lg border border-gray-300 p-2 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none resize-none"
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 select-none">
+                              <input
+                                type="checkbox"
+                                checked={bannerIsTickerInput}
+                                onChange={(e) => setBannerIsTickerInput(e.target.checked)}
+                                className="rounded border-gray-300 text-[#00b4fb] focus:ring-[#00b4fb]"
+                              />
+                              <span>Rolar na tela (ticker)</span>
+                            </label>
+                            <span className="text-[10px] text-gray-400">
+                              {bannerTextInput.length}/200
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsBannerFormOpen(false);
+                                setEditingBannerId(null);
+                                setBannerTextInput("");
+                              }}
+                              className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-slate-600 hover:bg-gray-50"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveBanner}
+                              disabled={!bannerTextInput.trim()}
+                              className="px-3 py-1.5 rounded-lg bg-[#00b4fb] text-white text-xs font-semibold hover:bg-[#009fdc] disabled:opacity-50 transition shadow-xs"
+                            >
+                              {editingBannerId ? "Salvar alterações" : "Adicionar banner"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* List of Banners in this Folder */}
+                      <div className="space-y-2">
+                        {currentFolder.banners.map((banner) => {
+                          const isActive = activeBannerId === banner.id;
+                          return (
+                            <div
+                              key={banner.id}
+                              className={`group relative rounded-xl border transition p-3 select-none ${
+                                isActive
+                                  ? "border-[#00b4fb] bg-[#f0f9ff] shadow-xs"
+                                  : "border-gray-200/80 bg-[#f4f5f8] hover:bg-[#ebedf1]"
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <GripVertical className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                                <div className="flex-1 pr-20">
+                                  <p className="text-xs font-normal text-slate-800 leading-snug break-words">
+                                    {banner.text}
+                                  </p>
+                                  {banner.isTicker && (
+                                    <div className="mt-1.5">
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-300/70 px-2 py-0.5 rounded-full">
+                                        ← Rolagem ←
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Action buttons (always visible if active, or on group-hover) */}
+                              <div
+                                className={`absolute top-2.5 right-2.5 flex items-center gap-1 transition-opacity ${
+                                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveBannerId(isActive ? null : banner.id)}
+                                  className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition shadow-xs ${
+                                    isActive
+                                      ? "bg-slate-700 hover:bg-slate-800 text-white"
+                                      : "bg-[#00b4fb] hover:bg-[#009fdc] text-white"
+                                  }`}
+                                >
+                                  {isActive ? "Ocultar" : "Exibir"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditBanner(banner)}
+                                  title="Editar banner"
+                                  className="p-1 rounded-md hover:bg-white text-slate-600 hover:text-slate-900 border border-transparent hover:border-gray-200 transition"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBanner(banner.id)}
+                                  title="Excluir banner"
+                                  className="p-1 rounded-md hover:bg-white text-slate-500 hover:text-red-600 border border-transparent hover:border-gray-200 transition"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {currentFolder.banners.length === 0 && !isBannerFormOpen && (
+                          <div className="text-center py-6 text-xs text-gray-400">
+                            Nenhum banner nesta pasta ainda.
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
-                          Empresa
-                        </label>
-                        <input
-                          type="text"
-                          value={lowerThirdCompany}
-                          onChange={(e) => setLowerThirdCompany(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                        />
+
+                      {/* "+ Criar um banner" button */}
+                      {!isBannerFormOpen && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingBannerId(null);
+                            setBannerTextInput("");
+                            setBannerIsTickerInput(false);
+                            setIsBannerFormOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-[#00b4fb] transition py-1.5 px-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Criar um banner</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    /* FOLDERS LIST VIEW */
+                    <div className="space-y-3">
+                      {/* Top Bar: "Pastas" + New Folder Icon */}
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-slate-700">Pastas</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFolderModalMode("create");
+                            setFolderNameInput("");
+                            setIsFolderModalOpen(true);
+                          }}
+                          title="Criar nova pasta"
+                          className="p-1 rounded-md hover:bg-gray-100 text-slate-600 hover:text-slate-900 transition"
+                        >
+                          <FolderPlus className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Folder Items */}
+                      <div className="space-y-1">
+                        {bannerFolders.map((folder) => (
+                          <div
+                            key={folder.id}
+                            className="group relative flex items-center justify-between p-2 rounded-xl hover:bg-gray-100/90 transition cursor-pointer select-none"
+                            onClick={() => setCurrentBannerFolderId(folder.id)}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />
+                              <Folder className="h-4 w-4 text-slate-700 shrink-0" />
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-semibold text-slate-800 truncate">
+                                  {folder.name}
+                                </h4>
+                                <p className="text-[11px] text-slate-500">
+                                  {folder.banners.length} banner
+                                  {folder.banners.length !== 1 ? "s" : ""}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div
+                              className="relative"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenFolderMenuId(
+                                    openFolderMenuId === folder.id ? null : folder.id
+                                  )
+                                }
+                                className="p-1 rounded-md hover:bg-gray-200 text-slate-500 transition"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+
+                              {openFolderMenuId === folder.id && (
+                                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-white shadow-xl border border-gray-200 py-1.5 z-40 text-xs text-slate-700 animate-in fade-in">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFolderModalMode("rename");
+                                      setFolderModalTargetId(folder.id);
+                                      setFolderNameInput(folder.name);
+                                      setIsFolderModalOpen(true);
+                                      setOpenFolderMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-gray-50 text-left"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 text-slate-600" />
+                                    <span>Renomear pasta</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateFolder(folder.id)}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-gray-50 text-left"
+                                  >
+                                    <Copy className="h-3.5 w-3.5 text-slate-600" />
+                                    <span>Duplicar pasta</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteFolder(folder.id)}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-red-50 text-red-600 text-left"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                    <span>Excluir pasta</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Headline Banner */}
-                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Banner Superior</span>
-                      <button
-                        onClick={() => setBannerVisible(!bannerVisible)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
-                          bannerVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {bannerVisible ? "Exibindo" : "Oculto"}
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={bannerTitle}
-                        onChange={(e) => setBannerTitle(e.target.value)}
-                        placeholder="Título do banner..."
-                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={bannerSubtitle}
-                        onChange={(e) => setBannerSubtitle(e.target.value)}
-                        placeholder="Subtítulo..."
-                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Ticker Tape */}
-                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Letreiro Rodapé (Ticker)</span>
-                      <button
-                        onClick={() => setTickerVisible(!tickerVisible)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
-                          tickerVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {tickerVisible ? "Ativo" : "Oculto"}
-                      </button>
-                    </div>
-
-                    <textarea
-                      value={tickerText}
-                      onChange={(e) => setTickerText(e.target.value)}
-                      rows={2}
-                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none resize-none"
-                    />
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -2712,6 +3099,69 @@ export default function StudioPage({ params, searchParams }: Props) {
                 className="px-5 py-2 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] text-white font-semibold text-xs transition shadow-xs"
               >
                 Salvar & Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Folder Create / Rename */}
+      {isFolderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-gray-200 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Folder className="h-4 w-4 text-[#00b4fb]" />
+                <span>
+                  {folderModalMode === "create" ? "Criar nova pasta" : "Renomear pasta"}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsFolderModalOpen(false);
+                  setFolderNameInput("");
+                }}
+                className="text-gray-400 hover:text-slate-600 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Nome da pasta
+              </label>
+              <input
+                type="text"
+                value={folderNameInput}
+                onChange={(e) => setFolderNameInput(e.target.value)}
+                placeholder="Ex: Avisos Importantes"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveFolder();
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFolderModalOpen(false);
+                  setFolderNameInput("");
+                }}
+                className="px-3.5 py-1.5 rounded-xl border border-gray-300 text-xs font-semibold text-slate-600 hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFolder}
+                disabled={!folderNameInput.trim()}
+                className="px-4 py-1.5 rounded-xl bg-[#00b4fb] text-white text-xs font-semibold hover:bg-[#009fdc] disabled:opacity-50 transition shadow-xs"
+              >
+                Salvar
               </button>
             </div>
           </div>

@@ -18,7 +18,7 @@ import {
 interface Props {
   userName: string;
   userRole: "host" | "speaker";
-  onJoin: (stream: MediaStream | null) => void;
+  onJoin: (stream: MediaStream | null, displayName?: string, headline?: string) => void;
   onRoleChange?: (role: "host" | "speaker") => void;
 }
 
@@ -103,7 +103,7 @@ export default function PreflightLobby({
 
   const handleEnter = () => {
     joinedRef.current = true;
-    onJoin(stream);
+    onJoin(stream, displayName.trim() || userName, headline.trim());
   };
 
   return (

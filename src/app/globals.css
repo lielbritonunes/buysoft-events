@@ -182,3 +182,19 @@ body {
   padding: 3px 9px;
   border-radius: 9999px;
 }
+
+/* Marquee scrolling animation for ticker tape */
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 20s linear infinite;
+}

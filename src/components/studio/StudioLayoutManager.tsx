@@ -92,11 +92,65 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
 interface ParticipantTile {
   id: string;
   name: string;
+  headline?: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   stream?: MediaStream | null;
   isMicOn?: boolean;
   isCamOn?: boolean;
   isScreen?: boolean;
+}
+
+function PresenterLowerThird({
+  name,
+  headline,
+  isMicOn,
+  isScreen,
+  compact = false,
+}: {
+  name: string;
+  headline?: string;
+  isMicOn?: boolean;
+  isScreen?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`absolute ${
+        compact ? "bottom-1.5 left-1.5 px-2 py-0.5" : "bottom-3 left-3 px-3 py-1.5"
+      } max-w-[85%] rounded-lg bg-black/85 backdrop-blur-md text-white border-l-4 border-[#00b4fb] shadow-xl flex flex-col justify-center animate-in fade-in duration-200 z-20 pointer-events-none`}
+    >
+      <div className="flex items-center gap-1.5">
+        {isScreen ? (
+          <Monitor className="h-3.5 w-3.5 text-[#00b4fb] shrink-0" />
+        ) : (
+          <User className="h-3 w-3 text-slate-300 shrink-0" />
+        )}
+        <span
+          className={`font-bold tracking-tight text-white leading-tight ${
+            compact ? "text-[10px]" : "text-xs sm:text-sm"
+          }`}
+        >
+          {name}
+        </span>
+        {!isScreen && isMicOn !== undefined && (
+          isMicOn ? (
+            <Mic className="h-3 w-3 text-emerald-400 shrink-0" />
+          ) : (
+            <MicOff className="h-3 w-3 text-rose-400 shrink-0" />
+          )
+        )}
+      </div>
+      {headline && !isScreen && (
+        <span
+          className={`font-medium text-slate-300 tracking-normal leading-tight mt-0.5 truncate ${
+            compact ? "text-[8px]" : "text-[10px] sm:text-[11px]"
+          }`}
+        >
+          {headline}
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface Props {
@@ -182,14 +236,11 @@ export default function StudioLayoutManager({
                 </div>
               }
             />
-            <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-bold text-white flex items-center gap-1 backdrop-blur-xs border border-white/10">
-              <span>{presenter.name}</span>
-              {presenter.isMicOn ? (
-                <Mic className="h-3 w-3 text-emerald-400" />
-              ) : (
-                <MicOff className="h-3 w-3 text-rose-400" />
-              )}
-            </div>
+            <PresenterLowerThird
+              name={presenter.name}
+              headline={presenter.headline}
+              isMicOn={presenter.isMicOn}
+            />
           </div>
         </div>
       </div>
@@ -232,9 +283,12 @@ export default function StudioLayoutManager({
                 </div>
               }
             />
-            <div className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-white flex items-center gap-1">
-              <span>{presenter.name}</span>
-            </div>
+            <PresenterLowerThird
+              name={presenter.name}
+              headline={presenter.headline}
+              isMicOn={presenter.isMicOn}
+              compact={true}
+            />
           </div>
         </div>
       </div>
@@ -281,21 +335,12 @@ export default function StudioLayoutManager({
                   </div>
                 }
               />
-              <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
-                {tile.isScreen ? (
-                  <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
-                ) : (
-                  <User className="h-3.5 w-3.5 text-slate-300" />
-                )}
-                <span>{tile.name}</span>
-                {!tile.isScreen && (
-                  tile.isMicOn !== false ? (
-                    <Mic className="h-3.5 w-3.5 text-emerald-400" />
-                  ) : (
-                    <MicOff className="h-3.5 w-3.5 text-rose-400" />
-                  )
-                )}
-              </div>
+              <PresenterLowerThird
+                name={tile.name}
+                headline={tile.headline}
+                isMicOn={tile.isMicOn}
+                isScreen={tile.isScreen}
+              />
             </div>
           ))}
         </div>
@@ -328,14 +373,11 @@ export default function StudioLayoutManager({
             </div>
           }
         />
-        <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
-          <span>{presenter.name}</span>
-          {presenter.isMicOn ? (
-            <Mic className="h-3.5 w-3.5 text-emerald-400" />
-          ) : (
-            <MicOff className="h-3.5 w-3.5 text-rose-400" />
-          )}
-        </div>
+        <PresenterLowerThird
+          name={presenter.name}
+          headline={presenter.headline}
+          isMicOn={presenter.isMicOn}
+        />
       </div>
     </div>
   );
