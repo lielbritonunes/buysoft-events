@@ -204,8 +204,8 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
 
   // Track publish state (to avoid double-publishing)
-  const publishedTracksRef = useRef<{ camera: boolean; screen: boolean; mic: boolean }>(
-    { camera: false, screen: false, mic: false }
+  const publishedTracksRef = useRef<{ camera: boolean; screen: boolean; mic: boolean; screenAudio: boolean }>(
+    { camera: false, screen: false, mic: false, screenAudio: false }
   );
 
   // Show Toast
@@ -304,7 +304,7 @@ export default function StudioPage({ params, searchParams }: Props) {
       compositorRef.current.setVideoElements(localVideoRef.current, screenVideoRef.current);
       compositorRef.current.updateAudioSources(localStream, screenStream);
     }
-  }, [localStream, screenStream, isScreenSharing, isOnStage, isCamOn, isMicOn]);
+  }, [localStream, screenStream, isScreenSharing, isOnStage, isCamOn, isMicOn, layoutMode]);
 
   // Initialize WebRTC Host Broadcaster (fallback)
   useEffect(() => {
@@ -472,15 +472,15 @@ export default function StudioPage({ params, searchParams }: Props) {
           const pubs = Array.from(room.localParticipant.trackPublications.values());
           for (const pub of pubs) {
             const n = pub.trackName;
-            if (n === "camera" || n === "screen" || n === "mic") {
+            if (n === "camera" || n === "screen" || n === "screen-audio" || n === "mic") {
               if (pub.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
             }
           }
-          publishedTracksRef.current = { camera: false, screen: false, mic: false };
+          publishedTracksRef.current = { camera: false, screen: false, mic: false, screenAudio: false };
           return;
         }
 
-        // --- Screen track ---
+        // --- Screen track (native hardware encoder, no canvas) ---
         const screenVt = screenStream?.getVideoTracks()[0];
         if (screenVt && isScreenSharing && !publishedTracksRef.current.screen) {
           publishedTracksRef.current.screen = true;
@@ -496,6 +496,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 maxFramerate: 30,
               },
             });
+            console.log("LiveKit: Screen track published via hardware encoder!");
           } catch (e) {
             publishedTracksRef.current.screen = false;
             console.error("LiveKit: Screen publish error:", e);
@@ -503,12 +504,35 @@ export default function StudioPage({ params, searchParams }: Props) {
         } else if (!isScreenSharing && publishedTracksRef.current.screen) {
           publishedTracksRef.current.screen = false;
           const pub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
-            (p) => p.trackName === "screen"
+            (p) => p.trackName === "screen" || p.source === Track.Source.ScreenShare
           );
           if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
         }
 
-        // --- Camera track ---
+        // --- Screen audio track ---
+        const screenAt = screenStream?.getAudioTracks()[0];
+        if (screenAt && isScreenSharing && !publishedTracksRef.current.screenAudio) {
+          publishedTracksRef.current.screenAudio = true;
+          try {
+            await room.localParticipant.publishTrack(screenAt, {
+              name: "screen-audio",
+              source: Track.Source.ScreenShareAudio,
+              audioPreset: { maxBitrate: 128_000 },
+            });
+            console.log("LiveKit: Screen audio track published!");
+          } catch (e) {
+            publishedTracksRef.current.screenAudio = false;
+            console.warn("LiveKit: Screen audio publish error:", e);
+          }
+        } else if (!isScreenSharing && publishedTracksRef.current.screenAudio) {
+          publishedTracksRef.current.screenAudio = false;
+          const pub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+            (p) => p.trackName === "screen-audio" || p.source === Track.Source.ScreenShareAudio
+          );
+          if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
+        }
+
+        // --- Camera track (always maintained across all layouts) ---
         const camVt = localStream?.getVideoTracks()[0];
         if (camVt && isCamOn && isOnStage && !publishedTracksRef.current.camera) {
           publishedTracksRef.current.camera = true;
@@ -522,15 +546,22 @@ export default function StudioPage({ params, searchParams }: Props) {
                 maxFramerate: 30,
               },
             });
+            console.log("LiveKit: Camera track published via hardware encoder!");
           } catch (e) {
             publishedTracksRef.current.camera = false;
             console.error("LiveKit: Camera publish error:", e);
           }
+        } else if ((!isCamOn || !isOnStage) && publishedTracksRef.current.camera) {
+          publishedTracksRef.current.camera = false;
+          const pub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
+            (p) => p.trackName === "camera" || p.source === Track.Source.Camera
+          );
+          if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
         }
 
         // --- Microphone audio track ---
         const micAt = localStream?.getAudioTracks()[0];
-        if (micAt && !publishedTracksRef.current.mic) {
+        if (micAt && isMicOn && !publishedTracksRef.current.mic) {
           publishedTracksRef.current.mic = true;
           try {
             await room.localParticipant.publishTrack(micAt, {
@@ -538,10 +569,17 @@ export default function StudioPage({ params, searchParams }: Props) {
               source: Track.Source.Microphone,
               audioPreset: { maxBitrate: 96_000 },
             });
+            console.log("LiveKit: Mic track published!");
           } catch (e) {
             publishedTracksRef.current.mic = false;
             console.error("LiveKit: Mic publish error:", e);
           }
+        } else if (!isMicOn && publishedTracksRef.current.mic) {
+          publishedTracksRef.current.mic = false;
+          const pub = Array.from(room.localParticipant.audioTrackPublications.values()).find(
+            (p) => p.trackName === "mic" || p.source === Track.Source.Microphone
+          );
+          if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
         }
 
         publishOverlayState();
@@ -559,6 +597,8 @@ export default function StudioPage({ params, searchParams }: Props) {
     isScreenSharing,
     isCamOn,
     isOnStage,
+    isMicOn,
+    layoutMode,
     hasJoinedLobby,
     publishOverlayState,
   ]);

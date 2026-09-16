@@ -175,8 +175,10 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   // Separate tracks for camera and screen — composed via CSS, not canvas
   const [cameraTrack, setCameraTrack] = useState<RemoteTrack | null>(null);
   const [screenTrack, setScreenTrack] = useState<RemoteTrack | null>(null);
-  const cameraVideoRef = useRef<HTMLVideoElement>(null);
-  const screenVideoRef = useRef<HTMLVideoElement>(null);
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // Overlay state sent via LiveKit DataChannel from host
   interface OverlayState {
@@ -273,8 +275,11 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             const audioEl = track.attach() as HTMLAudioElement;
             audioEl.setAttribute("data-livekit-audio", "true");
             audioEl.setAttribute("data-livekit-audio-id", track.sid || "audio");
-            audioEl.muted = true; // Start muted; user clicks to unmute
+            audioEl.muted = isMutedRef.current;
             document.body.appendChild(audioEl);
+            if (!isMutedRef.current) {
+              audioEl.play().catch(() => {});
+            }
           }
         };
 
@@ -334,25 +339,60 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     };
   }, [eventId, userName]);
 
-  // Attach camera track to its dedicated video element
-  useEffect(() => {
-    const el = cameraVideoRef.current;
-    if (!el || !cameraTrack) return;
-    cameraTrack.attach(el);
-    el.muted = true;
-    el.play().catch(() => {});
-    return () => { cameraTrack.detach(el); };
-  }, [cameraTrack]);
+  // LiveTrackVideo: self-contained tile that manages LiveKit track attachment lifecycle
+  // Automatically attaches on mount, detaches on unmount, and handles layout switching flawlessly
+  const LiveTrackVideo = React.memo(function LiveTrackVideo({
+    track,
+    className = "",
+    muted = true,
+    fallback,
+    showFallback = false,
+  }: {
+    track: RemoteTrack | null;
+    className?: string;
+    muted?: boolean;
+    fallback?: React.ReactNode;
+    showFallback?: boolean;
+  }) {
+    const videoElRef = useRef<HTMLVideoElement>(null);
 
-  // Attach screen track to its dedicated video element
-  useEffect(() => {
-    const el = screenVideoRef.current;
-    if (!el || !screenTrack) return;
-    screenTrack.attach(el);
-    el.muted = true;
-    el.play().catch(() => {});
-    return () => { screenTrack.detach(el); };
-  }, [screenTrack]);
+    useEffect(() => {
+      const el = videoElRef.current;
+      if (!el || !track) return;
+
+      try {
+        track.attach(el);
+        el.muted = muted;
+        el.play().catch(() => {
+          el.muted = true;
+          el.play().catch(() => {});
+        });
+      } catch (err) {
+        console.warn("LiveTrackVideo attach warning:", err);
+      }
+
+      return () => {
+        try {
+          track.detach(el);
+        } catch (_) {}
+      };
+    }, [track, muted]);
+
+    const shouldShowVideo = Boolean(track && !showFallback);
+
+    return (
+      <>
+        <video
+          ref={videoElRef}
+          autoPlay
+          playsInline
+          muted={muted}
+          className={`${className} ${shouldShowVideo ? "block" : "hidden"}`}
+        />
+        {!shouldShowVideo && fallback}
+      </>
+    );
+  });
 
   // Unmute all LiveKit audio elements when user clicks unmute
   useEffect(() => {
@@ -737,11 +777,8 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300">
                           {/* Main Screen Share Tile (strictly 16:9, no vertical letterbox) */}
                           <div className="relative flex-1 aspect-video max-h-full max-w-full rounded-2xl border border-slate-800/80 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
-                            <video
-                              ref={screenVideoRef}
-                              autoPlay
-                              playsInline
-                              muted
+                            <LiveTrackVideo
+                              track={screenTrack}
                               className="h-full w-full object-contain aspect-video pointer-events-none"
                             />
                             <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
@@ -754,22 +791,20 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                           {isPresenterOnStage && (
                             <div className="relative w-full lg:w-64 xl:w-72 aspect-video lg:aspect-auto max-h-full flex flex-col justify-center shrink-0">
                               <div className="relative aspect-video w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
-                                <video
-                                  ref={cameraVideoRef}
-                                  autoPlay
-                                  playsInline
-                                  muted
-                                  className={`h-full w-full object-cover aspect-video pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
-                                />
-                                {!cameraTrack && (
-                                  <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
-                                    <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl shadow-sky-500/25">
-                                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-2xl font-black">
-                                        {presenterName.charAt(0) || "P"}
+                                <LiveTrackVideo
+                                  track={cameraTrack}
+                                  showFallback={overlayState?.isCamOn === false}
+                                  className="h-full w-full object-cover aspect-video pointer-events-none"
+                                  fallback={
+                                    <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                                      <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl shadow-sky-500/25">
+                                        <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-2xl font-black">
+                                          {presenterName.charAt(0) || "P"}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                )}
+                                  }
+                                />
                                 <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                                   <span>{presenterName}</span>
                                   {isMicOn ? (
@@ -786,11 +821,8 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                         /* Mode 2: PICTURE-IN-PICTURE (Screen Share Full + Floating Presenter) */
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300">
                           <div className="relative aspect-video max-h-full max-w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
-                            <video
-                              ref={screenVideoRef}
-                              autoPlay
-                              playsInline
-                              muted
+                            <LiveTrackVideo
+                              track={screenTrack}
                               className="h-full w-full object-contain aspect-video pointer-events-none"
                             />
                             <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
@@ -801,20 +833,18 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                             {/* Floating Presenter Bubble */}
                             {isPresenterOnStage && (
                               <div className="absolute bottom-4 right-4 z-20 h-36 w-52 rounded-xl border-2 border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden backdrop-blur-md flex items-center justify-center">
-                                <video
-                                  ref={cameraVideoRef}
-                                  autoPlay
-                                  playsInline
-                                  muted
-                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
-                                />
-                                {!cameraTrack && (
-                                  <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-md flex items-center justify-center pointer-events-none">
-                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-base font-black">
-                                      {presenterName.charAt(0) || "P"}
+                                <LiveTrackVideo
+                                  track={cameraTrack}
+                                  showFallback={overlayState?.isCamOn === false}
+                                  className="h-full w-full object-cover pointer-events-none"
+                                  fallback={
+                                    <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-md flex items-center justify-center pointer-events-none">
+                                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-base font-black">
+                                        {presenterName.charAt(0) || "P"}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  }
+                                />
                                 <div className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-2 py-0.5 text-[9px] font-bold text-white flex items-center gap-1 pointer-events-none">
                                   <span>{presenterName}</span>
                                   {isMicOn ? (
@@ -832,11 +862,8 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300">
                           <div className="w-full h-full grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center">
                             <div className="relative h-full max-h-[65vh] w-full rounded-2xl border border-slate-800/80 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
-                              <video
-                                ref={screenVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
+                              <LiveTrackVideo
+                                track={screenTrack}
                                 className="h-full w-full object-contain pointer-events-none"
                               />
                               <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
@@ -846,20 +873,18 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                             </div>
                             {isPresenterOnStage && (
                               <div className="relative h-full max-h-[65vh] w-full rounded-2xl border border-slate-800/80 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
-                                <video
-                                  ref={cameraVideoRef}
-                                  autoPlay
-                                  playsInline
-                                  muted
-                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
-                                />
-                                {!cameraTrack && (
-                                  <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl pointer-events-none">
-                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl font-black">
-                                      {presenterName.charAt(0) || "P"}
+                                <LiveTrackVideo
+                                  track={cameraTrack}
+                                  showFallback={overlayState?.isCamOn === false}
+                                  className="h-full w-full object-cover pointer-events-none"
+                                  fallback={
+                                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl pointer-events-none">
+                                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl font-black">
+                                        {presenterName.charAt(0) || "P"}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  }
+                                />
                                 <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                                   <span>{presenterName}</span>
                                   {isMicOn ? <Mic className="h-3 w-3 text-emerald-400" /> : <MicOff className="h-3 w-3 text-rose-400" />}
@@ -873,45 +898,38 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300">
                           {isScreenActive ? (
                             <div className="relative h-full w-full rounded-2xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
-                              <video
-                                ref={screenVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
+                              <LiveTrackVideo
+                                track={screenTrack}
                                 className="h-full w-full object-contain pointer-events-none"
                               />
                               <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                                 <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
                                 <span>Apresentação / Tela</span>
                               </div>
-                              <video ref={cameraVideoRef} autoPlay playsInline muted className="hidden" />
                             </div>
                           ) : (
                             <div className="relative h-full w-full max-w-4xl rounded-2xl border border-slate-800/80 bg-slate-900/90 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-xs">
-                              <video
-                                ref={cameraVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
-                              />
-                              {!cameraTrack && (
-                                <div className="flex flex-col items-center justify-center gap-3 pointer-events-none">
-                                  <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
-                                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black">
-                                      {presenterName.charAt(0) || "P"}
+                              <LiveTrackVideo
+                                track={cameraTrack}
+                                showFallback={overlayState?.isCamOn === false}
+                                className="h-full w-full object-cover pointer-events-none"
+                                fallback={
+                                  <div className="flex flex-col items-center justify-center gap-3 pointer-events-none">
+                                    <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
+                                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black">
+                                        {presenterName.charAt(0) || "P"}
+                                      </div>
                                     </div>
+                                    <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold text-slate-300 border border-slate-700">
+                                      Palestrante Ao Vivo
+                                    </span>
                                   </div>
-                                  <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold text-slate-300 border border-slate-700">
-                                    Palestrante Ao Vivo
-                                  </span>
-                                </div>
-                              )}
+                                }
+                              />
                               <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                                 <span>{presenterName}</span>
                                 {isMicOn ? <Mic className="h-3.5 w-3.5 text-emerald-400" /> : <MicOff className="h-3.5 w-3.5 text-rose-400" />}
                               </div>
-                              <video ref={screenVideoRef} autoPlay playsInline muted className="hidden" />
                             </div>
                           )}
                         </div>

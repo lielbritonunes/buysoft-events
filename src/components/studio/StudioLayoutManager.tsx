@@ -17,29 +17,39 @@ function VideoStreamTile({
   stream,
   className,
   muted = false,
+  fallback,
 }: {
   videoRef?: React.RefObject<HTMLVideoElement | null>;
   stream?: MediaStream | null;
   className?: string;
   muted?: boolean;
+  fallback?: React.ReactNode;
 }) {
   const localRef = React.useRef<HTMLVideoElement>(null);
   const activeRef = videoRef || localRef;
 
   React.useEffect(() => {
-    if (activeRef.current && stream) {
-      activeRef.current.srcObject = stream;
+    if (activeRef.current) {
+      if (stream) {
+        activeRef.current.srcObject = stream;
+        activeRef.current.play().catch(() => {});
+      } else {
+        activeRef.current.srcObject = null;
+      }
     }
   }, [activeRef, stream]);
 
   return (
-    <video
-      ref={activeRef as any}
-      autoPlay
-      playsInline
-      muted={muted}
-      className={className}
-    />
+    <>
+      <video
+        ref={activeRef as any}
+        autoPlay
+        playsInline
+        muted={muted}
+        className={`${className || ""} ${stream ? "block" : "hidden"}`}
+      />
+      {!stream && fallback}
+    </>
   );
 }
 
@@ -157,6 +167,15 @@ export default function StudioLayoutManager({
               stream={presenter.stream}
               muted={true}
               className="h-full w-full object-cover aspect-video"
+              fallback={
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl">
+                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-2xl font-black">
+                      {presenter.name.charAt(0) || "P"}
+                    </div>
+                  </div>
+                </div>
+              }
             />
             <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-bold text-white flex items-center gap-1 backdrop-blur-xs border border-white/10">
               <span>{presenter.name}</span>
@@ -198,6 +217,15 @@ export default function StudioLayoutManager({
               stream={presenter.stream}
               muted={true}
               className="h-full w-full object-cover"
+              fallback={
+                <div className="h-full w-full flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-md flex items-center justify-center">
+                    <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-base font-black">
+                      {presenter.name.charAt(0) || "P"}
+                    </div>
+                  </div>
+                </div>
+              }
             />
             <div className="absolute bottom-1.5 left-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-white flex items-center gap-1">
               <span>{presenter.name}</span>
@@ -238,6 +266,15 @@ export default function StudioLayoutManager({
                 className={`h-full w-full ${
                   tile.isScreen ? "object-contain" : "object-cover"
                 }`}
+                fallback={
+                  <div className="h-full w-full flex items-center justify-center">
+                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-0.5 shadow-xl">
+                      <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl font-black">
+                        {tile.name.charAt(0) || "P"}
+                      </div>
+                    </div>
+                  </div>
+                }
               />
               <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
                 {tile.isScreen ? (
@@ -273,6 +310,18 @@ export default function StudioLayoutManager({
           stream={presenter.stream}
           muted={true}
           className="h-full w-full object-cover"
+          fallback={
+            <div className="flex flex-col items-center justify-center gap-3">
+              <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
+                <div className="h-full w-full rounded-full bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black">
+                  {presenter.name.charAt(0) || "P"}
+                </div>
+              </div>
+              <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold text-slate-300 border border-slate-700">
+                Palestrante Ao Vivo
+              </span>
+            </div>
+          }
         />
         <div className="absolute bottom-3.5 left-3.5 rounded-lg bg-black/80 px-2.5 py-1 text-xs font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
           <span>{presenter.name}</span>
