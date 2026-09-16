@@ -19,7 +19,6 @@ import {
   Sparkles,
   Shield,
   Layers,
-  PhoneOff,
   Copy,
   Check,
   LayoutGrid,
@@ -30,20 +29,28 @@ import {
   Clock,
   Plus,
   Tv,
-  CheckCircle2
+  CheckCircle2,
+  MessageSquare,
+  MessagesSquare,
+  HelpCircle,
+  Edit3,
+  Share2,
+  LogOut,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  Sliders,
+  MoreVertical,
+  ExternalLink,
+  Send,
+  UserCheck,
+  UserX,
+  Volume2,
+  Trash2,
+  Smile
 } from "lucide-react";
 
-function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
-  );
-}
-
 import PreflightLobby from "@/components/studio/PreflightLobby";
-import LiveEngagementSidebar from "@/components/engagement/LiveEngagementSidebar";
-import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
 import StudioLayoutManager, {
   LayoutMode,
   BACKGROUND_PRESETS,
@@ -54,15 +61,29 @@ import {
   HeadlineBanner,
 } from "@/components/studio/LowerThirdsOverlay";
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
-import { getLiveRoomState, updateEvent, setLiveCta } from "@/lib/dbActions";
+import {
+  getLiveRoomState,
+  updateEvent,
+  setLiveCta,
+  sendChatMessage,
+  deleteChatMessage,
+} from "@/lib/dbActions";
 import { HostBroadcaster } from "@/lib/webrtcStreamManager";
-import { Room, RoomEvent, Track, DataPacket_Kind } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
 import { StudioCompositor } from "@/lib/studioCompositor";
 
 interface Props {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ role?: string }>;
 }
+
+type StreamYardRightTab =
+  | "media"
+  | "banners"
+  | "comments"
+  | "widgets"
+  | "people"
+  | "private_chat";
 
 export default function StudioPage({ params, searchParams }: Props) {
   const resolvedParams = use(params);
@@ -84,15 +105,19 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [isMicOn, setIsMicOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isOnStage, setIsOnStage] = useState(true);
-  const [copiedRtmp, setCopiedRtmp] = useState(false);
 
-  // Studio Customization States
+  // Studio Customization States (StreamYard Inspired)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("solo");
-  const [backgroundPresetId, setBackgroundPresetId] = useState<string>("dark-mesh");
+  const [backgroundPresetId, setBackgroundPresetId] = useState<string>("streamyard-wave");
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string>("");
 
   // Brand & Overlays
-  const [brandColor, setBrandColor] = useState<string>("#00b4fb");
+  const [brandColor, setBrandColor] = useState<string>("#0066ff");
+  const [logoVisible, setLogoVisible] = useState(true);
+  const [logoPosition, setLogoPosition] = useState<"left" | "right">("right");
+  const [fadeOverlays, setFadeOverlays] = useState(true);
+
+  // Lower Third & Banners
   const [lowerThirdVisible, setLowerThirdVisible] = useState(false);
   const [lowerThirdName, setLowerThirdName] = useState(
     initialRole === "host" ? "Eliel Nunes" : "Palestrante Especialista"
@@ -115,44 +140,64 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [videoAssetUrl, setVideoAssetUrl] = useState<string | null>(null);
   const [customVideoInput, setCustomVideoInput] = useState("");
 
+  // Broadcast & Live Status
   const [isBroadcastingLive, setIsBroadcastingLive] = useState(false);
-  const [currentEgressId, setCurrentEgressId] = useState<string | null>(null);
   const [isStartingBroadcast, setIsStartingBroadcast] = useState(false);
   const [liveDuration, setLiveDuration] = useState(0);
 
-  // Single source of truth for webinar live status
-  const isWebinarLive = roomState?.status === "live" || isBroadcastingLive;
+  // Right Rail Drawer State (StreamYard tabs)
+  const [activeRightTab, setActiveRightTab] = useState<StreamYardRightTab | null>("media");
 
-  // Modals
-  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
-  const [customizationTab, setCustomizationTab] = useState<
-    "brand" | "ticker" | "background" | "media"
-  >("brand");
-  const [showCtaModal, setShowCtaModal] = useState(false);
+  // Modals & Popovers
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showPresentMenu, setShowPresentMenu] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Live CTA (Widgets)
   const [ctaTitle, setCtaTitle] = useState("Agende uma Demonstração com nossos Especialistas");
   const [ctaBtnText, setCtaBtnText] = useState("Falar com Consultor");
   const [ctaBtnUrl, setCtaBtnUrl] = useState("https://buysoft.com.br");
+
+  // Chat message input for comments tab
+  const [chatInput, setChatInput] = useState("");
+  const [privateChatInput, setPrivateChatInput] = useState("");
+  const [privateMessages, setPrivateMessages] = useState<
+    Array<{ sender: string; text: string; time: string }>
+  >([
+    {
+      sender: "Sistema",
+      text: "Bem-vindo ao chat privado do estúdio! Apenas palestrantes e host têm acesso.",
+      time: "Agora",
+    },
+  ]);
+
+  // Single source of truth for webinar live status
+  const isWebinarLive = roomState?.status === "live" || isBroadcastingLive;
 
   // Video refs & WebRTC Broadcaster
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const broadcasterRef = useRef<HostBroadcaster | null>(null);
-
-  // Studio Compositor — used only for local preview in the studio, NOT for transmission
   const compositorRef = useRef<StudioCompositor | null>(null);
 
   // LiveKit Cloud Room Connection & Track Publishing
   const livekitRoomRef = useRef<Room | null>(null);
   const [isLiveKitConnected, setIsLiveKitConnected] = useState(false);
-  const [egressError, setEgressError] = useState<string | null>(null);
-  const [enableYouTubeEgress, setEnableYouTubeEgress] = useState(false);
 
   // Track publish state (to avoid double-publishing)
   const publishedTracksRef = useRef<{ camera: boolean; screen: boolean; mic: boolean }>(
     { camera: false, screen: false, mic: false }
   );
 
-  // Initialize and synchronize StudioCompositor (1080p Stage Composite Stream)
+  // Show Toast
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Initialize and synchronize StudioCompositor (Local preview / canvas helper)
   useEffect(() => {
     if (!hasJoinedLobby) return;
 
@@ -244,7 +289,7 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   }, [localStream, screenStream, isScreenSharing, isOnStage, isCamOn, isMicOn]);
 
-  // Initialize WebRTC Host Broadcaster
+  // Initialize WebRTC Host Broadcaster (fallback)
   useEffect(() => {
     const broadcaster = new HostBroadcaster(eventId);
     broadcaster.start();
@@ -254,20 +299,15 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [eventId]);
 
-  // Sync composite stream to WebRTC peer broadcaster (only as fallback when LiveKit Cloud is not connected)
+  // Sync composite stream to WebRTC peer broadcaster (fallback only)
   useEffect(() => {
     if (broadcasterRef.current && compositorRef.current) {
       if (isLiveKitConnected) {
-        // Fully suspend P2P to free 100% CPU/GPU for the LiveKit Cloud broadcast
         broadcasterRef.current.stop();
       } else {
         broadcasterRef.current.start();
         const compositeStream = compositorRef.current.getCompositeStream();
-        broadcasterRef.current.setStreams(
-          compositeStream,
-          null,
-          isWebinarLive
-        );
+        broadcasterRef.current.setStreams(compositeStream, null, isWebinarLive);
       }
     }
   }, [localStream, screenStream, isWebinarLive, isOnStage, isScreenSharing, layoutMode, isLiveKitConnected]);
@@ -326,7 +366,7 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [hasJoinedLobby, eventId, userRole]);
 
-  // Send overlay state to all viewers via LiveKit DataChannel
+  // Send overlay and composition state to all spectators via LiveKit DataChannel
   const publishOverlayState = React.useCallback(() => {
     const room = livekitRoomRef.current;
     if (!room || !isLiveKitConnected) return;
@@ -342,7 +382,12 @@ export default function StudioPage({ params, searchParams }: Props) {
         customBackgroundUrl,
         presenterName: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
         brandColor,
-        lowerThird: { visible: lowerThirdVisible, name: lowerThirdName, role: lowerThirdRole, company: lowerThirdCompany },
+        lowerThird: {
+          visible: lowerThirdVisible,
+          name: lowerThirdName,
+          role: lowerThirdRole,
+          company: lowerThirdCompany,
+        },
         ticker: { visible: tickerVisible, text: tickerText },
         banner: { visible: bannerVisible, title: bannerTitle, subtitle: bannerSubtitle },
       });
@@ -352,17 +397,33 @@ export default function StudioPage({ params, searchParams }: Props) {
       );
     } catch (_) {}
   }, [
-    isLiveKitConnected, layoutMode, isScreenSharing, isCamOn, isOnStage, isMicOn, backgroundPresetId, customBackgroundUrl, userRole, brandColor,
-    lowerThirdVisible, lowerThirdName, lowerThirdRole, lowerThirdCompany,
-    tickerVisible, tickerText, bannerVisible, bannerTitle, bannerSubtitle,
+    isLiveKitConnected,
+    layoutMode,
+    isScreenSharing,
+    isCamOn,
+    isOnStage,
+    isMicOn,
+    backgroundPresetId,
+    customBackgroundUrl,
+    userRole,
+    brandColor,
+    lowerThirdVisible,
+    lowerThirdName,
+    lowerThirdRole,
+    lowerThirdCompany,
+    tickerVisible,
+    tickerText,
+    bannerVisible,
+    bannerTitle,
+    bannerSubtitle,
   ]);
 
-  // Re-broadcast overlay state whenever any overlay property changes
+  // Re-broadcast overlay state whenever any layout property changes
   useEffect(() => {
     publishOverlayState();
   }, [publishOverlayState]);
 
-  // Periodic broadcast to ensure late-joining or refreshing viewers get current composition state
+  // Periodic heartbeat broadcast for late spectators
   useEffect(() => {
     if (!isLiveKitConnected || !isWebinarLive) return;
     const interval = setInterval(() => {
@@ -371,8 +432,8 @@ export default function StudioPage({ params, searchParams }: Props) {
     return () => clearInterval(interval);
   }, [isLiveKitConnected, isWebinarLive, publishOverlayState]);
 
-  // Publish/unpublish native tracks directly to LiveKit when going live
-  // This uses the OS hardware encoder (H.264) — bypasses canvas entirely
+  // Publish/unpublish native tracks directly to LiveKit
+  // High-performance hardware encoding directly bypassing canvas
   useEffect(() => {
     const room = livekitRoomRef.current;
     if (!room || !isLiveKitConnected) return;
@@ -392,34 +453,35 @@ export default function StudioPage({ params, searchParams }: Props) {
           return;
         }
 
-        // --- Publish Screen track (native hardware encoder, no canvas) ---
+        // --- Screen track ---
         const screenVt = screenStream?.getVideoTracks()[0];
         if (screenVt && isScreenSharing && !publishedTracksRef.current.screen) {
           publishedTracksRef.current.screen = true;
-          screenVt.contentHint = "detail"; // Screen content: prioritize sharpness
+          screenVt.contentHint = "detail";
           try {
             await room.localParticipant.publishTrack(screenVt, {
               name: "screen",
               source: Track.Source.ScreenShare,
-              simulcast: false, // Screen share: single high-quality layer
+              simulcast: false,
               degradationPreference: "maintain-framerate",
               videoEncoding: {
-                maxBitrate: 3_000_000, // 3 Mbps for full screen content
+                maxBitrate: 3_000_000,
                 maxFramerate: 30,
               },
             });
-            console.log("LiveKit: Screen track published via hardware encoder!");
           } catch (e) {
             publishedTracksRef.current.screen = false;
             console.error("LiveKit: Screen publish error:", e);
           }
         } else if (!isScreenSharing && publishedTracksRef.current.screen) {
           publishedTracksRef.current.screen = false;
-          const pub = Array.from(room.localParticipant.videoTrackPublications.values()).find(p => p.trackName === "screen");
+          const pub = Array.from(room.localParticipant.videoTrackPublications.values()).find(
+            (p) => p.trackName === "screen"
+          );
           if (pub?.track) await room.localParticipant.unpublishTrack(pub.track).catch(() => {});
         }
 
-        // --- Publish Camera track ---
+        // --- Camera track ---
         const camVt = localStream?.getVideoTracks()[0];
         if (camVt && isCamOn && isOnStage && !publishedTracksRef.current.camera) {
           publishedTracksRef.current.camera = true;
@@ -429,18 +491,17 @@ export default function StudioPage({ params, searchParams }: Props) {
               source: Track.Source.Camera,
               simulcast: true,
               videoEncoding: {
-                maxBitrate: 1_500_000, // 1.5 Mbps for camera
+                maxBitrate: 1_500_000,
                 maxFramerate: 30,
               },
             });
-            console.log("LiveKit: Camera track published via hardware encoder!");
           } catch (e) {
             publishedTracksRef.current.camera = false;
             console.error("LiveKit: Camera publish error:", e);
           }
         }
 
-        // --- Publish Microphone audio track ---
+        // --- Microphone audio track ---
         const micAt = localStream?.getAudioTracks()[0];
         if (micAt && !publishedTracksRef.current.mic) {
           publishedTracksRef.current.mic = true;
@@ -450,14 +511,12 @@ export default function StudioPage({ params, searchParams }: Props) {
               source: Track.Source.Microphone,
               audioPreset: { maxBitrate: 96_000 },
             });
-            console.log("LiveKit: Mic track published!");
           } catch (e) {
             publishedTracksRef.current.mic = false;
             console.error("LiveKit: Mic publish error:", e);
           }
         }
 
-        // Broadcast overlay state to viewers now that tracks are live
         publishOverlayState();
       } catch (err) {
         console.warn("Error syncing native tracks to LiveKit:", err);
@@ -465,9 +524,19 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
 
     syncNativeTracks();
-  }, [isLiveKitConnected, isWebinarLive, localStream, screenStream, isScreenSharing, isCamOn, isOnStage, hasJoinedLobby, publishOverlayState]);
+  }, [
+    isLiveKitConnected,
+    isWebinarLive,
+    localStream,
+    screenStream,
+    isScreenSharing,
+    isCamOn,
+    isOnStage,
+    hasJoinedLobby,
+    publishOverlayState,
+  ]);
 
-  // Load and poll live state
+  // Load and poll live room state
   const fetchState = async () => {
     try {
       const state = await getLiveRoomState(eventId);
@@ -561,6 +630,7 @@ export default function StudioPage({ params, searchParams }: Props) {
 
   // Toggle Screen Share
   const handleToggleScreenShare = async () => {
+    setShowPresentMenu(false);
     if (isScreenSharing) {
       if (screenStream) {
         screenStream.getTracks().forEach((t) => t.stop());
@@ -601,25 +671,13 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   };
 
-  // Toggle 1-Click LiveKit Egress & Broadcast
+  // Toggle 1-Click Native Transmission (Transmitir ao vivo)
   const handleToggleGoLive = async () => {
     setIsStartingBroadcast(true);
-    setEgressError(null);
     const isCurrentlyLive = roomState?.status === "live" || isBroadcastingLive;
 
     if (isCurrentlyLive) {
       try {
-        await fetch("/api/livekit/egress", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "stop",
-            eventId,
-            egressId: currentEgressId || undefined,
-          }),
-        }).catch(() => {});
-
-        // Unpublish tracks immediately from LiveKit room
         if (livekitRoomRef.current) {
           const room = livekitRoomRef.current;
           const pubs = Array.from(room.localParticipant.trackPublications.values());
@@ -632,8 +690,8 @@ export default function StudioPage({ params, searchParams }: Props) {
 
         await updateEvent(eventId, { status: "published" });
         setIsBroadcastingLive(false);
-        setCurrentEgressId(null);
         fetchState();
+        showToast("Transmissão encerrada com sucesso!");
       } catch (err) {
         console.error("Error stopping live stream:", err);
       } finally {
@@ -641,41 +699,12 @@ export default function StudioPage({ params, searchParams }: Props) {
       }
     } else {
       try {
-        // Trigger LiveKit Cloud Egress & ensure active YouTube live broadcast only if selected
-        if (enableYouTubeEgress && roomState?.youtubeBroadcastId) {
-          const res = await fetch("/api/livekit/egress", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "start",
-              eventId,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            console.warn("Egress warning:", data.error);
-            setEgressError(data.error || "Aviso: Transmissão no YouTube não pôde ser iniciada.");
-          } else if (data.egressId) {
-            setCurrentEgressId(data.egressId);
-            if (data.youtubeBroadcastId) {
-              setRoomState((prev: any) => ({
-                ...prev,
-                youtubeBroadcastId: data.youtubeBroadcastId,
-                youtubeStreamKey: data.youtubeStreamKey,
-                youtubeEmbedUrl: data.youtubeEmbedUrl,
-              }));
-            }
-          }
-        }
-
-        // Set event status to live in database so viewers receive room state
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
+        showToast("Você está AO VIVO na plataforma Buysoft!");
       } catch (err: any) {
         console.error("Error starting broadcast:", err);
-
-        setEgressError(err.message || "Erro ao conectar transmissão.");
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
@@ -685,58 +714,7 @@ export default function StudioPage({ params, searchParams }: Props) {
     }
   };
 
-  const [isTogglingEgress, setIsTogglingEgress] = useState(false);
-
-  // Start or Stop YouTube Egress independently while already live
-  const handleStartYouTubeEgress = async () => {
-    setIsTogglingEgress(true);
-    setEgressError(null);
-    try {
-      const res = await fetch("/api/livekit/egress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "start",
-          eventId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setEgressError(data.error || "Erro ao conectar transmissão ao YouTube.");
-      } else if (data.egressId) {
-        setCurrentEgressId(data.egressId);
-        setEnableYouTubeEgress(true);
-      }
-    } catch (err: any) {
-      setEgressError(err.message || "Erro ao iniciar retransmissão.");
-    } finally {
-      setIsTogglingEgress(false);
-    }
-  };
-
-  const handleStopYouTubeEgress = async () => {
-    setIsTogglingEgress(true);
-    try {
-      await fetch("/api/livekit/egress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "stop",
-          eventId,
-          egressId: currentEgressId || undefined,
-        }),
-      });
-      setCurrentEgressId(null);
-      setEnableYouTubeEgress(false);
-    } catch (err) {
-      console.warn("Could not stop egress:", err);
-    } finally {
-      setIsTogglingEgress(false);
-    }
-  };
-
   // Launch CTA (Host only)
-
   const handleLaunchCta = async () => {
     await setLiveCta(eventId, {
       title: ctaTitle,
@@ -744,8 +722,8 @@ export default function StudioPage({ params, searchParams }: Props) {
       buttonUrl: ctaBtnUrl,
       isActive: true,
     });
-    setShowCtaModal(false);
     fetchState();
+    showToast("Live CTA disparado para os espectadores!");
   };
 
   const handleEndCta = async () => {
@@ -756,6 +734,32 @@ export default function StudioPage({ params, searchParams }: Props) {
       isActive: false,
     });
     fetchState();
+    showToast("Live CTA finalizado.");
+  };
+
+  // Send Chat message
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    const text = chatInput.trim();
+    setChatInput("");
+    await sendChatMessage(eventId, userRole === "host" ? "Host (Buysoft)" : "Palestrante", userRole, text);
+    fetchState();
+  };
+
+  // Send Private Chat message
+  const handleSendPrivateChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!privateChatInput.trim()) return;
+    setPrivateMessages((prev) => [
+      ...prev,
+      {
+        sender: userRole === "host" ? "Eliel (Host)" : "Palestrante",
+        text: privateChatInput.trim(),
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+    setPrivateChatInput("");
   };
 
   const formatDuration = (seconds: number) => {
@@ -768,7 +772,9 @@ export default function StudioPage({ params, searchParams }: Props) {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Show Lobby if not joined
+  const audienceUrl = typeof window !== "undefined" ? `${window.location.origin}/live/${eventId}` : `/live/${eventId}`;
+
+  // If not joined lobby yet, render StreamYard Preflight Lobby
   if (!hasJoinedLobby) {
     return (
       <PreflightLobby
@@ -784,1045 +790,1422 @@ export default function StudioPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-white font-sans">
-      {/* Main Studio Area (Left) */}
-      <div className="flex flex-1 flex-col h-full overflow-hidden">
-        {/* Top Control Bar */}
-        <header className="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 sm:px-6 backdrop-blur-md z-30">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-xs">
-              <Radio className="h-4 w-4" />
+    <div className="flex h-screen w-screen flex-col bg-[#f4f5f8] text-slate-800 font-sans overflow-hidden select-none">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 rounded-full bg-slate-900/90 text-white text-xs font-semibold px-4 py-2 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 border border-slate-700">
+          {toastMessage}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 1. TOP HEADER (StreamYard Style: Clean white, title, actions, Go Live)   */}
+      {/* ========================================================================= */}
+      <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between z-30 shrink-0">
+        {/* Left: StreamYard / Buysoft Duck Logo + Title */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-[#0066ff] text-white flex items-center justify-center font-black text-sm shadow-xs">
+              <span className="tracking-tighter">SY</span>
             </div>
-
-            <div>
-              <h2 className="text-xs font-bold text-white leading-tight">
-                {roomState?.title || "Buysoft Events Studio"}
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-slate-400">
-                  {userRole === "host" ? "Painel do Organizador" : "Camarim do Palestrante"}
-                </span>
-
-                {/* Role Switcher */}
-                <div className="flex items-center rounded-lg bg-slate-800 p-0.5 border border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setUserRole("host")}
-                    className={`rounded-md px-2 py-0.5 text-[9px] font-bold transition ${
-                      userRole === "host"
-                        ? "bg-[#00b4fb] text-white shadow-xs"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Host
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserRole("speaker")}
-                    className={`rounded-md px-2 py-0.5 text-[9px] font-bold transition ${
-                      userRole === "speaker"
-                        ? "bg-purple-600 text-white shadow-xs"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    Palestrante
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Badge with Duration Timer */}
-            <div className="ml-3 hidden sm:flex items-center gap-2">
-              {isWebinarLive ? (
-                <div className="flex items-center gap-2 rounded-xl bg-rose-500/20 border border-rose-500/40 px-3 py-1">
-                  <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
-                  <span className="text-[11px] font-extrabold text-rose-400 tracking-wider uppercase">
-                    AO VIVO
-                  </span>
-                  <span className="text-xs font-mono font-bold text-white pl-2 border-l border-rose-500/30">
-                    {formatDuration(liveDuration)}
-                  </span>
-                </div>
-              ) : (
-                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-400">
-                  EM BASTIDORES (BACKSTAGE)
-                </span>
-              )}
-
-              {/* LiveKit Cloud Status Badge */}
-              <span
-                className={`hidden lg:flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold border transition ${
-                  isLiveKitConnected
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                    : "bg-slate-800 text-slate-400 border-slate-700"
-                }`}
-                title={isLiveKitConnected ? "Servidor LiveKit Cloud conectado com sucesso" : "Conectando ao LiveKit Cloud..."}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${isLiveKitConnected ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-                <span>{isLiveKitConnected ? "LiveKit Nuvem OK" : "Conectando Nuvem..."}</span>
-              </span>
-            </div>
+            <span className="text-sm font-bold text-slate-800 hidden sm:inline">
+              buysoft<span className="text-[#0066ff]">studio</span>
+            </span>
           </div>
 
-          {/* Top Right: Host Controls */}
+          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
+
           <div className="flex items-center gap-2">
-            {/* Live CTA Button (Host only) */}
-            {userRole === "host" && (
+            <span className="text-xs font-semibold text-slate-700 max-w-[180px] sm:max-w-xs truncate">
+              {roomState?.title || "teste"}
+            </span>
+            <button
+              onClick={() => setActiveRightTab("banners")}
+              className="text-gray-400 hover:text-slate-600 p-1 rounded-md transition"
+              title="Editar título e banners"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right: Actions, Spectator Link, Status & Go Live Button */}
+        <div className="flex items-center gap-3">
+          {/* Share with audience button */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(audienceUrl);
+              setCopiedLink(true);
+              showToast("Link da transmissão copiado para a área de transferência!");
+              setTimeout(() => setCopiedLink(false), 2500);
+            }}
+            className="hidden md:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition px-2.5 py-1.5 rounded-lg hover:bg-gray-100"
+            title="Copiar link para convidar espectadores"
+          >
+            {copiedLink ? (
               <>
-                {roomState?.liveCtas && roomState.liveCtas.length > 0 ? (
-                  <button
-                    onClick={handleEndCta}
-                    className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/30 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-900/40 transition"
-                  >
-                    <Square className="h-3 w-3 fill-current" />
-                    <span className="hidden sm:inline">Encerrar CTA</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowCtaModal(true)}
-                    className="flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-1.5 text-xs font-bold text-[#00b4fb] hover:bg-sky-900/40 transition"
-                  >
-                    <Zap className="h-3.5 w-3.5 fill-current" />
-                    <span className="hidden sm:inline">Lançar Live CTA</span>
-                  </button>
-                )}
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-emerald-700 font-semibold">Copiado!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="h-3.5 w-3.5 text-slate-500" />
+                <span>Compartilhar com os espectadores</span>
               </>
             )}
+          </button>
 
-            {/* Go Live / End Broadcast */}
-            <button
-              onClick={handleToggleGoLive}
-              disabled={isStartingBroadcast}
-              className={`flex items-center gap-2 rounded-xl px-4 py-1.5 text-xs font-extrabold shadow-lg transition transform active:scale-95 ${
-                isStartingBroadcast
-                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                  : isWebinarLive
-                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30 animate-pulse"
-                  : "bg-gradient-to-r from-rose-600 via-rose-500 to-[#00b4fb] hover:from-rose-500 hover:to-[#009ce0] text-white shadow-rose-500/25"
-              }`}
-            >
-              {isStartingBroadcast ? (
-                <>
-                  <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  <span>Conectando...</span>
-                </>
-              ) : isWebinarLive ? (
-                <>
-                  <Square className="h-3 w-3 fill-current" />
-                  <span>Encerrar Transmissão</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-3 w-3 fill-current" />
-                  <span>Iniciar Transmissão Ao Vivo</span>
-                </>
-              )}
-            </button>
+          {/* Edit schedule / event shortcut */}
+          <a
+            href={`/live/${eventId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 transition px-2 py-1 rounded-md hover:bg-gray-100"
+            title="Abrir como plateia em nova aba"
+          >
+            <span>Ver ao vivo</span>
+            <ExternalLink className="h-3 w-3 text-slate-400" />
+          </a>
 
-            {roomState?.youtubeBroadcastId && (
-              <a
-                href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-950/40 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-900/50 transition"
-                title="Abrir a Sala de Controle ao Vivo no YouTube Studio"
-              >
-                <YouTubeIcon className="h-3.5 w-3.5 text-red-500" />
-                <span className="hidden md:inline">YouTube Studio</span>
-                <ArrowUpRight className="h-3 w-3" />
-              </a>
-            )}
-
-            <a
-              href={`/live/${eventId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
-            >
-              <span className="hidden sm:inline">Ver como Plateia</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        </header>
-
-        {/* Studio Stage Video Canvas */}
-        <div className="relative flex-1 p-3 sm:p-5 overflow-hidden flex flex-col justify-center items-center">
-          {/* Egress Warning Banner if any */}
-          {egressError && (
-            <div className="w-full max-w-4xl mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-950/80 p-3.5 text-xs text-amber-200 backdrop-blur-md z-30 shadow-lg">
-              <div className="flex items-start gap-2.5">
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <div>
-                  <p className="font-semibold text-amber-100">{egressError}</p>
-                  <p className="text-[11px] text-amber-300/80 mt-1">
-                    Dica: Você pode continuar a transmissão normalmente na plataforma Buysoft sem custo, ou usar o <strong>OBS Studio</strong> com a chave RTMP abaixo para transmitir ao YouTube sem gastar minutos de nuvem.
-                  </p>
-                </div>
+          {/* Programado / Ao Vivo Pill Badge */}
+          <div className="flex items-center">
+            {isWebinarLive ? (
+              <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-2.5 py-1 text-xs font-bold text-red-600">
+                <span className="h-2 w-2 rounded-full bg-red-600 animate-ping" />
+                <span>AO VIVO</span>
+                <span className="font-mono text-slate-800 border-l border-red-200 pl-2">
+                  {formatDuration(liveDuration)}
+                </span>
               </div>
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                <a
-                  href="https://cloud.livekit.io"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition"
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-md bg-gray-100 border border-gray-200 px-2.5 py-1 text-xs text-slate-600">
+                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                <span className="font-medium">Programação</span>
+                <span className="text-slate-400 hidden sm:inline">• É hora do show!</span>
+              </div>
+            )}
+          </div>
+
+          {/* StreamYard Primary Blue Button: Transmitir ao vivo / Encerrar */}
+          <button
+            onClick={handleToggleGoLive}
+            disabled={isStartingBroadcast}
+            className={`flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-md transition shadow-xs ${
+              isStartingBroadcast
+                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                : isWebinarLive
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-[#0066ff] hover:bg-[#0052cc] text-white"
+            }`}
+          >
+            {isStartingBroadcast ? (
+              <>
+                <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                <span>Conectando...</span>
+              </>
+            ) : isWebinarLive ? (
+              <>
+                <Square className="h-3 w-3 fill-current" />
+                <span>Encerrar transmissão</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 fill-current" />
+                <span>Transmitir ao vivo</span>
+              </>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* ========================================================================= */}
+      {/* 2. STUDIO BODY (Stage Workspace + StreamYard Right Rail / Drawer)         */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ======================================================================= */}
+        {/* 2.1 MAIN STAGE WORKSPACE (Canvas + Layout Selector + Cards Shelf)       */}
+        {/* ======================================================================= */}
+        <div className="flex-1 flex flex-col justify-between p-3 sm:p-4 overflow-y-auto overflow-x-hidden">
+          {/* Top Stage Area */}
+          <div className="w-full max-w-[1040px] mx-auto flex flex-col items-center">
+            {/* 16:9 Stage Canvas */}
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-sm bg-black border border-gray-300 flex items-center justify-center">
+              {/* Top-Left 1080p Programado/Ao Vivo Badge (StreamYard exact style) */}
+              <div className="absolute top-3 left-3 z-30 flex items-center rounded-md overflow-hidden bg-black/60 backdrop-blur-xs text-xs font-semibold shadow-xs">
+                <span className="px-2 py-0.5 text-white/90 border-r border-white/20">
+                  1080p
+                </span>
+                <span className={`px-2.5 py-0.5 ${isWebinarLive ? "text-red-400 font-bold" : "text-white"}`}>
+                  {isWebinarLive ? "Ao Vivo" : "Programado"}
+                </span>
+              </div>
+
+              {/* Logo Overlay (if enabled) */}
+              {logoVisible && (
+                <div
+                  className={`absolute top-4 ${
+                    logoPosition === "right" ? "right-4" : "left-4"
+                  } z-30 pointer-events-none transition-all duration-300`}
                 >
-                  Painel LiveKit Cloud
-                </a>
+                  <div className="rounded-lg bg-black/40 backdrop-blur-xs px-3 py-1 text-xs font-bold text-white tracking-wide border border-white/10 flex items-center gap-1.5 shadow-sm">
+                    <span className="h-2 w-2 rounded-full bg-[#0066ff]" />
+                    <span>BUYSOFT</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Studio Stage Renderer with Background and Overlays */}
+              <StudioLayoutManager
+                layoutMode={layoutMode}
+                backgroundPresetId={backgroundPresetId}
+                customBackgroundUrl={customBackgroundUrl}
+                presenter={{
+                  id: "local_presenter",
+                  name: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
+                  videoRef: localVideoRef,
+                  stream: isOnStage && isCamOn ? localStream : null,
+                  isMicOn: isMicOn,
+                  isCamOn: isCamOn,
+                }}
+                screenShare={
+                  isScreenSharing
+                    ? {
+                        id: "screen_share",
+                        name: "Apresentação / Tela",
+                        videoRef: screenVideoRef,
+                        stream: screenStream,
+                        isScreen: true,
+                      }
+                    : null
+                }
+                mediaVideoElement={
+                  videoAssetUrl ? (
+                    <MediaAssetPlayer
+                      videoUrl={videoAssetUrl}
+                      onClose={() => setVideoAssetUrl(null)}
+                    />
+                  ) : null
+                }
+              />
+
+              {/* Overlays: Headline, LowerThird, Ticker */}
+              <HeadlineBanner
+                isVisible={bannerVisible}
+                title={bannerTitle}
+                subtitle={bannerSubtitle}
+                themeColor={brandColor}
+              />
+              <LowerThird
+                isVisible={lowerThirdVisible}
+                name={lowerThirdName}
+                role={lowerThirdRole}
+                company={lowerThirdCompany}
+                themeColor={brandColor}
+              />
+              <TickerTape
+                isVisible={tickerVisible}
+                text={tickerText}
+                themeColor={brandColor}
+              />
+
+              {/* Backstage Overlay for presenter if off stage */}
+              {!isOnStage && (
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center z-40">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Você está nos bastidores</p>
+                    <p className="text-xs text-slate-300 max-w-sm mt-0.5">
+                      Seu vídeo e áudio estão ocultos da transmissão. Clique abaixo para entrar no palco.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsOnStage(true)}
+                    className="flex items-center gap-2 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] px-4 py-2 text-xs font-semibold text-white shadow-md transition"
+                  >
+                    <Radio className="h-4 w-4" />
+                    <span>Adicionar ao palco</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* =================================================================== */}
+            {/* STREAMYARD LAYOUT SELECTOR BAR (Directly under the stage)           */}
+            {/* =================================================================== */}
+            <div className="flex items-center justify-center gap-2 mt-3 mb-1">
+              <div className="flex items-center bg-white rounded-lg border border-gray-300 p-0.5 shadow-2xs">
+                {/* 1. Solo */}
                 <button
-                  onClick={() => setEgressError(null)}
-                  className="rounded-lg bg-amber-900/60 hover:bg-amber-800 px-2.5 py-1 text-[11px] font-semibold text-amber-100 transition"
+                  type="button"
+                  onClick={() => setLayoutMode("solo")}
+                  className={`p-2 rounded-md transition ${
+                    layoutMode === "solo" && !isScreenSharing
+                      ? "bg-[#0066ff] text-white"
+                      : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+                  }`}
+                  title="Solo: Apresentador único"
                 >
-                  Dispensar
+                  <Square className="h-4 w-4" />
+                </button>
+
+                {/* 2. Dupla (2 participants) */}
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode("grid")}
+                  className={`p-2 rounded-md transition ${
+                    layoutMode === "grid"
+                      ? "bg-[#0066ff] text-white"
+                      : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+                  }`}
+                  title="Dupla / Grade"
+                >
+                  <Columns2 className="h-4 w-4" />
+                </button>
+
+                {/* 3. Grade (Multiple cameras) */}
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode("grid")}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Grade balanceada"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+
+                {/* 4. Split (Presentation + Camera side) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLayoutMode("split");
+                    if (!isScreenSharing) handleToggleScreenShare();
+                  }}
+                  className={`p-2 rounded-md transition ${
+                    layoutMode === "split"
+                      ? "bg-[#0066ff] text-white"
+                      : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+                  }`}
+                  title="Split: Apresentação com câmera lateral"
+                >
+                  <div className="flex items-center gap-0.5 h-4">
+                    <span className="w-1.5 h-3.5 rounded-xs bg-current" />
+                    <span className="w-3.5 h-3.5 rounded-xs bg-current opacity-80" />
+                  </div>
+                </button>
+
+                {/* 5. Destaque */}
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode("split")}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Apresentação em destaque"
+                >
+                  <div className="flex items-center gap-0.5 h-4">
+                    <span className="w-3.5 h-3.5 rounded-xs bg-current opacity-80" />
+                    <span className="w-1.5 h-3.5 rounded-xs bg-current" />
+                  </div>
+                </button>
+
+                {/* 6. PiP (Picture in Picture) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLayoutMode("pip");
+                    if (!isScreenSharing) handleToggleScreenShare();
+                  }}
+                  className={`p-2 rounded-md transition ${
+                    layoutMode === "pip"
+                      ? "bg-[#0066ff] text-white"
+                      : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+                  }`}
+                  title="PiP: Apresentação grande com webcam flutuante"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+
+                {/* 7. Cinema / Presentation Full */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isScreenSharing) handleToggleScreenShare();
+                    setLayoutMode("solo");
+                  }}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Cinema: Apenas apresentação na tela"
+                >
+                  <Monitor className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Extra tools beside layout selector */}
+              <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-300 p-0.5 shadow-2xs">
+                <button
+                  onClick={() => setActiveRightTab("banners")}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Editar sobreposições"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowPresentMenu(true)}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Adicionar mídia ou apresentação"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="p-2 rounded-md text-gray-500 hover:text-slate-800 hover:bg-gray-100 transition"
+                  title="Configurações de vídeo e áudio"
+                >
+                  <Settings className="h-4 w-4" />
                 </button>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Active Live CTA Banner (if launched) */}
-          {roomState?.liveCtas && roomState.liveCtas.length > 0 && (
-            <div className="absolute top-4 inset-x-6 z-30 max-w-2xl mx-auto">
-              <LiveCtaBanner cta={roomState.liveCtas[0]} />
-            </div>
-          )}
-
-          {/* YouTube Live Ingest Status */}
-          {roomState?.youtubeBroadcastId && (
-            <div className="w-full max-w-4xl mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-950/30 p-2.5 sm:px-4 backdrop-blur-md z-20">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                  <YouTubeIcon className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-rose-200">
-                      YouTube Live Integrado
+          {/* =================================================================== */}
+          {/* BOTTOM SHELF: Left cards + Center floating toolbar + Right help    */}
+          {/* =================================================================== */}
+          <div className="w-full max-w-[1040px] mx-auto flex items-end justify-between gap-3 pt-2">
+            {/* Left: Participant & Presentation Cards (StreamYard Tray) */}
+            <div className="flex items-center gap-3">
+              {/* Card 1: Local User Card */}
+              <div className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border border-gray-300 bg-slate-800 relative overflow-hidden shadow-xs flex flex-col justify-between p-1.5 select-none">
+                {/* Video / Cam off thumbnail */}
+                {isCamOn && localStream ? (
+                  <video
+                    ref={(el) => {
+                      if (el && localStream) el.srcObject = localStream;
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-slate-800 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                    <VideoOff className="h-4 w-4 mb-1 text-slate-400" />
+                    <span className="text-[10px] leading-tight font-medium text-slate-300">
+                      Dispositivo desativado
                     </span>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] bg-rose-500/20 border border-rose-500/30 rounded-full px-2.5 py-0.5 text-rose-200 hover:bg-rose-500/30 transition">
-                      <input
-                        type="checkbox"
-                        checked={enableYouTubeEgress}
-                        onChange={(e) => setEnableYouTubeEgress(e.target.checked)}
-                        className="rounded border-rose-500/50 bg-slate-900 text-rose-500 focus:ring-0 h-3 w-3 cursor-pointer"
-                      />
-                      <span className="font-semibold">Retransmitir via Nuvem (Egress)</span>
-                    </label>
                   </div>
-                  <p className="text-[10px] text-slate-300">
-                    {enableYouTubeEgress
-                      ? "O estúdio enviará o stream automaticamente para a sua live no YouTube ao iniciar."
-                      : "Modo econômico ativo: a live roda diretamente na plataforma Buysoft (sem consumir minutos de nuvem)."}
-                  </p>
-                </div>
-              </div>
-
-
-              <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
-                {isWebinarLive && (
-                  currentEgressId ? (
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-xl px-2.5 py-1">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                        Ao Vivo no YouTube
-                      </span>
-                      <button
-                        onClick={handleStopYouTubeEgress}
-                        disabled={isTogglingEgress}
-                        className="rounded-xl border border-rose-500/40 bg-rose-950/60 hover:bg-rose-900/60 px-2.5 py-1 text-xs font-semibold text-rose-200 transition disabled:opacity-50"
-                      >
-                        {isTogglingEgress ? "Desconectando..." : "Parar no YouTube"}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleStartYouTubeEgress}
-                      disabled={isTogglingEgress}
-                      className="flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 px-3 py-1 text-xs font-bold text-white shadow-xs transition"
-                      title="Transmitir este estúdio para o YouTube Live via nuvem"
-                    >
-                      <Radio className="h-3.5 w-3.5" />
-                      <span>{isTogglingEgress ? "Conectando..." : "Transmitir no YouTube"}</span>
-                    </button>
-                  )
                 )}
 
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(roomState.youtubeStreamKey || "");
-                    setCopiedRtmp(true);
-                    setTimeout(() => setCopiedRtmp(false), 2000);
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:text-white transition"
-                  title="Copiar Chave de Transmissão para o OBS Studio"
-                >
-                  {copiedRtmp ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Chave RTMP</span>
-                    </>
+                {/* Top status indicator badge */}
+                <div className="relative z-10 flex items-center justify-between w-full">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                      isOnStage
+                        ? "bg-emerald-500/90 text-white"
+                        : "bg-black/60 text-amber-300"
+                    }`}
+                  >
+                    {isOnStage ? "No palco" : "Bastidores"}
+                  </span>
+                  {!isMicOn && (
+                    <span className="rounded bg-red-600/90 p-0.5 text-white">
+                      <MicOff className="h-2.5 w-2.5" />
+                    </span>
                   )}
-                </button>
-
-                <a
-                  href={`https://studio.youtube.com/video/${roomState.youtubeBroadcastId}/livestreaming`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1 text-xs font-bold text-slate-200 transition"
-                >
-                  <span>YouTube Studio</span>
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </a>
-              </div>
-            </div>
-          )}
-
-
-          {/* Notice Banner when in Backstage (Bastidores) */}
-          {!isWebinarLive && (
-            <div className="w-full max-w-4xl mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2.5 sm:px-4 backdrop-blur-md z-20">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  <Radio className="h-4 w-4 animate-pulse" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-amber-200">
-                      Você está no Camarim / Backstage
-                    </span>
-                    <span className="rounded-full bg-amber-400/20 px-2 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
-                      Privado
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-300">
-                    A audiência ainda não vê o estúdio. Quando estiver pronto, clique ao lado para iniciar a live.
-                  </p>
+
+                {/* Bottom card bar with name and toggle */}
+                <div className="relative z-10 flex items-center justify-between bg-black/60 backdrop-blur-xs rounded-md px-1.5 py-0.5 text-white">
+                  <span className="text-[10px] font-semibold truncate max-w-[80px]">
+                    {userRole === "host" ? "Eliel Nunes" : "Convidado"}
+                  </span>
+                  <button
+                    onClick={() => setIsOnStage(!isOnStage)}
+                    className="text-[9px] font-bold text-[#00b4fb] hover:underline"
+                    title={isOnStage ? "Remover do palco" : "Adicionar ao palco"}
+                  >
+                    {isOnStage ? "Remover" : "Entrar"}
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={handleToggleGoLive}
-                disabled={isStartingBroadcast}
-                className="shrink-0 flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-rose-600/30 transition transform active:scale-95"
+
+              {/* Card 2: Apresentar ou convidar card (StreamYard exact style) */}
+              <div
+                onClick={() => setShowPresentMenu(true)}
+                className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0066ff] bg-white hover:bg-blue-50/30 cursor-pointer flex flex-col items-center justify-center text-center p-2 transition shadow-xs select-none"
               >
-                <Play className="h-3.5 w-3.5 fill-current" />
-                <span>Iniciar Transmissão Ao Vivo</span>
-              </button>
-            </div>
-          )}
-
-          {/* MAIN STAGE CANVAS: StudioLayoutManager with Overlays */}
-          <div className="relative w-full flex-1 max-h-[66vh] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center border border-slate-800/80">
-            <StudioLayoutManager
-              layoutMode={layoutMode}
-              backgroundPresetId={backgroundPresetId}
-              customBackgroundUrl={customBackgroundUrl}
-              presenter={{
-                id: "local_presenter",
-                name: userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante Convidado",
-                videoRef: localVideoRef,
-                stream: isOnStage && isCamOn ? localStream : null,
-                isMicOn: isMicOn,
-                isCamOn: isCamOn,
-              }}
-              screenShare={
-                isScreenSharing
-                  ? {
-                      id: "screen_share",
-                      name: "Apresentação / Tela",
-                      videoRef: screenVideoRef,
-                      stream: screenStream,
-                      isScreen: true,
-                    }
-                  : null
-              }
-              mediaVideoElement={
-                videoAssetUrl ? (
-                  <MediaAssetPlayer
-                    videoUrl={videoAssetUrl}
-                    onClose={() => setVideoAssetUrl(null)}
-                  />
-                ) : null
-              }
-            />
-
-            {/* Overlays */}
-            <HeadlineBanner
-              isVisible={bannerVisible}
-              title={bannerTitle}
-              subtitle={bannerSubtitle}
-              themeColor={brandColor}
-            />
-            <LowerThird
-              isVisible={lowerThirdVisible}
-              name={lowerThirdName}
-              role={lowerThirdRole}
-              company={lowerThirdCompany}
-              themeColor={brandColor}
-            />
-            <TickerTape
-              isVisible={tickerVisible}
-              text={tickerText}
-              themeColor={brandColor}
-            />
-
-            {/* Backstage Overlay for Off-Stage Presenter */}
-            {!isOnStage && (
-              <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center z-40">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                  <Shield className="h-6 w-6" />
+                <div className="flex items-center gap-1 text-gray-500 mb-1">
+                  <Monitor className="h-4 w-4" />
+                  <Plus className="h-3 w-3" />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Você está no Camarim (Bastidores)</p>
-                  <p className="text-xs text-slate-300 max-w-sm mt-0.5">
-                    Seu vídeo e áudio estão ocultos da transmissão. Clique abaixo para entrar no palco.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsOnStage(true)}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-500 hover:from-[#009ce0] hover:to-sky-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl shadow-sky-500/30 transition transform active:scale-95"
-                >
-                  <Radio className="h-4 w-4 animate-pulse" />
-                  <span>Colocar no Palco (Ao Vivo)</span>
-                </button>
+                <span className="text-[11px] font-semibold text-slate-700 leading-tight">
+                  Apresentar ou convidar
+                </span>
               </div>
-            )}
-          </div>
-
-          {/* Quick Layout & Personalization Bar */}
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2.5 w-full max-w-4xl">
-            {/* Layout Mode Buttons */}
-            <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/90 p-1 backdrop-blur-md">
-              <span className="text-[10px] font-bold text-slate-400 px-2 uppercase tracking-wider">
-                Layout:
-              </span>
-              <button
-                type="button"
-                onClick={() => setLayoutMode("solo")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  layoutMode === "solo"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Solo: Apresentador único"
-              >
-                <Square className="h-3.5 w-3.5" />
-                <span>Solo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayoutMode("grid")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  layoutMode === "grid"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Grade: Câmeras em grid balanceado"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Grade</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayoutMode("split")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  layoutMode === "split"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Split: Apresentação grande + Apresentador na lateral"
-              >
-                <Columns2 className="h-3.5 w-3.5" />
-                <span>Split</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayoutMode("pip")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                  layoutMode === "pip"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="PiP: Apresentador flutuando no canto"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-                <span>PiP</span>
-              </button>
             </div>
 
-            {/* Personalization Drawer Button */}
-            <div className="flex items-center gap-2">
-              {videoAssetUrl && (
+            {/* Center: StreamYard Floating Toolbar */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white rounded-2xl border border-gray-200 p-1.5 shadow-md">
+              {/* Mic Button */}
+              <div className="relative flex items-center">
                 <button
-                  onClick={() => setVideoAssetUrl(null)}
-                  className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/30 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/40 transition"
-                >
-                  <Film className="h-3.5 w-3.5" />
-                  <span>Parar Vídeo no Palco</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => setShowCustomizationModal(true)}
-                className="flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50 px-3 py-1.5 text-xs font-bold text-[#00b4fb] transition backdrop-blur-md shadow-xs"
-              >
-                <Palette className="h-3.5 w-3.5" />
-                <span>Personalizar Estúdio (Marca & Mídia)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Bottom Backstage Strip */}
-          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-2 sm:px-3 backdrop-blur-xs w-full max-w-4xl">
-            <div className="flex items-center gap-1.5 px-1">
-              <Layers className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Bastidores / Camarim
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 rounded-xl bg-slate-800 p-1.5 pr-3 border border-slate-700">
-                <div className="h-6 w-6 rounded-lg bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                  {userRole === "host" ? "EN" : "SP"}
-                </div>
-                <div className="text-[11px]">
-                  <p className="font-bold text-slate-200">Você ({userRole === "host" ? "Host" : "Speaker"})</p>
-                  <p className="text-[9px] text-slate-400">
-                    {isOnStage ? "🟢 No Palco (Ao Vivo)" : "🟠 No Camarim"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsOnStage(!isOnStage)}
-                  className={`ml-2 rounded-lg px-2 py-0.5 text-[10px] font-extrabold transition shadow-xs ${
-                    isOnStage
-                      ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30"
-                      : "bg-[#00b4fb] text-white hover:bg-[#009ce0] shadow-sky-500/20"
+                  onClick={handleToggleMic}
+                  className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                    isMicOn
+                      ? "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                      : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
                   }`}
+                  title={isMicOn ? "Silenciar microfone" : "Ativar microfone"}
                 >
-                  {isOnStage ? "Mover para Camarim" : "Colocar no Palco"}
+                  {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
                 </button>
               </div>
+
+              {/* Cam Button */}
+              <div className="relative flex items-center">
+                <button
+                  onClick={handleToggleCam}
+                  className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                    isCamOn
+                      ? "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                      : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                  }`}
+                  title={isCamOn ? "Desativar câmera" : "Ativar câmera"}
+                >
+                  {isCamOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {/* Present / Screen Button */}
+              <button
+                onClick={handleToggleScreenShare}
+                className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                  isScreenSharing
+                    ? "bg-[#0066ff] text-white shadow-xs"
+                    : "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                }`}
+                title={isScreenSharing ? "Parar de compartilhar tela" : "Compartilhar tela"}
+              >
+                {isScreenSharing ? (
+                  <MonitorOff className="h-4 w-4" />
+                ) : (
+                  <Monitor className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Convidar (Invite Guest) Button */}
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition"
+                title="Convidar palestrante ou co-host"
+              >
+                <Users className="h-4 w-4" />
+              </button>
+
+              {/* Banners shortcut */}
+              <button
+                onClick={() => setActiveRightTab("banners")}
+                className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
+                  activeRightTab === "banners"
+                    ? "bg-[#0066ff] text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-slate-700"
+                }`}
+                title="Abrir Banners e Lower Thirds"
+              >
+                <Type className="h-4 w-4" />
+              </button>
+
+              {/* Configurações (Settings) */}
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 transition"
+                title="Configurações de dispositivos"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+
+              {/* Sair do estúdio (Red leave button) */}
+              <button
+                onClick={() => {
+                  if (confirm("Deseja sair do estúdio de transmissão?")) {
+                    window.location.href = `/events/${eventId}`;
+                  }
+                }}
+                className="flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-red-600 hover:bg-red-700 text-white transition shadow-2xs"
+                title="Sair do estúdio"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Right: Help Pill (Precisa de ajuda?) */}
+            <div className="hidden lg:block">
+              <a
+                href="https://buysoft.com.br"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-[#0066ff] transition shadow-xs"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span>Precisa de ajuda?</span>
+              </a>
             </div>
           </div>
         </div>
 
-        {/* Bottom Control Bar */}
-        <footer className="flex h-16 items-center justify-center gap-3 border-t border-slate-800 bg-slate-900/80 px-6 z-30">
-          <button
-            onClick={handleToggleCam}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isCamOn
-                ? "bg-slate-800 hover:bg-slate-700 text-white"
-                : "bg-rose-600 hover:bg-rose-700 text-white"
-            }`}
-          >
-            {isCamOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-            <span>{isCamOn ? "Câmera Ativa" : "Câmera Desligada"}</span>
-          </button>
-
-          <button
-            onClick={handleToggleMic}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isMicOn
-                ? "bg-slate-800 hover:bg-slate-700 text-white"
-                : "bg-rose-600 hover:bg-rose-700 text-white"
-            }`}
-          >
-            {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-            <span>{isMicOn ? "Microfone Ativo" : "Mutado"}</span>
-          </button>
-
-          <button
-            onClick={handleToggleScreenShare}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isScreenSharing
-                ? "bg-[#00b4fb] text-white shadow-md shadow-sky-500/20"
-                : "bg-slate-800 hover:bg-slate-700 text-white"
-            }`}
-          >
-            {isScreenSharing ? <MonitorOff className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
-            <span>{isScreenSharing ? "Parar Compartilhamento" : "Compartilhar Tela"}</span>
-          </button>
-
-          {/* Stage / Backstage Action */}
-          <button
-            onClick={() => setIsOnStage(!isOnStage)}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              isOnStage
-                ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40"
-                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
-            }`}
-          >
-            <Radio className="h-4 w-4" />
-            <span>{isOnStage ? "Mover para Bastidores" : "Colocar no Palco"}</span>
-          </button>
-        </footer>
-      </div>
-
-      {/* Right Engagement Sidebar (Chat, Q&A, Polls) */}
-      <LiveEngagementSidebar
-        eventId={eventId}
-        userName={userRole === "host" ? "Eliel Nunes (Host)" : "Palestrante"}
-        userRole={userRole}
-        roomState={roomState}
-        onRefresh={fetchState}
-      />
-
-      {/* STUDIO CUSTOMIZATION MODAL (Brand, Banners, Backgrounds, Video Clips) */}
-      {showCustomizationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-5 shadow-2xl text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#00b4fb]">
-                <Palette className="h-4 w-4" />
-                <span>Personalização do Estúdio (StreamYard / OBS Mode)</span>
+        {/* ======================================================================= */}
+        {/* 2.2 STREAMYARD RIGHT DRAWER PANEL (Content for active tab)             */}
+        {/* ======================================================================= */}
+        {activeRightTab && (
+          <aside className="w-72 sm:w-80 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden shadow-sm shrink-0 z-10">
+            {/* Drawer Header */}
+            <div className="h-12 border-b border-gray-200 px-4 flex items-center justify-between shrink-0 bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-900 capitalize">
+                  {activeRightTab === "media" && "Ativos de mídia / Marca"}
+                  {activeRightTab === "banners" && "Banners & Letreiros"}
+                  {activeRightTab === "comments" && "Comentários ao Vivo"}
+                  {activeRightTab === "widgets" && "Widgets & Live CTA"}
+                  {activeRightTab === "people" && "Pessoas no Estúdio"}
+                  {activeRightTab === "private_chat" && "Chat Privado"}
+                </span>
               </div>
               <button
-                onClick={() => setShowCustomizationModal(false)}
-                className="text-slate-400 hover:text-white text-sm"
+                onClick={() => setActiveRightTab(null)}
+                className="text-gray-400 hover:text-slate-600 text-xs p-1 rounded"
               >
                 ✕
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-              <button
-                type="button"
-                onClick={() => setCustomizationTab("brand")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                  customizationTab === "brand"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Type className="h-3.5 w-3.5" />
-                <span>Lower Third & Faixas</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomizationTab("ticker")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                  customizationTab === "ticker"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Letreiro Rodapé & Banner</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomizationTab("background")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                  customizationTab === "background"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Palette className="h-3.5 w-3.5" />
-                <span>Plano de Fundo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomizationTab("media")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
-                  customizationTab === "media"
-                    ? "bg-[#00b4fb] text-white shadow-xs"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Film className="h-3.5 w-3.5" />
-                <span>Vídeos & Vinhetas</span>
-              </button>
-            </div>
-
-            {/* TAB CONTENT 1: LOWER THIRDS */}
-            {customizationTab === "brand" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700">
-                  <div>
-                    <span className="text-xs font-bold text-white block">
-                      Exibir Lower Third no Palco
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Identificação com nome, cargo e empresa no canto inferior.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setLowerThirdVisible(!lowerThirdVisible)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      lowerThirdVisible
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-700 text-slate-300"
-                    }`}
-                  >
-                    {lowerThirdVisible ? "Visível no Palco" : "Oculto"}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Nome do Palestrante
-                    </label>
-                    <input
-                      type="text"
-                      value={lowerThirdName}
-                      onChange={(e) => setLowerThirdName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                    />
+            {/* Drawer Content (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-5 text-slate-800 text-xs">
+              {/* TAB 1: ATIVOS DE MÍDIA / MARCA (Image 2 exact replica) */}
+              {activeRightTab === "media" && (
+                <div className="space-y-5">
+                  {/* Brand selector dropdown */}
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                      <Palette className="h-4 w-4 text-[#0066ff]" />
+                      <span>Marca 1 (Padrão Buysoft)</span>
+                    </div>
+                    <MoreVertical className="h-4 w-4 text-gray-400 cursor-pointer" />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Empresa
-                    </label>
-                    <input
-                      type="text"
-                      value={lowerThirdCompany}
-                      onChange={(e) => setLowerThirdCompany(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                    />
+                  {/* Logotipo Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Logotipo</span>
+                      <button
+                        onClick={() => setLogoVisible(!logoVisible)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                          logoVisible ? "bg-blue-100 text-[#0066ff]" : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {logoVisible ? "Visível" : "Oculto"}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div
+                        onClick={() => setLogoVisible(!logoVisible)}
+                        className={`h-16 w-20 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center p-2 text-center transition ${
+                          logoVisible
+                            ? "border-[#0066ff] bg-blue-50/40 text-[#0066ff]"
+                            : "border-gray-200 bg-gray-50 text-gray-400"
+                        }`}
+                      >
+                        <span className="font-black text-xs">BUYSOFT</span>
+                        <span className="text-[9px]">Logo</span>
+                      </div>
+
+                      {/* Position switcher: Left / Right */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-gray-500 block">Posição</span>
+                        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                          <button
+                            onClick={() => setLogoPosition("left")}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                              logoPosition === "left" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                            }`}
+                          >
+                            Esquerda
+                          </button>
+                          <button
+                            onClick={() => setLogoPosition("right")}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                              logoPosition === "right" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                            }`}
+                          >
+                            Direita
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Cargo ou Especialidade
-                    </label>
-                    <input
-                      type="text"
-                      value={lowerThirdRole}
-                      onChange={(e) => setLowerThirdRole(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Cor da Marca (Brand Accent)
-                    </label>
-                    <div className="flex items-center gap-2">
-                      {[
-                        { label: "Azul Buysoft", color: "#00b4fb" },
-                        { label: "Roxo", color: "#8b5cf6" },
-                        { label: "Esmeralda", color: "#10b981" },
-                        { label: "Coral", color: "#f43f5e" },
-                        { label: "Âmbar", color: "#f59e0b" },
-                      ].map((item) => (
-                        <button
-                          key={item.color}
-                          type="button"
-                          onClick={() => setBrandColor(item.color)}
-                          className={`h-7 w-7 rounded-lg border-2 transition ${
-                            brandColor === item.color
-                              ? "border-white scale-110 shadow-md"
-                              : "border-transparent opacity-75 hover:opacity-100"
-                          }`}
-                          style={{ backgroundColor: item.color }}
-                          title={item.label}
+                  {/* Sobreposição (Overlays) Section */}
+                  <div className="space-y-2.5 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Sobreposição</span>
+                      <label className="flex items-center gap-1.5 text-[10px] text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={fadeOverlays}
+                          onChange={(e) => setFadeOverlays(e.target.checked)}
+                          className="rounded border-gray-300 text-[#0066ff] focus:ring-0 h-3 w-3"
                         />
+                        <span>Desvanecer overlays</span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setBannerVisible(true);
+                          setBannerTitle("Bem-vindo ao Webinar!");
+                          setBannerSubtitle("Buysoft Events • Transmissão ao Vivo");
+                        }}
+                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition"
+                      >
+                        <span className="font-bold text-slate-800 block text-[11px]">Bem-vindo</span>
+                        <span className="text-[9px] text-gray-500">Banner Superior</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setTickerVisible(true);
+                          setTickerText("❓ Envie suas dúvidas e comentários no chat lateral!");
+                        }}
+                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition"
+                      >
+                        <span className="font-bold text-slate-800 block text-[11px]">Perguntas</span>
+                        <span className="text-[9px] text-gray-500">Letreiro Rodapé</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setLowerThirdVisible(!lowerThirdVisible);
+                        }}
+                        className={`p-2 rounded-xl border text-left transition ${
+                          lowerThirdVisible
+                            ? "border-[#0066ff] bg-blue-50/40"
+                            : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                        }`}
+                      >
+                        <span className="font-bold text-slate-800 block text-[11px]">Identificação</span>
+                        <span className="text-[9px] text-gray-500">Lower Third</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setBannerVisible(false);
+                          setLowerThirdVisible(false);
+                          setTickerVisible(false);
+                        }}
+                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-red-50 hover:text-red-600 text-left transition"
+                      >
+                        <span className="font-bold block text-[11px]">Limpar Todos</span>
+                        <span className="text-[9px] text-gray-400">Ocultar overlays</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Videoclipes Section */}
+                  <div className="space-y-2.5 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Videoclipes</span>
+                      {videoAssetUrl && (
+                        <button
+                          onClick={() => setVideoAssetUrl(null)}
+                          className="text-[10px] font-bold text-red-600 hover:underline"
+                        >
+                          Parar vídeo
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() =>
+                          setVideoAssetUrl(
+                            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                          )
+                        }
+                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition flex flex-col justify-between"
+                      >
+                        <Film className="h-4 w-4 text-[#0066ff] mb-1" />
+                        <div>
+                          <span className="font-bold text-slate-800 block text-[11px]">Vídeo Intro</span>
+                          <span className="text-[9px] text-gray-500">15s com áudio</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          setVideoAssetUrl(
+                            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                          )
+                        }
+                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition flex flex-col justify-between"
+                      >
+                        <Tv className="h-4 w-4 text-purple-600 mb-1" />
+                        <div>
+                          <span className="font-bold text-slate-800 block text-[11px]">Demonstração</span>
+                          <span className="text-[9px] text-gray-500">Vídeo Full HD</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Custom Video input */}
+                    <div className="pt-1">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={customVideoInput}
+                          onChange={(e) => setCustomVideoInput(e.target.value)}
+                          placeholder="URL de vídeo MP4..."
+                          className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customVideoInput) setVideoAssetUrl(customVideoInput);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#0066ff] text-white font-semibold text-xs hover:bg-[#0052cc] transition"
+                        >
+                          Tocar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Plano de Fundo (Backgrounds) Section */}
+                  <div className="space-y-2.5 pt-2 border-t border-gray-100">
+                    <span className="font-bold text-slate-800 block">Plano de fundo</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {BACKGROUND_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setBackgroundPresetId(preset.id);
+                            setCustomBackgroundUrl("");
+                          }}
+                          className={`h-16 rounded-xl border p-2 flex flex-col justify-end text-left transition ${
+                            backgroundPresetId === preset.id && !customBackgroundUrl
+                              ? "border-[#0066ff] ring-2 ring-[#0066ff]/40 shadow-xs"
+                              : "border-gray-300 hover:border-gray-400"
+                          } ${preset.className}`}
+                          style={preset.style}
+                        >
+                          <span className="text-[10px] font-bold text-white drop-shadow-sm">
+                            {preset.name}
+                          </span>
+                        </button>
                       ))}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* TAB CONTENT 2: TICKER & HEADLINE BANNER */}
-            {customizationTab === "ticker" && (
-              <div className="space-y-4">
-                {/* Ticker Tape */}
-                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-white block">
-                        Letreiro Rodapé Rolante (Ticker Tape)
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Mensagem contínua estilo jornal/webinar no rodapé da tela.
-                      </span>
+              {/* TAB 2: BANNERS & LETREIROS */}
+              {activeRightTab === "banners" && (
+                <div className="space-y-4">
+                  {/* Lower Third Editor */}
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Lower Third (Nome)</span>
+                      <button
+                        onClick={() => setLowerThirdVisible(!lowerThirdVisible)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                          lowerThirdVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {lowerThirdVisible ? "Visível" : "Oculto"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setTickerVisible(!tickerVisible)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                        tickerVisible
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-700 text-slate-300"
-                      }`}
-                    >
-                      {tickerVisible ? "Ativo no Rodapé" : "Oculto"}
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={tickerText}
-                    onChange={(e) => setTickerText(e.target.value)}
-                    placeholder="Texto a correr no rodapé..."
-                    className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                  />
-                </div>
 
-                {/* Headline Banner */}
-                <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-white block">
-                        Banner de Destaque Superior
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Título fixado no topo da transmissão para introduzir temas ou tópicos.
-                      </span>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          Nome
+                        </label>
+                        <input
+                          type="text"
+                          value={lowerThirdName}
+                          onChange={(e) => setLowerThirdName(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          Cargo / Especialidade
+                        </label>
+                        <input
+                          type="text"
+                          value={lowerThirdRole}
+                          onChange={(e) => setLowerThirdRole(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          Empresa
+                        </label>
+                        <input
+                          type="text"
+                          value={lowerThirdCompany}
+                          onChange={(e) => setLowerThirdCompany(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setBannerVisible(!bannerVisible)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                        bannerVisible
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-700 text-slate-300"
-                      }`}
-                    >
-                      {bannerVisible ? "Exibindo no Topo" : "Oculto"}
-                    </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={bannerTitle}
-                      onChange={(e) => setBannerTitle(e.target.value)}
-                      placeholder="Título do Banner..."
-                      className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={bannerSubtitle}
-                      onChange={(e) => setBannerSubtitle(e.target.value)}
-                      placeholder="Subtítulo descritivo..."
-                      className="w-full rounded-xl border border-slate-700 bg-slate-850 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+
+                  {/* Headline Banner */}
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Banner Superior</span>
+                      <button
+                        onClick={() => setBannerVisible(!bannerVisible)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                          bannerVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {bannerVisible ? "Exibindo" : "Oculto"}
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={bannerTitle}
+                        onChange={(e) => setBannerTitle(e.target.value)}
+                        placeholder="Título do banner..."
+                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={bannerSubtitle}
+                        onChange={(e) => setBannerSubtitle(e.target.value)}
+                        placeholder="Subtítulo..."
+                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ticker Tape */}
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">Letreiro Rodapé (Ticker)</span>
+                      <button
+                        onClick={() => setTickerVisible(!tickerVisible)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
+                          tickerVisible ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {tickerVisible ? "Ativo" : "Oculto"}
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={tickerText}
+                      onChange={(e) => setTickerText(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none resize-none"
                     />
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* TAB CONTENT 3: BACKGROUND */}
-            {customizationTab === "background" && (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Escolha o fundo que envelopa as câmeras e janelas de apresentação no estúdio:
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {BACKGROUND_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => {
-                        setBackgroundPresetId(preset.id);
-                        setCustomBackgroundUrl("");
-                      }}
-                      className={`h-24 rounded-xl border p-2 flex flex-col justify-end text-left transition ${
-                        backgroundPresetId === preset.id && !customBackgroundUrl
-                          ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/40"
-                          : "border-slate-700 hover:border-slate-500"
-                      } ${preset.className}`}
-                    >
-                      <span className="text-[11px] font-bold text-white drop-shadow-md">
-                        {preset.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Ou Imagem de Fundo Personalizada (URL)
-                  </label>
-                  <input
-                    type="text"
-                    value={customBackgroundUrl}
-                    onChange={(e) => setCustomBackgroundUrl(e.target.value)}
-                    placeholder="https://exemplo.com/fundo-estudio.jpg"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT 4: MEDIA VIDEOS */}
-            {customizationTab === "media" && (
-              <div className="space-y-4">
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Exiba vídeos institucionais, vinhetas de contagem regressiva ou clipes gravados
-                  diretamente no estúdio sem precisar de compartilhamento de tela:
-                </p>
-
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-300">Vídeos Rápidos de Exemplo:</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVideoAssetUrl(
-                          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-                        );
-                        setShowCustomizationModal(false);
-                      }}
-                      className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-left transition"
-                    >
-                      <Film className="h-4 w-4 text-[#00b4fb] shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-white">Vinheta Institucional (15s)</p>
-                        <p className="text-[10px] text-slate-400">Reproduzir no Palco com Áudio</p>
+              {/* TAB 3: COMENTÁRIOS AO VIVO */}
+              {activeRightTab === "comments" && (
+                <div className="flex flex-col h-full space-y-3">
+                  <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[55vh] pr-1">
+                    {roomState?.chatMessages && roomState.chatMessages.length > 0 ? (
+                      roomState.chatMessages.map((msg: any) => (
+                        <div
+                          key={msg.id}
+                          className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900">{msg.senderName}</span>
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(msg.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-slate-700 leading-relaxed">{msg.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Nenhum comentário recebido ainda.</p>
+                        <p className="text-[10px] mt-1">Os comentários dos espectadores aparecerão aqui.</p>
                       </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVideoAssetUrl(
-                          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                        );
-                        setShowCustomizationModal(false);
-                      }}
-                      className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-left transition"
-                    >
-                      <Tv className="h-4 w-4 text-purple-400 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-white">Vídeo de Demonstração</p>
-                        <p className="text-[10px] text-slate-400">Exibir clipe em Full HD</p>
-                      </div>
-                    </button>
+                    )}
                   </div>
-                </div>
 
-                <div className="pt-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Adicionar Vídeo por URL (MP4 / WebM)
-                  </label>
-                  <div className="flex gap-2">
+                  {/* Send chat message input */}
+                  <form onSubmit={handleSendChatMessage} className="flex gap-1.5 pt-2 border-t border-gray-200">
                     <input
                       type="text"
-                      value={customVideoInput}
-                      onChange={(e) => setCustomVideoInput(e.target.value)}
-                      placeholder="https://meuservidor.com/video.mp4"
-                      className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Responder aos espectadores..."
+                      className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
                     />
                     <button
-                      type="button"
-                      onClick={() => {
-                        if (customVideoInput) {
-                          setVideoAssetUrl(customVideoInput);
-                          setShowCustomizationModal(false);
-                        }
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#00b4fb] text-white text-xs font-bold hover:bg-[#009ce0] transition"
+                      type="submit"
+                      className="p-2 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white transition"
                     >
-                      Reproduzir no Palco
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB 4: WIDGETS & LIVE CTA */}
+              {activeRightTab === "widgets" && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#0066ff]">
+                      <Zap className="h-4 w-4 fill-current" />
+                      <span>Live CTA (Chamada de Ação)</span>
+                    </div>
+                    <p className="text-slate-600 text-xs">
+                      Dispare um banner de alta conversão diretamente na tela dos espectadores ao vivo.
+                    </p>
+
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          Título da Oferta
+                        </label>
+                        <input
+                          type="text"
+                          value={ctaTitle}
+                          onChange={(e) => setCtaTitle(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          Texto do Botão
+                        </label>
+                        <input
+                          type="text"
+                          value={ctaBtnText}
+                          onChange={(e) => setCtaBtnText(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-600 block mb-0.5">
+                          URL de Destino
+                        </label>
+                        <input
+                          type="text"
+                          value={ctaBtnUrl}
+                          onChange={(e) => setCtaBtnUrl(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      {roomState?.liveCtas && roomState.liveCtas.length > 0 ? (
+                        <button
+                          onClick={handleEndCta}
+                          className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold py-2 text-xs transition"
+                        >
+                          Encerrar Live CTA
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleLaunchCta}
+                          className="flex-1 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold py-2 text-xs transition shadow-xs"
+                        >
+                          Disparar para Espectadores
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: PESSOAS NO ESTÚDIO */}
+              {activeRightTab === "people" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                    <span className="font-bold text-slate-800">Participantes no Estúdio</span>
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="text-[#0066ff] text-[11px] font-semibold hover:underline"
+                    >
+                      + Convidar
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* User Card */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 bg-gray-50">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center text-xs">
+                          {userRole === "host" ? "EN" : "CO"}
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-900 block text-xs">
+                            {userRole === "host" ? "Eliel Nunes (Você)" : "Palestrante (Você)"}
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {userRole === "host" ? "Anfitrião / Host" : "Palestrante"} •{" "}
+                            {isOnStage ? "🟢 No palco" : "🟠 Bastidores"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setIsOnStage(!isOnStage)}
+                        className={`text-[10px] font-bold px-2 py-1 rounded transition ${
+                          isOnStage
+                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            : "bg-[#0066ff] text-white hover:bg-[#0052cc]"
+                        }`}
+                      >
+                        {isOnStage ? "Mover" : "No palco"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Invite Link Card */}
+                  <div className="p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 space-y-2">
+                    <span className="font-semibold text-slate-700 block">Link de Convidado</span>
+                    <p className="text-[11px] text-gray-500">
+                      Envie este link para palestrantes entrarem diretamente nos bastidores do estúdio.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const guestUrl = `${window.location.origin}/studio/${eventId}?role=speaker`;
+                        navigator.clipboard.writeText(guestUrl);
+                        showToast("Link de convidado copiado!");
+                      }}
+                      className="w-full py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-slate-700 transition"
+                    >
+                      Copiar link de convidado
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+              {/* TAB 6: CHAT PRIVADO */}
+              {activeRightTab === "private_chat" && (
+                <div className="flex flex-col h-full space-y-3">
+                  <div className="flex-1 overflow-y-auto space-y-2 max-h-[55vh] pr-1">
+                    {privateMessages.map((msg, i) => (
+                      <div key={i} className="p-2 rounded-xl bg-gray-100 text-xs space-y-0.5">
+                        <div className="flex items-center justify-between text-[10px] text-gray-500 font-semibold">
+                          <span>{msg.sender}</span>
+                          <span>{msg.time}</span>
+                        </div>
+                        <p className="text-slate-800">{msg.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleSendPrivateChat} className="flex gap-1.5 pt-2 border-t border-gray-200">
+                    <input
+                      type="text"
+                      value={privateChatInput}
+                      onChange={(e) => setPrivateChatInput(e.target.value)}
+                      placeholder="Mensagem para os bastidores..."
+                      className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="p-2 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white transition"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {/* ======================================================================= */}
+        {/* 2.3 STREAMYARD VERTICAL RAIL (Far right toolbar)                        */}
+        {/* ======================================================================= */}
+        <nav className="w-18 sm:w-20 bg-white border-l border-gray-200 py-3 flex flex-col items-center gap-4 select-none shrink-0 z-20">
+          {/* Comentários */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "comments" ? null : "comments")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "comments"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Comentários</span>
+          </button>
+
+          {/* Banners */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "banners" ? null : "banners")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "banners"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <Layers className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Banners</span>
+          </button>
+
+          {/* Ativos de mídia / Marca */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "media" ? null : "media")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "media"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <Palette className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Ativos de mídia</span>
+          </button>
+
+          {/* Widgets */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "widgets" ? null : "widgets")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "widgets"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <Zap className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Widgets</span>
+          </button>
+
+          {/* Pessoas */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "people" ? null : "people")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "people"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Pessoas</span>
+          </button>
+
+          {/* Chat Privado */}
+          <button
+            onClick={() => setActiveRightTab(activeRightTab === "private_chat" ? null : "private_chat")}
+            className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
+              activeRightTab === "private_chat"
+                ? "text-[#0066ff] bg-blue-50 font-bold"
+                : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
+            }`}
+          >
+            <MessagesSquare className="h-5 w-5" />
+            <span className="text-[10px] leading-tight">Chat privado</span>
+          </button>
+        </nav>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. MODALS (Apresentar ou Convidar, Invite Guest, Audio/Video Settings)    */}
+      {/* ========================================================================= */}
+
+      {/* Modal: Apresentar Menu */}
+      {showPresentMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 space-y-4 shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <span className="font-bold text-sm text-slate-800">Apresentar no Palco</span>
               <button
-                type="button"
-                onClick={() => setShowCustomizationModal(false)}
-                className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] px-5 py-2 text-xs font-bold text-white hover:bg-[#009ce0] shadow-md shadow-sky-500/20"
+                onClick={() => setShowPresentMenu(false)}
+                className="text-gray-400 hover:text-slate-600 text-sm"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Salvar & Aplicar no Estúdio</span>
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleToggleScreenShare}
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+              >
+                <div className="h-9 w-9 rounded-lg bg-blue-100 text-[#0066ff] flex items-center justify-center">
+                  <Monitor className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Compartilhar Tela</span>
+                  <span className="text-[11px] text-gray-500">Janela, aba do navegador ou tela cheia</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPresentMenu(false);
+                  setActiveRightTab("media");
+                }}
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+              >
+                <div className="h-9 w-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+                  <Film className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Arquivo de Vídeo</span>
+                  <span className="text-[11px] text-gray-500">Reproduzir clipe ou vinheta no palco</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowPresentMenu(false);
+                  setShowInviteModal(true);
+                }}
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+              >
+                <div className="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Convidar Palestrante</span>
+                  <span className="text-[11px] text-gray-500">Copiar link de acesso para o estúdio</span>
+                </div>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Host CTA Launcher Modal */}
-      {showCtaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-4 shadow-2xl text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-[#00b4fb]">
-                <Zap className="h-4 w-4 fill-current" />
-                <span>Lançar Live CTA (Chamada de Ação)</span>
+      {/* Modal: Invite Guest / Speaker */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 space-y-4 shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Users className="h-4 w-4 text-[#0066ff]" />
+                <span>Convidar Palestrantes para o Estúdio</span>
               </div>
               <button
-                onClick={() => setShowCtaModal(false)}
-                className="text-slate-400 hover:text-white text-sm"
+                onClick={() => setShowInviteModal(false)}
+                className="text-gray-400 hover:text-slate-600 text-sm"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Dispare um banner destacado na tela de todos os espectadores ao vivo para converter vendas ou agendar reuniões.
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Os palestrantes entrarão diretamente no camarim (bastidores) com microfone e câmera. Você pode colocá-los no palco quando a transmissão começar.
             </p>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Título da Oferta / Chamada
-                </label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider block">
+                Link de Acesso do Convidado
+              </label>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  value={ctaTitle}
-                  onChange={(e) => setCtaTitle(e.target.value)}
-                  placeholder="Ex: Agende uma demonstração gratuita..."
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
+                  readOnly
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/studio/${eventId}?role=speaker`}
+                  className="flex-1 rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-slate-700 font-mono select-all focus:outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Texto do Botão
-                </label>
-                <input
-                  type="text"
-                  value={ctaBtnText}
-                  onChange={(e) => setCtaBtnText(e.target.value)}
-                  placeholder="Ex: Agendar Agora"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Link de Destino (URL)
-                </label>
-                <input
-                  type="text"
-                  value={ctaBtnUrl}
-                  onChange={(e) => setCtaBtnUrl(e.target.value)}
-                  placeholder="https://suaempresa.com.br/agenda"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white focus:border-[#00b4fb] focus:outline-none"
-                />
+                <button
+                  onClick={() => {
+                    const guestUrl = `${window.location.origin}/studio/${eventId}?role=speaker`;
+                    navigator.clipboard.writeText(guestUrl);
+                    showToast("Link de convidado copiado!");
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold text-xs transition"
+                >
+                  Copiar
+                </button>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="pt-2 flex justify-end">
               <button
-                type="button"
-                onClick={() => setShowCtaModal(false)}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                onClick={() => setShowInviteModal(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-slate-700 transition"
               >
-                Cancelar
+                Fechar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Modal: Audio / Video Settings */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 space-y-5 shadow-2xl border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Settings className="h-4 w-4 text-[#0066ff]" />
+                <span>Configurações do Estúdio</span>
+              </div>
               <button
-                type="button"
-                onClick={handleLaunchCta}
-                className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] px-5 py-2 text-xs font-bold text-white hover:bg-[#009ce0] shadow-md shadow-sky-500/20"
+                onClick={() => setShowSettingsModal(false)}
+                className="text-gray-400 hover:text-slate-600 text-sm"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Disparar para a Plateia</span>
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Qualidade da Transmissão</label>
+                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 font-semibold flex items-center justify-between">
+                  <span>1080p Full HD (Nativo WebRTC SFU)</span>
+                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Transmissão nativa de alta fidelidade e baixa latência sem intermediários.
+                </p>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Papel no Estúdio</label>
+                <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setUserRole("host")}
+                    className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
+                      userRole === "host" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                    }`}
+                  >
+                    Host (Organizador)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRole("speaker")}
+                    className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
+                      userRole === "speaker" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                    }`}
+                  >
+                    Palestrante Convidado
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="px-5 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold text-xs transition shadow-xs"
+              >
+                Salvar & Fechar
               </button>
             </div>
           </div>

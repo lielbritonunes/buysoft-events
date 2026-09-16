@@ -45,6 +45,14 @@ function VideoStreamTile({
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   {
+    id: "streamyard-wave",
+    name: "StreamYard Blue Wave",
+    className: "bg-gradient-to-br from-blue-900 via-indigo-950 to-blue-950",
+    style: {
+      backgroundImage: `radial-gradient(ellipse at 70% 30%, rgba(0, 102, 255, 0.45) 0%, transparent 60%), radial-gradient(ellipse at 20% 75%, rgba(0, 180, 251, 0.35) 0%, transparent 55%), linear-gradient(135deg, #071530 0%, #0a2558 50%, #071c3d 100%)`,
+    },
+  },
+  {
     id: "dark-mesh",
     name: "Dark Mesh",
     className: "bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]",

@@ -39,13 +39,7 @@ import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
 import { BACKGROUND_PRESETS } from "@/components/studio/StudioLayoutManager";
 
-function YouTubeIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-    </svg>
-  );
-}
+
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -90,8 +84,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const [activeSidebarTab, setActiveSidebarTab] = useState<"chat" | "qa" | "polls">("chat");
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Stream Source Selection: WebRTC vs YouTube Live
-  const [selectedSource, setSelectedSource] = useState<"webrtc" | "youtube">("webrtc");
+
 
   // LiveKit Cloud Subscriber for Attendee
   const livekitRoomRef = useRef<Room | null>(null);
@@ -485,85 +478,9 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {/* Stream Source Selector (Direct WebRTC vs YouTube Live) */}
-          {roomState?.youtubeBroadcastId && isLive && (
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 rounded-xl bg-slate-900 border border-slate-800 p-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSource("webrtc")}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                    selectedSource === "webrtc"
-                      ? "bg-[#00b4fb] text-white shadow-xs"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Zap className="h-3 w-3 fill-current" />
-                  <span>Transmissão Direta (&lt;300ms)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedSource("youtube")}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                    selectedSource === "youtube"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <YouTubeIcon className="h-3.5 w-3.5" />
-                  <span>YouTube Live (HD)</span>
-                </button>
-              </div>
-
-              <span className="hidden sm:inline-block text-[11px] text-slate-400">
-                {selectedSource === "webrtc" ? "⚡ Ultrabaixa latência em tempo real" : "▶️ Transmissão oficial via YouTube"}
-              </span>
-            </div>
-          )}
-
           {/* Video / Stage Area */}
           <div className="relative flex-1 flex items-center justify-center rounded-2xl bg-black border border-slate-800 overflow-hidden shadow-2xl min-h-[320px] sm:min-h-[480px]">
-            {selectedSource === "youtube" && roomState?.youtubeBroadcastId && isLive ? (
-              /* YOUTUBE LIVE UNLISTED EMBEDDED STREAM */
-              <div className="relative h-full w-full flex items-center justify-center bg-black">
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${roomState.youtubeBroadcastId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
-                  title={roomState?.title || "Transmissão Ao Vivo"}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="h-full w-full border-0 absolute inset-0"
-                />
-
-                {/* Switch to direct WebRTC if YouTube has no signal */}
-                <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedSource("webrtc")}
-                    className="flex items-center gap-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-white shadow-xl backdrop-blur-md transition"
-                  >
-                    <Zap className="h-3.5 w-3.5 text-[#00b4fb]" />
-                    <span>Tela preta no YouTube? Assistir Direto no Buysoft ⚡</span>
-                  </button>
-                </div>
-
-                {/* Stream Watermark & Status Overlay */}
-                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
-                  <span className="flex items-center gap-1.5 rounded-lg bg-rose-600/90 backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
-                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                    YOUTUBE AO VIVO
-                  </span>
-                  <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-[#00b4fb]" />
-                    <span>Transmissão Oficial</span>
-                  </span>
-                </div>
-
-                {/* Floating Reactions overlay */}
-                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
-                  <FloatingReactions />
-                </div>
-              </div>
-            ) : isLive ? (
+            {isLive ? (
               /* LIVE STAGE SCREEN WITH DUAL TRACKS (CAMERA + SCREEN) & HTML OVERLAYS */
               <div
                 className="relative h-full w-full flex items-center justify-center bg-black cursor-pointer select-none overflow-hidden"

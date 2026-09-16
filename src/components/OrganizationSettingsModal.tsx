@@ -382,20 +382,7 @@ export default function OrganizationSettingsModal({
                 <span>Perfil da Empresa</span>
               </button>
 
-              <button
-                onClick={() => setActiveTab("youtube")}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition ${
-                  activeTab === "youtube"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <Video className="h-4 w-4 text-rose-500" />
-                <span>Transmissão & YouTube</span>
-                {organization.youtubeIntegration && (
-                  <span className="ml-auto flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
-                )}
-              </button>
+              {/* YouTube Integration removed for MVP native priority */}
 
               <button
                 onClick={() => setActiveTab("smtp")}
@@ -462,87 +449,7 @@ export default function OrganizationSettingsModal({
           <div className="flex-1 p-6 md:p-8 overflow-y-auto max-h-[75vh]">
             {/* ======================================================== */}
             {/* TAB: TRANSMISSÃO & YOUTUBE */}
-            {/* ======================================================== */}
-            {activeTab === "youtube" && (
-              <div className="space-y-6 max-w-2xl">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <Video className="h-5 w-5 text-rose-600" />
-                    Canal do YouTube para Transmissões
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Conecte o canal oficial da sua empresa para criar e transmitir lives automaticamente em 1 clique direto pelo estúdio.
-                  </p>
-                </div>
-
-                {organization.youtubeIntegration ? (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3.5">
-                        {organization.youtubeIntegration.channelThumbnail ? (
-                          <img
-                            src={organization.youtubeIntegration.channelThumbnail}
-                            alt="Canal Conectado"
-                            className="h-12 w-12 rounded-full border-2 border-emerald-400 shadow-sm object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 font-bold">
-                            YT
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900">
-                              {organization.youtubeIntegration.channelTitle || "Canal Conectado"}
-                            </h3>
-                            <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                              Conectado
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Transmissões criadas no estúdio serão agendadas neste canal.
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleDisconnectYouTube}
-                        className="rounded-xl border border-rose-200 bg-white px-3.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition shadow-2xs"
-                      >
-                        Desconectar
-                      </button>
-                    </div>
-
-                    <div className="rounded-xl bg-white p-3 border border-emerald-100 text-xs text-slate-600 flex items-center justify-between">
-                      <span>Qualidade de transmissão configurada:</span>
-                      <span className="font-bold text-slate-900">1080p Full HD (5.000 kbps)</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-6 text-center space-y-4">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100">
-                      <Video className="h-7 w-7" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">Nenhum canal conectado ainda</h3>
-                      <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                        Ao conectar o canal oficial do YouTube da sua empresa, a plataforma cria transmissões ao vivo não listadas e gerencia a chave RTMP automaticamente.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleConnectYouTube}
-                      className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-6 py-3 text-xs font-bold text-white shadow-md shadow-rose-600/20 hover:bg-rose-700 transition"
-                    >
-                      <Video className="h-4 w-4" />
-                      <span>Conectar Canal do YouTube com Google</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* YouTube tab content removed for MVP native priority */}
 
             {/* ======================================================== */}
             {/* TAB: E-MAILS & SMTP */}
