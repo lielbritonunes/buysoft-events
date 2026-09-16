@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import {
   HelpCircle,
   ChevronDown,
-  Radio,
   Building2,
   Sparkles
 } from "lucide-react";
@@ -34,20 +34,17 @@ export default function Header({
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-8 lg:px-10 shadow-2xs">
       {/* 1. Left: Buysoft Events Logo */}
       <div
-        className="flex items-center gap-2.5 cursor-pointer group select-none"
+        className="flex items-center cursor-pointer group select-none transition-transform hover:opacity-90 active:scale-98"
         onClick={() => onSelectNavTab?.("home")}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-xs transition-transform group-hover:scale-105">
-          <Radio className="h-4 w-4 animate-pulse" />
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 leading-none">
-            buysoft
-          </span>
-          <span className="text-base sm:text-lg font-extrabold tracking-tight text-[#00b4fb] leading-none">
-            events
-          </span>
-        </div>
+        <Image
+          src="/logo.png"
+          alt="Buysoft Events"
+          width={160}
+          height={48}
+          className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
+          priority
+        />
       </div>
 
       {/* 2. Right: Ajuda, Organization, Vertical Bar, User Profile Avatar (Exact RingCentral structure) */}

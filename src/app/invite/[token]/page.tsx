@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, use } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Radio, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, ShieldCheck } from "lucide-react";
@@ -58,9 +59,14 @@ export default function AcceptInvitePage({ params }: Props) {
       <div className="relative z-10 w-full max-w-md">
         {/* Header */}
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#00b4fb] to-sky-400 text-white shadow-lg shadow-[#00b4fb]/20 ring-1 ring-white/20">
-            <Radio className="h-7 w-7" />
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Buysoft Events"
+            width={180}
+            height={54}
+            className="h-10 w-auto object-contain mb-4"
+            priority
+          />
           <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
             Convite para Equipe
           </h1>

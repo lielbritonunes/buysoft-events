@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -68,18 +69,15 @@ function MfaChallengeContent() {
     <div className="relative min-h-screen w-full flex flex-col justify-between bg-[#eef5fe] font-sans selection:bg-[#00b4fb] selection:text-white overflow-hidden">
       {/* 1. Header com Logo Superior Buysoft Events */}
       <header className="relative z-20 w-full px-6 sm:px-10 py-5">
-        <Link href="/" className="inline-flex items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00b4fb] text-white shadow-sm shadow-sky-200 transition-transform group-hover:scale-105">
-            <Radio className="h-5 w-5 animate-pulse" />
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-lg font-bold tracking-tight text-slate-900 leading-none">
-              buysoft
-            </span>
-            <span className="text-lg font-bold tracking-tight text-[#00b4fb] leading-none">
-              events
-            </span>
-          </div>
+        <Link href="/" className="inline-flex items-center group">
+          <Image
+            src="/logo.png"
+            alt="Buysoft Events"
+            width={160}
+            height={48}
+            className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-105"
+            priority
+          />
         </Link>
       </header>
 

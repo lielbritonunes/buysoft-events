@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   Mic,
   MicOff,
@@ -130,16 +131,15 @@ export default function PreflightLobby({
 
         {/* Brand Bar */}
         <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto w-full">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0055ff] text-white shadow-xs">
-              <Radio className="h-5 w-5" />
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-black tracking-tight text-slate-900">
-                buysoft
-              </span>
-              <span className="text-xl font-light text-[#0055ff]">events</span>
-            </div>
+          <div className="flex items-center">
+            <Image
+              src="/logo.png"
+              alt="Buysoft Events"
+              width={160}
+              height={48}
+              className="h-8 sm:h-9 w-auto object-contain"
+              priority
+            />
           </div>
 
           {/* Optional Role Switcher */}

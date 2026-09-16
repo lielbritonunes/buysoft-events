@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, use } from "react";
+import Image from "next/image";
 import {
   Calendar,
   Clock,
@@ -138,15 +139,17 @@ export default function PublicSeriesPage({ params }: Props) {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#00b4fb] to-sky-400 text-white font-black text-base shadow-sm">
-              B
-            </div>
-            <div>
-              <span className="text-sm font-bold tracking-tight text-slate-900">Buysoft Events</span>
-              <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00b4fb] border border-blue-100">
-                Série Oficial
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Buysoft Events"
+              width={140}
+              height={42}
+              className="h-8 w-auto object-contain"
+              priority
+            />
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00b4fb] border border-blue-100">
+              Série Oficial
+            </span>
           </div>
 
           <button

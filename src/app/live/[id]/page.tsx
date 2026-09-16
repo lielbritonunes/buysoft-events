@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, use } from "react";
+import Image from "next/image";
 import {
   Radio,
   Users,
@@ -643,16 +644,15 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
       {/* Top Navigation Bar - Clean StreamYard Spectator Style */}
       <header className="h-14 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
         {/* Left: Buysoft Events Logo */}
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-[#0066ff] text-white flex items-center justify-center font-black text-sm shadow-xs">
-            <span className="tracking-tighter">BE</span>
-          </div>
-          <div className="hidden sm:flex items-baseline gap-1">
-            <span className="text-sm font-black tracking-tight text-slate-900">
-              buysoft
-            </span>
-            <span className="text-sm font-bold text-[#0066ff]">events</span>
-          </div>
+        <div className="flex items-center">
+          <Image
+            src="/logo.png"
+            alt="Buysoft Events"
+            width={140}
+            height={42}
+            className="h-7 sm:h-8 w-auto object-contain"
+            priority
+          />
         </div>
 
         {/* Right: Live pill & Share */}

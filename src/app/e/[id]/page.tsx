@@ -225,18 +225,15 @@ export default function PublicEventPage({ params }: Props) {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {event.logoUrl ? (
-              <img src={event.logoUrl} alt="Logo" className="h-7 w-auto object-contain max-w-[140px]" />
+              <>
+                <img src={event.logoUrl} alt="Logo" className="h-7 w-auto object-contain max-w-[140px]" />
+                <span className="text-sm font-bold tracking-tight text-slate-900">
+                  {event.title}
+                </span>
+              </>
             ) : (
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-white shadow-xs font-bold"
-                style={{ backgroundColor: event.primaryColor || "#00b4fb" }}
-              >
-                <Radio className="h-4 w-4" />
-              </div>
+              <img src="/logo.png" alt="Buysoft Events" className="h-7 sm:h-8 w-auto object-contain" />
             )}
-            <span className="text-sm font-bold tracking-tight text-slate-900">
-              Buysoft <span style={{ color: event.primaryColor || "#00b4fb" }}>Events</span>
-            </span>
           </div>
 
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">

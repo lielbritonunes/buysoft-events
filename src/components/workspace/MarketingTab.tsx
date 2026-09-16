@@ -607,13 +607,12 @@ export default function MarketingTab({ event, onUpdateEvent }: Props) {
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6 max-w-lg mx-auto">
                 {/* Brand Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00b4fb] text-white font-bold text-xs">
-                      <Radio className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="font-bold text-sm text-slate-900">
-                      Buysoft <span className="text-[#00b4fb]">Events</span>
-                    </span>
+                  <div className="flex items-center">
+                    <img
+                      src="/logo.png"
+                      alt="Buysoft Events"
+                      className="h-7 w-auto object-contain"
+                    />
                   </div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Transmissão Online
