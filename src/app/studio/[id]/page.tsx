@@ -124,6 +124,8 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("solo");
   const [backgroundPresetId, setBackgroundPresetId] = useState<string>("streamyard-wave");
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string>("");
+  const [uploadedBackgrounds, setUploadedBackgrounds] = useState<string[]>([]);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
 
   // Brand & Overlays
   const [brandColor, setBrandColor] = useState<string>("#00b4fb");
@@ -925,6 +927,38 @@ export default function StudioPage({ params, searchParams }: Props) {
       return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     }
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  // Custom Background Upload Handlers
+  const handleUploadBackground = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Selecione um arquivo de imagem válido (PNG, JPG, WebP).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setUploadedBackgrounds((prev) => [dataUrl, ...prev.filter((u) => u !== dataUrl)]);
+        setCustomBackgroundUrl(dataUrl);
+        showToast("Plano de fundo personalizado adicionado com sucesso!");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleDeleteUploadedBackground = (urlToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUploadedBackgrounds((prev) => prev.filter((u) => u !== urlToDelete));
+    if (customBackgroundUrl === urlToDelete) {
+      setCustomBackgroundUrl("");
+      setBackgroundPresetId("streamyard-wave");
+    }
   };
 
   // StreamYard Folders & Banners Operations
@@ -2394,8 +2428,81 @@ export default function StudioPage({ params, searchParams }: Props) {
 
                   {/* Plano de Fundo (Backgrounds) Section */}
                   <div className="space-y-2.5 pt-2 border-t border-gray-100">
-                    <span className="font-bold text-slate-800 block">Plano de fundo</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 block">Plano de fundo</span>
+                      {customBackgroundUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomBackgroundUrl("");
+                            setBackgroundPresetId("streamyard-wave");
+                          }}
+                          className="text-[10px] font-bold text-[#00b4fb] hover:underline"
+                        >
+                          Restaurar padrão
+                        </button>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
+                      {/* Botão de Adicionar imagem do computador/arquivos */}
+                      <button
+                        type="button"
+                        onClick={() => bgFileInputRef.current?.click()}
+                        className="h-16 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#00b4fb] hover:bg-[#e6f7fe]/40 flex flex-col items-center justify-center text-center p-2 transition cursor-pointer group select-none"
+                      >
+                        <div className="flex items-center gap-1 text-gray-400 group-hover:text-[#00b4fb] mb-0.5">
+                          <ImageIcon className="h-4 w-4" />
+                          <Plus className="h-3 w-3" />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-700 group-hover:text-[#00b4fb]">
+                          Adicionar imagem
+                        </span>
+                      </button>
+                      <input
+                        ref={bgFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUploadBackground}
+                        className="hidden"
+                      />
+
+                      {/* Imagens personalizadas enviadas */}
+                      {uploadedBackgrounds.map((bgUrl, idx) => {
+                        const isSelected = customBackgroundUrl === bgUrl;
+                        return (
+                          <div
+                            key={`uploaded-bg-${idx}`}
+                            onClick={() => setCustomBackgroundUrl(bgUrl)}
+                            className={`h-16 rounded-xl border p-2 flex flex-col justify-between text-left transition cursor-pointer relative group overflow-hidden bg-cover bg-center select-none ${
+                              isSelected
+                                ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/40 shadow-xs"
+                                : "border-gray-300 hover:border-gray-400"
+                            }`}
+                            style={{ backgroundImage: `url(${bgUrl})` }}
+                          >
+                            <div className="flex justify-between items-start w-full z-10">
+                              <span className="text-[9px] font-black uppercase text-white bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
+                                Meu Arquivo
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteUploadedBackground(bgUrl, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded bg-black/60 hover:bg-red-600 text-white transition backdrop-blur-xs"
+                                title="Remover imagem"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <span className="text-[10px] font-bold text-white drop-shadow-md z-10 truncate">
+                              Foto {idx + 1}
+                            </span>
+                            <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition" />
+                          </div>
+                        );
+                      })}
+
+                      {/* Presets padrão da plataforma */}
                       {BACKGROUND_PRESETS.map((preset) => (
                         <button
                           key={preset.id}
