@@ -115,7 +115,7 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string>("");
 
   // Brand & Overlays
-  const [brandColor, setBrandColor] = useState<string>("#0066ff");
+  const [brandColor, setBrandColor] = useState<string>("#00b4fb");
   const [logoVisible, setLogoVisible] = useState(true);
   const [logoPosition, setLogoPosition] = useState<"left" | "right">("right");
   const [fadeOverlays, setFadeOverlays] = useState(true);
@@ -969,7 +969,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                 : isWebinarLive
                 ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-[#0066ff] hover:bg-[#0052cc] text-white"
+                : "bg-[#00b4fb] hover:bg-[#009ce0] text-white shadow-sky-500/25"
             }`}
           >
             {isStartingBroadcast ? (
@@ -1022,7 +1022,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   } z-30 pointer-events-none transition-all duration-300`}
                 >
                   <div className="rounded-lg bg-black/40 backdrop-blur-xs px-3 py-1 text-xs font-bold text-white tracking-wide border border-white/10 flex items-center gap-1.5 shadow-sm">
-                    <span className="h-2 w-2 rounded-full bg-[#0066ff]" />
+                    <span className="h-2 w-2 rounded-full bg-[#00b4fb]" />
                     <span>BUYSOFT</span>
                   </div>
                 </div>
@@ -1166,7 +1166,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                             className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
                           >
                             <div
-                              className={`rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
+                              className={`rounded-full bg-[#00b4fb] text-white font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
                             >
                               {c.senderName ? c.senderName.slice(0, 1).toUpperCase() : "U"}
                             </div>
@@ -1207,7 +1207,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   </div>
                   <button
                     onClick={() => setIsOnStage(true)}
-                    className="flex items-center gap-2 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] px-4 py-2 text-xs font-semibold text-white shadow-md transition"
+                    className="flex items-center gap-2 rounded-lg bg-[#00b4fb] hover:bg-[#009ce0] px-4 py-2 text-xs font-semibold text-white shadow-md transition"
                   >
                     <Radio className="h-4 w-4" />
                     <span>Adicionar ao palco</span>
@@ -1227,7 +1227,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   onClick={() => setLayoutMode("solo")}
                   className={`p-2 rounded-md transition ${
                     layoutMode === "solo" && !isScreenSharing
-                      ? "bg-[#0066ff] text-white"
+                      ? "bg-[#00b4fb] text-white shadow-xs"
                       : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
                   }`}
                   title="Solo: Apresentador único"
@@ -1241,7 +1241,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   onClick={() => setLayoutMode("grid")}
                   className={`p-2 rounded-md transition ${
                     layoutMode === "grid"
-                      ? "bg-[#0066ff] text-white"
+                      ? "bg-[#00b4fb] text-white shadow-xs"
                       : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
                   }`}
                   title="Dupla / Grade"
@@ -1268,7 +1268,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   }}
                   className={`p-2 rounded-md transition ${
                     layoutMode === "split"
-                      ? "bg-[#0066ff] text-white"
+                      ? "bg-[#00b4fb] text-white shadow-xs"
                       : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
                   }`}
                   title="Split: Apresentação com câmera lateral"
@@ -1301,7 +1301,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   }}
                   className={`p-2 rounded-md transition ${
                     layoutMode === "pip"
-                      ? "bg-[#0066ff] text-white"
+                      ? "bg-[#00b4fb] text-white shadow-xs"
                       : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
                   }`}
                   title="PiP: Apresentação grande com webcam flutuante"
@@ -1417,7 +1417,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* Card 2: Apresentar ou convidar card (StreamYard exact style) */}
               <div
                 onClick={() => setShowPresentMenu(true)}
-                className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#0066ff] bg-white hover:bg-blue-50/30 cursor-pointer flex flex-col items-center justify-center text-center p-2 transition shadow-xs select-none"
+                className="w-32 sm:w-36 h-20 sm:h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#00b4fb] bg-white hover:bg-[#e6f7fe]/30 cursor-pointer flex flex-col items-center justify-center text-center p-2 transition shadow-xs select-none"
               >
                 <div className="flex items-center gap-1 text-gray-500 mb-1">
                   <Monitor className="h-4 w-4" />
@@ -1466,7 +1466,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 onClick={handleToggleScreenShare}
                 className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
                   isScreenSharing
-                    ? "bg-[#0066ff] text-white shadow-xs"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
                     : "bg-gray-100 hover:bg-gray-200 text-slate-700"
                 }`}
                 title={isScreenSharing ? "Parar de compartilhar tela" : "Compartilhar tela"}
@@ -1492,7 +1492,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 onClick={() => setActiveRightTab("banners")}
                 className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl transition ${
                   activeRightTab === "banners"
-                    ? "bg-[#0066ff] text-white"
+                    ? "bg-[#00b4fb] text-white"
                     : "bg-gray-100 hover:bg-gray-200 text-slate-700"
                 }`}
                 title="Abrir Banners e Lower Thirds"
@@ -1529,7 +1529,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                 href="https://buysoft.com.br"
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-[#0066ff] transition shadow-xs"
+                className="flex items-center gap-1.5 rounded-full bg-[#e6f7fe] hover:bg-sky-100 border border-[#bae6fd] px-3 py-1.5 text-xs font-semibold text-[#0084be] transition shadow-xs"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
                 <span>Precisa de ajuda?</span>
@@ -1600,7 +1600,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                 onChange={(e) => setShowCommentsOnStage(e.target.checked)}
                                 className="sr-only peer"
                               />
-                              <div className="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0066ff]"></div>
+                              <div className="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#00b4fb]"></div>
                             </div>
                             <span className="text-[11px] font-semibold text-slate-700">
                               Mostrar comentários no palco
@@ -1614,7 +1614,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                 onMouseEnter={() => setShowChatOverlayHelp(true)}
                                 onMouseLeave={() => setShowChatOverlayHelp(false)}
                                 onClick={() => setShowChatOverlayHelp(!showChatOverlayHelp)}
-                                className="p-0.5 text-[#0066ff] hover:text-blue-700 transition"
+                                className="p-0.5 text-[#00b4fb] hover:text-[#009ce0] transition"
                                 aria-label="Ajuda sobre Chat Overlay"
                               >
                                 <HelpCircle className="h-4 w-4" />
@@ -1635,7 +1635,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                               onClick={() => setShowChatOverlayConfig(!showChatOverlayConfig)}
                               className={`p-1 rounded-md transition flex items-center gap-0.5 ${
                                 showChatOverlayConfig
-                                  ? "text-[#0066ff] bg-blue-50"
+                                  ? "text-[#00b4fb] bg-blue-50"
                                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                               }`}
                               title="Configurações do Chat Overlay"
@@ -1662,7 +1662,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlaySize("normal")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlaySize === "normal"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1674,7 +1674,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlaySize("tall")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlaySize === "tall"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1686,7 +1686,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlaySize("wide")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlaySize === "wide"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1707,7 +1707,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlayFontSize("small")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlayFontSize === "small"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1719,7 +1719,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlayFontSize("medium")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlayFontSize === "medium"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1731,7 +1731,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                   onClick={() => setChatOverlayFontSize("large")}
                                   className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
                                     chatOverlayFontSize === "large"
-                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      ? "border-[#00b4fb] bg-[#f0f6ff] text-[#00b4fb]"
                                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                                   }`}
                                 >
@@ -1750,7 +1750,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                               onClick={() => setCommentsSubTab("live")}
                               className={`pb-1 transition relative ${
                                 commentsSubTab === "live"
-                                  ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
+                                  ? "text-[#00b4fb] font-bold border-b-2 border-[#00b4fb]"
                                   : "text-gray-500 hover:text-slate-800"
                               }`}
                             >
@@ -1761,7 +1761,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                               onClick={() => setCommentsSubTab("starred")}
                               className={`pb-1 transition relative ${
                                 commentsSubTab === "starred"
-                                  ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
+                                  ? "text-[#00b4fb] font-bold border-b-2 border-[#00b4fb]"
                                   : "text-gray-500 hover:text-slate-800"
                               }`}
                             >
@@ -1798,7 +1798,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                 }}
                                 className={`relative p-3 rounded-xl cursor-pointer transition-all duration-150 select-none group ${
                                   isSelected
-                                    ? "bg-[#0066ff] text-white shadow-sm"
+                                    ? "bg-[#00b4fb] text-white shadow-sm"
                                     : "bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800"
                                 }`}
                               >
@@ -1811,8 +1811,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                                     <div
                                       className={`h-6 w-6 rounded-md flex items-center justify-center font-black text-[10px] shrink-0 ${
                                         isSelected
-                                          ? "bg-white text-[#0066ff]"
-                                          : "bg-[#0066ff] text-white"
+                                          ? "bg-white text-[#00b4fb]"
+                                          : "bg-[#00b4fb] text-white"
                                       }`}
                                     >
                                       {msg.senderName.slice(0, 1).toUpperCase()}
@@ -1856,7 +1856,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                       isStarred
                                         ? isSelected
                                           ? "fill-white text-white"
-                                          : "fill-[#0066ff] text-[#0066ff]"
+                                          : "fill-[#00b4fb] text-[#00b4fb]"
                                         : isSelected
                                         ? "text-white/80 hover:text-white"
                                         : "text-gray-400 hover:text-gray-600"
@@ -1880,7 +1880,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                                         </>
                                       ) : (
                                         <>
-                                          <PlusCircle className="h-4 w-4 text-[#0066ff]" />
+                                          <PlusCircle className="h-4 w-4 text-[#00b4fb]" />
                                           <span>Exibir</span>
                                         </>
                                       )}
@@ -1914,12 +1914,12 @@ export default function StudioPage({ params, searchParams }: Props) {
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
                           placeholder="Publicar um comentário"
-                          className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#0066ff] focus:outline-none"
+                          className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none"
                         />
                         <button
                           type="submit"
                           disabled={!chatInput.trim()}
-                          className="p-1.5 rounded-full text-[#0066ff] hover:bg-blue-50 disabled:opacity-30 transition shrink-0"
+                          className="p-1.5 rounded-full text-[#00b4fb] hover:bg-[#e6f7fe] disabled:opacity-30 transition shrink-0"
                           title="Publicar comentário"
                         >
                           <Send className="h-4 w-4" />
@@ -1952,12 +1952,12 @@ export default function StudioPage({ params, searchParams }: Props) {
                     value={privateChatInput}
                     onChange={(e) => setPrivateChatInput(e.target.value)}
                     placeholder="Mensagem para os bastidores..."
-                    className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#0066ff] focus:outline-none"
+                    className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={!privateChatInput.trim()}
-                    className="p-1.5 rounded-full bg-[#0066ff] hover:bg-[#0052cc] text-white transition shrink-0"
+                    className="p-1.5 rounded-full bg-[#00b4fb] hover:bg-[#009ce0] text-white transition shrink-0"
                   >
                     <Send className="h-3.5 w-3.5" />
                   </button>
@@ -1971,7 +1971,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   {/* Brand selector dropdown */}
                   <div className="flex items-center justify-between border-b border-gray-200 pb-3">
                     <div className="flex items-center gap-2 font-bold text-slate-800">
-                      <Palette className="h-4 w-4 text-[#0066ff]" />
+                      <Palette className="h-4 w-4 text-[#00b4fb]" />
                       <span>Marca 1 (Padrão Buysoft)</span>
                     </div>
                     <MoreVertical className="h-4 w-4 text-gray-400 cursor-pointer" />
@@ -1984,7 +1984,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                       <button
                         onClick={() => setLogoVisible(!logoVisible)}
                         className={`text-[10px] font-bold px-2 py-0.5 rounded transition ${
-                          logoVisible ? "bg-blue-100 text-[#0066ff]" : "bg-gray-100 text-gray-500"
+                          logoVisible ? "bg-blue-100 text-[#00b4fb]" : "bg-gray-100 text-gray-500"
                         }`}
                       >
                         {logoVisible ? "Visível" : "Oculto"}
@@ -1996,7 +1996,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                         onClick={() => setLogoVisible(!logoVisible)}
                         className={`h-16 w-20 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center p-2 text-center transition ${
                           logoVisible
-                            ? "border-[#0066ff] bg-blue-50/40 text-[#0066ff]"
+                            ? "border-[#00b4fb] bg-blue-50/40 text-[#00b4fb]"
                             : "border-gray-200 bg-gray-50 text-gray-400"
                         }`}
                       >
@@ -2011,7 +2011,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           <button
                             onClick={() => setLogoPosition("left")}
                             className={`px-2 py-1 rounded text-[10px] font-bold transition ${
-                              logoPosition === "left" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                              logoPosition === "left" ? "bg-white text-[#00b4fb] shadow-xs" : "text-gray-500"
                             }`}
                           >
                             Esquerda
@@ -2019,7 +2019,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           <button
                             onClick={() => setLogoPosition("right")}
                             className={`px-2 py-1 rounded text-[10px] font-bold transition ${
-                              logoPosition === "right" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                              logoPosition === "right" ? "bg-white text-[#00b4fb] shadow-xs" : "text-gray-500"
                             }`}
                           >
                             Direita
@@ -2038,7 +2038,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="checkbox"
                           checked={fadeOverlays}
                           onChange={(e) => setFadeOverlays(e.target.checked)}
-                          className="rounded border-gray-300 text-[#0066ff] focus:ring-0 h-3 w-3"
+                          className="rounded border-gray-300 text-[#00b4fb] focus:ring-0 h-3 w-3"
                         />
                         <span>Desvanecer overlays</span>
                       </label>
@@ -2051,7 +2051,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           setBannerTitle("Bem-vindo ao Webinar!");
                           setBannerSubtitle("Buysoft Events • Transmissão ao Vivo");
                         }}
-                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition"
+                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition"
                       >
                         <span className="font-bold text-slate-800 block text-[11px]">Bem-vindo</span>
                         <span className="text-[9px] text-gray-500">Banner Superior</span>
@@ -2062,7 +2062,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           setTickerVisible(true);
                           setTickerText("❓ Envie suas dúvidas e comentários no chat lateral!");
                         }}
-                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition"
+                        className="p-2 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition"
                       >
                         <span className="font-bold text-slate-800 block text-[11px]">Perguntas</span>
                         <span className="text-[9px] text-gray-500">Letreiro Rodapé</span>
@@ -2074,7 +2074,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                         }}
                         className={`p-2 rounded-xl border text-left transition ${
                           lowerThirdVisible
-                            ? "border-[#0066ff] bg-blue-50/40"
+                            ? "border-[#00b4fb] bg-blue-50/40"
                             : "border-gray-200 bg-gray-50 hover:bg-gray-100"
                         }`}
                       >
@@ -2117,9 +2117,9 @@ export default function StudioPage({ params, searchParams }: Props) {
                             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
                           )
                         }
-                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition flex flex-col justify-between"
+                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition flex flex-col justify-between"
                       >
-                        <Film className="h-4 w-4 text-[#0066ff] mb-1" />
+                        <Film className="h-4 w-4 text-[#00b4fb] mb-1" />
                         <div>
                           <span className="font-bold text-slate-800 block text-[11px]">Vídeo Intro</span>
                           <span className="text-[9px] text-gray-500">15s com áudio</span>
@@ -2132,7 +2132,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                           )
                         }
-                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-blue-50/40 hover:border-blue-300 text-left transition flex flex-col justify-between"
+                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition flex flex-col justify-between"
                       >
                         <Tv className="h-4 w-4 text-purple-600 mb-1" />
                         <div>
@@ -2150,14 +2150,14 @@ export default function StudioPage({ params, searchParams }: Props) {
                           value={customVideoInput}
                           onChange={(e) => setCustomVideoInput(e.target.value)}
                           placeholder="URL de vídeo MP4..."
-                          className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() => {
                             if (customVideoInput) setVideoAssetUrl(customVideoInput);
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-[#0066ff] text-white font-semibold text-xs hover:bg-[#0052cc] transition"
+                          className="px-3 py-1.5 rounded-lg bg-[#00b4fb] text-white font-semibold text-xs hover:bg-[#009ce0] transition"
                         >
                           Tocar
                         </button>
@@ -2179,7 +2179,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           }}
                           className={`h-16 rounded-xl border p-2 flex flex-col justify-end text-left transition ${
                             backgroundPresetId === preset.id && !customBackgroundUrl
-                              ? "border-[#0066ff] ring-2 ring-[#0066ff]/40 shadow-xs"
+                              ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/40 shadow-xs"
                               : "border-gray-300 hover:border-gray-400"
                           } ${preset.className}`}
                           style={preset.style}
@@ -2220,7 +2220,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={lowerThirdName}
                           onChange={(e) => setLowerThirdName(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
                       <div>
@@ -2231,7 +2231,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={lowerThirdRole}
                           onChange={(e) => setLowerThirdRole(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
                       <div>
@@ -2242,7 +2242,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={lowerThirdCompany}
                           onChange={(e) => setLowerThirdCompany(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
                     </div>
@@ -2268,14 +2268,14 @@ export default function StudioPage({ params, searchParams }: Props) {
                         value={bannerTitle}
                         onChange={(e) => setBannerTitle(e.target.value)}
                         placeholder="Título do banner..."
-                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                       />
                       <input
                         type="text"
                         value={bannerSubtitle}
                         onChange={(e) => setBannerSubtitle(e.target.value)}
                         placeholder="Subtítulo..."
-                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -2298,7 +2298,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                       value={tickerText}
                       onChange={(e) => setTickerText(e.target.value)}
                       rows={2}
-                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none resize-none"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none resize-none"
                     />
                   </div>
                 </div>
@@ -2307,8 +2307,8 @@ export default function StudioPage({ params, searchParams }: Props) {
               {/* TAB 4: WIDGETS & LIVE CTA */}
               {activeRightTab === "widgets" && (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#0066ff]">
+                  <div className="rounded-xl border border-[#bae6fd] bg-[#e6f7fe]/50 p-3 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#00b4fb]">
                       <Zap className="h-4 w-4 fill-current" />
                       <span>Live CTA (Chamada de Ação)</span>
                     </div>
@@ -2325,7 +2325,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={ctaTitle}
                           onChange={(e) => setCtaTitle(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
 
@@ -2337,7 +2337,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={ctaBtnText}
                           onChange={(e) => setCtaBtnText(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
 
@@ -2349,7 +2349,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                           type="text"
                           value={ctaBtnUrl}
                           onChange={(e) => setCtaBtnUrl(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
+                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
                         />
                       </div>
                     </div>
@@ -2365,7 +2365,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                       ) : (
                         <button
                           onClick={handleLaunchCta}
-                          className="flex-1 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold py-2 text-xs transition shadow-xs"
+                          className="flex-1 rounded-lg bg-[#00b4fb] hover:bg-[#009ce0] text-white font-semibold py-2 text-xs transition shadow-xs"
                         >
                           Disparar para Espectadores
                         </button>
@@ -2382,7 +2382,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     <span className="font-bold text-slate-800">Participantes no Estúdio</span>
                     <button
                       onClick={() => setShowInviteModal(true)}
-                      className="text-[#0066ff] text-[11px] font-semibold hover:underline"
+                      className="text-[#00b4fb] text-[11px] font-semibold hover:underline"
                     >
                       + Convidar
                     </button>
@@ -2392,7 +2392,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     {/* User Card */}
                     <div className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 bg-gray-50">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center text-xs">
+                        <div className="h-8 w-8 rounded-full bg-[#00b4fb] text-white font-bold flex items-center justify-center text-xs">
                           {userRole === "host" ? "EN" : "CO"}
                         </div>
                         <div>
@@ -2411,7 +2411,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                         className={`text-[10px] font-bold px-2 py-1 rounded transition ${
                           isOnStage
                             ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                            : "bg-[#0066ff] text-white hover:bg-[#0052cc]"
+                            : "bg-[#00b4fb] text-white hover:bg-[#009ce0]"
                         }`}
                       >
                         {isOnStage ? "Mover" : "No palco"}
@@ -2452,7 +2452,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "comments" ? null : "comments")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "comments"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2465,7 +2465,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "banners" ? null : "banners")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "banners"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2478,7 +2478,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "media" ? null : "media")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "media"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2491,7 +2491,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "widgets" ? null : "widgets")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "widgets"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2504,7 +2504,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "people" ? null : "people")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "people"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2517,7 +2517,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             onClick={() => setActiveRightTab(activeRightTab === "private_chat" ? null : "private_chat")}
             className={`flex flex-col items-center gap-1 p-2 rounded-xl transition w-16 text-center ${
               activeRightTab === "private_chat"
-                ? "text-[#0066ff] bg-blue-50 font-bold"
+                ? "text-[#00b4fb] bg-blue-50 font-bold"
                 : "text-gray-500 hover:text-slate-800 hover:bg-gray-100"
             }`}
           >
@@ -2548,9 +2548,9 @@ export default function StudioPage({ params, searchParams }: Props) {
             <div className="space-y-2">
               <button
                 onClick={handleToggleScreenShare}
-                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#00b4fb] hover:bg-[#e6f7fe]/40 flex items-center gap-3 text-left transition"
               >
-                <div className="h-9 w-9 rounded-lg bg-blue-100 text-[#0066ff] flex items-center justify-center">
+                <div className="h-9 w-9 rounded-lg bg-blue-100 text-[#00b4fb] flex items-center justify-center">
                   <Monitor className="h-5 w-5" />
                 </div>
                 <div>
@@ -2564,7 +2564,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   setShowPresentMenu(false);
                   setActiveRightTab("media");
                 }}
-                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#00b4fb] hover:bg-[#e6f7fe]/40 flex items-center gap-3 text-left transition"
               >
                 <div className="h-9 w-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
                   <Film className="h-5 w-5" />
@@ -2580,7 +2580,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                   setShowPresentMenu(false);
                   setShowInviteModal(true);
                 }}
-                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#0066ff] hover:bg-blue-50/40 flex items-center gap-3 text-left transition"
+                className="w-full p-3 rounded-xl border border-gray-200 hover:border-[#00b4fb] hover:bg-[#e6f7fe]/40 flex items-center gap-3 text-left transition"
               >
                 <div className="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                   <Users className="h-5 w-5" />
@@ -2601,7 +2601,7 @@ export default function StudioPage({ params, searchParams }: Props) {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 space-y-4 shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <Users className="h-4 w-4 text-[#0066ff]" />
+                <Users className="h-4 w-4 text-[#00b4fb]" />
                 <span>Convidar Palestrantes para o Estúdio</span>
               </div>
               <button
@@ -2633,7 +2633,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     navigator.clipboard.writeText(guestUrl);
                     showToast("Link de convidado copiado!");
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold text-xs transition"
+                  className="px-4 py-2 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] text-white font-semibold text-xs transition"
                 >
                   Copiar
                 </button>
@@ -2658,7 +2658,7 @@ export default function StudioPage({ params, searchParams }: Props) {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 space-y-5 shadow-2xl border border-gray-200">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <Settings className="h-4 w-4 text-[#0066ff]" />
+                <Settings className="h-4 w-4 text-[#00b4fb]" />
                 <span>Configurações do Estúdio</span>
               </div>
               <button
@@ -2672,9 +2672,9 @@ export default function StudioPage({ params, searchParams }: Props) {
             <div className="space-y-4 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Qualidade da Transmissão</label>
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 font-semibold flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-[#e6f7fe] border border-[#bae6fd] text-slate-800 font-semibold flex items-center justify-between">
                   <span>1080p Full HD (Nativo WebRTC SFU)</span>
-                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                  <CheckCircle2 className="h-4 w-4 text-[#00b4fb]" />
                 </div>
                 <p className="text-[10px] text-gray-500 mt-1">
                   Transmissão nativa de alta fidelidade e baixa latência sem intermediários.
@@ -2688,7 +2688,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     type="button"
                     onClick={() => setUserRole("host")}
                     className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
-                      userRole === "host" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                      userRole === "host" ? "bg-white text-[#00b4fb] shadow-xs" : "text-gray-500"
                     }`}
                   >
                     Host (Organizador)
@@ -2697,7 +2697,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                     type="button"
                     onClick={() => setUserRole("speaker")}
                     className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition ${
-                      userRole === "speaker" ? "bg-white text-[#0066ff] shadow-xs" : "text-gray-500"
+                      userRole === "speaker" ? "bg-white text-[#00b4fb] shadow-xs" : "text-gray-500"
                     }`}
                   >
                     Palestrante Convidado
@@ -2709,7 +2709,7 @@ export default function StudioPage({ params, searchParams }: Props) {
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="px-5 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-semibold text-xs transition shadow-xs"
+                className="px-5 py-2 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] text-white font-semibold text-xs transition shadow-xs"
               >
                 Salvar & Fechar
               </button>

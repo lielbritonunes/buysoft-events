@@ -112,9 +112,9 @@ export default function PreflightLobby({
       <div className="w-full">
         {/* StreamYard style Tip Banner */}
         {showTip && (
-          <div className="w-full bg-[#f0f7ff] border-b border-[#d0e5ff] px-4 py-2.5 flex items-center justify-between text-xs text-[#0055ff]">
+          <div className="w-full bg-[#e6f7fe] border-b border-[#bae6fd] px-4 py-2.5 flex items-center justify-between text-xs text-[#0084be]">
             <div className="flex items-center gap-2 max-w-5xl mx-auto flex-1 px-4">
-              <Info className="h-4 w-4 shrink-0 text-[#0055ff]" />
+              <Info className="h-4 w-4 shrink-0 text-[#00b4fb]" />
               <span>
                 <strong>Dica:</strong> Use o botão solo para colocar um convidado em tela cheia durante a transmissão.
               </span>
@@ -150,7 +150,7 @@ export default function PreflightLobby({
                 onClick={() => onRoleChange("host")}
                 className={`rounded-md px-3 py-1 text-xs font-bold transition ${
                   userRole === "host"
-                    ? "bg-[#0055ff] text-white shadow-xs"
+                    ? "bg-[#00b4fb] text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -277,9 +277,9 @@ export default function PreflightLobby({
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Seu nome completo"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-20 text-sm font-medium text-slate-900 focus:border-[#0055ff] focus:ring-1 focus:ring-[#0055ff] focus:outline-hidden transition"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-20 text-sm font-medium text-slate-900 focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] focus:outline-hidden transition"
                 />
-                <span className="absolute right-2.5 rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#0055ff] border border-blue-200">
+                <span className="absolute right-2.5 rounded bg-[#e6f7fe] px-2 py-0.5 text-[10px] font-bold text-[#0084be] border border-[#bae6fd]">
                   {userRole === "host" ? "Anfitrião" : "Convidado"}
                 </span>
               </div>
@@ -298,7 +298,7 @@ export default function PreflightLobby({
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
                 placeholder="por exemplo, Founder of Creativity Inc."
-                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0055ff] focus:ring-1 focus:ring-[#0055ff] focus:outline-hidden transition"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] focus:outline-hidden transition"
               />
             </div>
 
@@ -307,7 +307,7 @@ export default function PreflightLobby({
               <button
                 type="button"
                 onClick={handleEnter}
-                className="w-full rounded-lg bg-[#0055ff] hover:bg-[#0047d4] active:scale-[0.99] text-white py-3 px-4 text-sm font-bold shadow-md shadow-blue-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full rounded-lg bg-[#00b4fb] hover:bg-[#009ce0] active:scale-[0.99] text-white py-3 px-4 text-sm font-bold shadow-md shadow-sky-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>
                   {isMicOn && isCameraOn
@@ -366,7 +366,7 @@ export default function PreflightLobby({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="rounded-lg bg-[#0055ff] text-white px-4 py-2 text-xs font-bold hover:bg-[#0047d4]"
+                className="rounded-lg bg-[#00b4fb] text-white px-4 py-2 text-xs font-bold hover:bg-[#009ce0]"
               >
                 Salvar e Fechar
               </button>

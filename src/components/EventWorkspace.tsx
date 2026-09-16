@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import NextImage from "next/image";
 import {
   ArrowLeft,
   ExternalLink,
@@ -538,9 +539,15 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
           <div className="h-4 w-[1px] bg-slate-200" />
 
           {/* Logo Buysoft */}
-          <div className="flex items-center gap-2">
-            <span className="text-base font-extrabold text-[#00b4fb] tracking-tight">Buysoft</span>
-            <span className="text-sm font-semibold text-slate-800">Events</span>
+          <div className="flex items-center">
+            <NextImage
+              src="/logo.png"
+              alt="Buysoft Events"
+              width={140}
+              height={42}
+              className="h-7 sm:h-8 w-auto object-contain"
+              priority
+            />
           </div>
 
           <div className="hidden md:flex items-center gap-2 pl-3">

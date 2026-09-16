@@ -627,7 +627,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white text-slate-900 font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#0066ff]" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#00b4fb]" />
           <p className="text-sm font-semibold text-slate-500">Conectando à sala do webinar...</p>
         </div>
       </div>
@@ -1384,7 +1384,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 <button
                   type="button"
                   onClick={() => setShowHelpModal(true)}
-                  className="text-xs text-[#0066ff] hover:underline font-semibold cursor-pointer transition"
+                  className="text-xs text-[#00b4fb] hover:underline font-semibold cursor-pointer transition"
                 >
                   Está tendo problemas?
                 </button>
@@ -1474,7 +1474,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     setLastNameInput("");
                     setShowNameModal(true);
                   }}
-                  className="w-full py-2.5 px-4 rounded-lg border-2 border-[#0066ff] text-[#0066ff] hover:bg-blue-50/50 font-bold text-xs tracking-wide transition shadow-xs flex items-center justify-center cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg border-2 border-[#00b4fb] text-[#00b4fb] hover:bg-[#e6f7fe]/50 font-bold text-xs tracking-wide transition shadow-xs flex items-center justify-center cursor-pointer"
                 >
                   Entrar no chat
                 </button>
@@ -1512,12 +1512,12 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       placeholder="Escrever uma mensagem..."
-                      className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-gray-400 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition shadow-2xs"
+                      className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-xs sm:text-sm text-slate-800 placeholder:text-gray-400 focus:outline-none focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] transition shadow-2xs"
                     />
                     <button
                       type="submit"
                       disabled={!chatInput.trim() || isSendingMessage}
-                      className="absolute right-2 text-slate-400 hover:text-[#0066ff] disabled:opacity-30 transition p-1 cursor-pointer"
+                      className="absolute right-2 text-slate-400 hover:text-[#00b4fb] disabled:opacity-30 transition p-1 cursor-pointer"
                       title="Enviar mensagem"
                     >
                       <Send className="h-4 w-4" />
@@ -1556,7 +1556,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     value={firstNameInput}
                     onChange={(e) => setFirstNameInput(e.target.value)}
                     placeholder="Digite seu nome"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] transition"
                     autoFocus
                     required
                   />
@@ -1571,7 +1571,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     value={lastNameInput}
                     onChange={(e) => setLastNameInput(e.target.value)}
                     placeholder="Digite seu sobrenome"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#0066ff] focus:ring-1 focus:ring-[#0066ff] transition"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#00b4fb] focus:ring-1 focus:ring-[#00b4fb] transition"
                     required
                   />
                 </div>
@@ -1588,7 +1588,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 <button
                   type="submit"
                   disabled={!firstNameInput.trim() || !lastNameInput.trim()}
-                  className="text-xs font-bold bg-[#0066ff] hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-md transition shadow-xs cursor-pointer"
+                  className="text-xs font-bold bg-[#00b4fb] hover:bg-[#009ce0] disabled:opacity-50 text-white px-4 py-2 rounded-md transition shadow-xs cursor-pointer"
                 >
                   Entrar no chat
                 </button>
@@ -1604,7 +1604,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-[#0066ff]" />
+                <HelpCircle className="h-5 w-5 text-[#00b4fb]" />
                 <h3 className="text-base font-bold text-slate-900">Está tendo problemas?</h3>
               </div>
               <button
@@ -1617,7 +1617,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             </div>
 
             <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed">
-              <div className="p-3 rounded-lg bg-blue-50/70 border border-blue-100">
+              <div className="p-3 rounded-lg bg-[#e6f7fe]/70 border border-[#bae6fd]">
                 <p className="font-bold text-slate-800 mb-1">🔊 Sem som no vídeo?</p>
                 <p>
                   Por padrão, navegadores bloqueiam o áudio automático.
@@ -1644,7 +1644,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="text-xs font-bold bg-[#0066ff] hover:bg-blue-700 text-white px-4 py-2 rounded-md transition cursor-pointer shadow-xs"
+                className="text-xs font-bold bg-[#00b4fb] hover:bg-[#009ce0] text-white px-4 py-2 rounded-md transition cursor-pointer shadow-xs"
               >
                 Entendi
               </button>
