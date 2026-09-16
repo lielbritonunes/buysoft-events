@@ -821,11 +821,14 @@ export default function StudioPage({ params, searchParams }: Props) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-[#0066ff] text-white flex items-center justify-center font-black text-sm shadow-xs">
-              <span className="tracking-tighter">SY</span>
+              <span className="tracking-tighter">BE</span>
             </div>
-            <span className="text-sm font-bold text-slate-800 hidden sm:inline">
-              buysoft<span className="text-[#0066ff]">studio</span>
-            </span>
+            <div className="hidden sm:flex items-baseline gap-1">
+              <span className="text-sm font-black tracking-tight text-slate-900">
+                buysoft
+              </span>
+              <span className="text-sm font-bold text-[#0066ff]">events</span>
+            </div>
           </div>
 
           <div className="h-4 w-px bg-gray-200 hidden sm:block" />
@@ -1405,9 +1408,277 @@ export default function StudioPage({ params, searchParams }: Props) {
               </button>
             </div>
 
-            {/* Drawer Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-5 text-slate-800 text-xs">
-              {/* TAB 1: ATIVOS DE MÍDIA / MARCA (Image 2 exact replica) */}
+            {/* Drawer Content */}
+            {activeRightTab === "comments" ? (
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden text-slate-800 text-xs">
+                {(() => {
+                  const defaultSampleComment = {
+                    id: "sample-be-1",
+                    senderName: "Buysoft Events",
+                    message:
+                      "Os comentários do público ao vivo aparecem no Buysoft Events. Este é um exemplo. Clique em um comentário para exibi-lo na tela.",
+                    createdAt: new Date().toISOString(),
+                  };
+
+                  const allComments =
+                    roomState?.chatMessages && roomState.chatMessages.length > 0
+                      ? roomState.chatMessages
+                      : [defaultSampleComment];
+
+                  const displayedList =
+                    commentsSubTab === "starred"
+                      ? allComments.filter((c: any) => starredCommentIds.includes(c.id))
+                      : allComments;
+
+                  return (
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                      {/* Top Switch & Sub-tabs */}
+                      <div className="p-4 pb-3 shrink-0 border-b border-gray-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <div className="relative inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={showCommentsOnStage}
+                                onChange={(e) => setShowCommentsOnStage(e.target.checked)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0066ff]"></div>
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-700">
+                              Mostrar comentários no palco
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-1.5 text-gray-400">
+                            <span title="Ao selecionar um comentário, ele é exibido em destaque no palco">
+                              <HelpCircle className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
+                            </span>
+                            <Sliders className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
+                          </div>
+                        </div>
+
+                        {starredCommentIds.length > 0 && (
+                          <div className="flex items-center gap-4 pt-1 border-t border-gray-100 text-xs font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => setCommentsSubTab("live")}
+                              className={`pb-1 transition relative ${
+                                commentsSubTab === "live"
+                                  ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
+                                  : "text-gray-500 hover:text-slate-800"
+                              }`}
+                            >
+                              Ao vivo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCommentsSubTab("starred")}
+                              className={`pb-1 transition relative ${
+                                commentsSubTab === "starred"
+                                  ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
+                                  : "text-gray-500 hover:text-slate-800"
+                              }`}
+                            >
+                              Favorito ({starredCommentIds.length})
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Comments List (Fills all remaining height) */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-0">
+                        {displayedList.length > 0 ? (
+                          displayedList.map((msg: any) => {
+                            const isSelected = displayedComment?.id === msg.id && showCommentsOnStage;
+                            const isStarred = starredCommentIds.includes(msg.id);
+                            const isHovered = hoveredCommentId === msg.id;
+
+                            return (
+                              <div
+                                key={msg.id}
+                                onMouseEnter={() => setHoveredCommentId(msg.id)}
+                                onMouseLeave={() => setHoveredCommentId(null)}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setDisplayedComment(null);
+                                  } else {
+                                    setDisplayedComment({
+                                      id: msg.id,
+                                      senderName: msg.senderName,
+                                      message: msg.message,
+                                    });
+                                  }
+                                }}
+                                className={`relative p-3 rounded-xl cursor-pointer transition-all duration-150 select-none group ${
+                                  isSelected
+                                    ? "bg-[#0066ff] text-white shadow-sm"
+                                    : "bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800"
+                                }`}
+                              >
+                                <div
+                                  className={`transition-opacity ${
+                                    isHovered ? "opacity-25" : "opacity-100"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={`h-6 w-6 rounded-md flex items-center justify-center font-black text-[10px] shrink-0 ${
+                                        isSelected
+                                          ? "bg-white text-[#0066ff]"
+                                          : "bg-[#0066ff] text-white"
+                                      }`}
+                                    >
+                                      {msg.senderName.slice(0, 1).toUpperCase()}
+                                    </div>
+                                    <span className="font-bold text-xs truncate max-w-[170px]">
+                                      {msg.senderName}
+                                    </span>
+                                  </div>
+                                  <p
+                                    className={`text-xs mt-1.5 leading-relaxed ${
+                                      isSelected ? "text-white" : "text-slate-600"
+                                    }`}
+                                  >
+                                    {msg.message}
+                                  </p>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStarredCommentIds((prev) =>
+                                      prev.includes(msg.id)
+                                        ? prev.filter((id) => id !== msg.id)
+                                        : [...prev, msg.id]
+                                    );
+                                  }}
+                                  className={`absolute top-2.5 right-2.5 p-1 rounded-md transition ${
+                                    isHovered || isStarred
+                                      ? "opacity-100"
+                                      : "opacity-0 group-hover:opacity-100"
+                                  }`}
+                                  title={
+                                    isStarred
+                                      ? "Remover dos favoritos"
+                                      : "Favoritar comentário"
+                                  }
+                                >
+                                  <Star
+                                    className={`h-4 w-4 ${
+                                      isStarred
+                                        ? isSelected
+                                          ? "fill-white text-white"
+                                          : "fill-[#0066ff] text-[#0066ff]"
+                                        : isSelected
+                                        ? "text-white/80 hover:text-white"
+                                        : "text-gray-400 hover:text-gray-600"
+                                    }`}
+                                  />
+                                </button>
+
+                                {isHovered && (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition transform active:scale-95 pointer-events-auto ${
+                                        isSelected
+                                          ? "bg-white text-slate-900 hover:bg-gray-100"
+                                          : "bg-white text-slate-900 hover:bg-gray-50 border border-gray-200"
+                                      }`}
+                                    >
+                                      {isSelected ? (
+                                        <>
+                                          <MinusCircle className="h-4 w-4 text-red-600" />
+                                          <span>Ocultar</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <PlusCircle className="h-4 w-4 text-[#0066ff]" />
+                                          <span>Exibir</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-8 text-gray-400">
+                            <Star className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p>Nenhum comentário favoritado ainda.</p>
+                            <p className="text-[10px] mt-1">
+                              Clique na estrela de qualquer comentário para favoritá-lo.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bottom Input Form (Pinned firmly to the base) */}
+                      <form
+                        onSubmit={handleSendChatMessage}
+                        className="shrink-0 p-3 border-t border-gray-200 bg-white flex items-center gap-2"
+                      >
+                        <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-bold shrink-0 border border-slate-200">
+                          {userRole === "host" ? "EN" : "CO"}
+                        </div>
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          placeholder="Publicar um comentário"
+                          className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#0066ff] focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!chatInput.trim()}
+                          className="p-1.5 rounded-full text-[#0066ff] hover:bg-blue-50 disabled:opacity-30 transition shrink-0"
+                          title="Publicar comentário"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : activeRightTab === "private_chat" ? (
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden text-slate-800 text-xs">
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+                  {privateMessages.map((msg, i) => (
+                    <div key={i} className="p-2 rounded-xl bg-gray-100 text-xs space-y-0.5">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 font-semibold">
+                        <span>{msg.sender}</span>
+                        <span>{msg.time}</span>
+                      </div>
+                      <p className="text-slate-800">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <form
+                  onSubmit={handleSendPrivateChat}
+                  className="shrink-0 p-3 border-t border-gray-200 bg-white flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    value={privateChatInput}
+                    onChange={(e) => setPrivateChatInput(e.target.value)}
+                    placeholder="Mensagem para os bastidores..."
+                    className="flex-1 rounded-full border border-gray-300 px-3.5 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#0066ff] focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!privateChatInput.trim()}
+                    className="p-1.5 rounded-full bg-[#0066ff] hover:bg-[#0052cc] text-white transition shrink-0"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-5 text-slate-800 text-xs min-h-0">
+                {/* TAB 1: ATIVOS DE MÍDIA / MARCA (Image 2 exact replica) */}
               {activeRightTab === "media" && (
                 <div className="space-y-5">
                   {/* Brand selector dropdown */}
@@ -1746,240 +2017,6 @@ export default function StudioPage({ params, searchParams }: Props) {
                 </div>
               )}
 
-              {/* TAB 3: COMENTÁRIOS AO VIVO (StreamYard Exact Replica) */}
-              {activeRightTab === "comments" && (() => {
-                const defaultSampleComment = {
-                  id: "sample-sy-1",
-                  senderName: "StreamYard",
-                  message:
-                    "Os comentários do público ao vivo aparecem no StreamYard. Este é um exemplo. Clique em um comentário para exibi-lo na tela.",
-                  createdAt: new Date().toISOString(),
-                };
-
-                const allComments =
-                  roomState?.chatMessages && roomState.chatMessages.length > 0
-                    ? roomState.chatMessages
-                    : [defaultSampleComment];
-
-                const displayedList =
-                  commentsSubTab === "starred"
-                    ? allComments.filter((c: any) => starredCommentIds.includes(c.id))
-                    : allComments;
-
-                return (
-                  <div className="flex flex-col h-full space-y-3">
-                    {/* Top Switch: Mostrar comentários no palco */}
-                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <div className="relative inline-flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={showCommentsOnStage}
-                            onChange={(e) => setShowCommentsOnStage(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0066ff]"></div>
-                        </div>
-                        <span className="text-[11px] font-semibold text-slate-700">
-                          Mostrar comentários no palco
-                        </span>
-                      </label>
-                      <div className="flex items-center gap-1.5 text-gray-400">
-                        <span title="Ao selecionar um comentário, ele é exibido em destaque no palco">
-                          <HelpCircle className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
-                        </span>
-                        <Sliders className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
-                      </div>
-                    </div>
-
-                    {/* Sub-tabs: Ao vivo / Favoritos (X) */}
-                    {starredCommentIds.length > 0 && (
-                      <div className="flex items-center gap-4 border-b border-gray-200 text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => setCommentsSubTab("live")}
-                          className={`pb-2 transition relative ${
-                            commentsSubTab === "live"
-                              ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
-                              : "text-gray-500 hover:text-slate-800"
-                          }`}
-                        >
-                          Ao vivo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCommentsSubTab("starred")}
-                          className={`pb-2 transition relative ${
-                            commentsSubTab === "starred"
-                              ? "text-[#0066ff] font-bold border-b-2 border-[#0066ff]"
-                              : "text-gray-500 hover:text-slate-800"
-                          }`}
-                        >
-                          Favorito ({starredCommentIds.length})
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Comments List */}
-                    <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[55vh] pr-1">
-                      {displayedList.length > 0 ? (
-                        displayedList.map((msg: any) => {
-                          const isSelected = displayedComment?.id === msg.id && showCommentsOnStage;
-                          const isStarred = starredCommentIds.includes(msg.id);
-                          const isHovered = hoveredCommentId === msg.id;
-
-                          return (
-                            <div
-                              key={msg.id}
-                              onMouseEnter={() => setHoveredCommentId(msg.id)}
-                              onMouseLeave={() => setHoveredCommentId(null)}
-                              onClick={() => {
-                                if (isSelected) {
-                                  setDisplayedComment(null);
-                                } else {
-                                  setDisplayedComment({
-                                    id: msg.id,
-                                    senderName: msg.senderName,
-                                    message: msg.message,
-                                  });
-                                }
-                              }}
-                              className={`relative p-3 rounded-xl cursor-pointer transition-all duration-150 select-none group ${
-                                isSelected
-                                  ? "bg-[#0066ff] text-white shadow-sm"
-                                  : "bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800"
-                              }`}
-                            >
-                              {/* Card Content (dims when hovered) */}
-                              <div
-                                className={`transition-opacity ${
-                                  isHovered ? "opacity-25" : "opacity-100"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={`h-6 w-6 rounded-md flex items-center justify-center font-black text-[10px] shrink-0 ${
-                                      isSelected
-                                        ? "bg-white text-[#0066ff]"
-                                        : "bg-[#0066ff] text-white"
-                                    }`}
-                                  >
-                                    {msg.senderName.slice(0, 1).toUpperCase()}
-                                  </div>
-                                  <span className="font-bold text-xs truncate max-w-[170px]">
-                                    {msg.senderName}
-                                  </span>
-                                </div>
-                                <p
-                                  className={`text-xs mt-1.5 leading-relaxed ${
-                                    isSelected ? "text-white" : "text-slate-600"
-                                  }`}
-                                >
-                                  {msg.message}
-                                </p>
-                              </div>
-
-                              {/* Star icon top-right */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setStarredCommentIds((prev) =>
-                                    prev.includes(msg.id)
-                                      ? prev.filter((id) => id !== msg.id)
-                                      : [...prev, msg.id]
-                                  );
-                                }}
-                                className={`absolute top-2.5 right-2.5 p-1 rounded-md transition ${
-                                  isHovered || isStarred
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100"
-                                }`}
-                                title={
-                                  isStarred
-                                    ? "Remover dos favoritos"
-                                    : "Favoritar comentário"
-                                }
-                              >
-                                <Star
-                                  className={`h-4 w-4 ${
-                                    isStarred
-                                      ? isSelected
-                                        ? "fill-white text-white"
-                                        : "fill-[#0066ff] text-[#0066ff]"
-                                      : isSelected
-                                      ? "text-white/80 hover:text-white"
-                                      : "text-gray-400 hover:text-gray-600"
-                                  }`}
-                                />
-                              </button>
-
-                              {/* Centered Hover Overlay: + Exibir / - Ocultar */}
-                              {isHovered && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                  <div
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition transform active:scale-95 pointer-events-auto ${
-                                      isSelected
-                                        ? "bg-white text-slate-900 hover:bg-gray-100"
-                                        : "bg-white text-slate-900 hover:bg-gray-50 border border-gray-200"
-                                    }`}
-                                  >
-                                    {isSelected ? (
-                                      <>
-                                        <MinusCircle className="h-4 w-4 text-red-600" />
-                                        <span>Ocultar</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <PlusCircle className="h-4 w-4 text-[#0066ff]" />
-                                        <span>Exibir</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center py-8 text-gray-400">
-                          <Star className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Nenhum comentário favoritado ainda.</p>
-                          <p className="text-[10px] mt-1">
-                            Clique na estrela de qualquer comentário para favoritá-lo.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom: Publicar um comentário */}
-                    <form
-                      onSubmit={handleSendChatMessage}
-                      className="flex items-center gap-2 pt-2 border-t border-gray-200"
-                    >
-                      <div className="h-7 w-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {userRole === "host" ? "EN" : "CO"}
-                      </div>
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Publicar um comentário"
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#0066ff] focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!chatInput.trim()}
-                        className="p-1.5 rounded-lg text-[#0066ff] hover:bg-blue-50 disabled:opacity-30 transition"
-                        title="Publicar comentário"
-                      >
-                        <Send className="h-4 w-4" />
-                      </button>
-                    </form>
-                  </div>
-                );
-              })()}
-
               {/* TAB 4: WIDGETS & LIVE CTA */}
               {activeRightTab === "widgets" && (
                 <div className="space-y-4">
@@ -2114,40 +2151,8 @@ export default function StudioPage({ params, searchParams }: Props) {
                   </div>
                 </div>
               )}
-
-              {/* TAB 6: CHAT PRIVADO */}
-              {activeRightTab === "private_chat" && (
-                <div className="flex flex-col h-full space-y-3">
-                  <div className="flex-1 overflow-y-auto space-y-2 max-h-[55vh] pr-1">
-                    {privateMessages.map((msg, i) => (
-                      <div key={i} className="p-2 rounded-xl bg-gray-100 text-xs space-y-0.5">
-                        <div className="flex items-center justify-between text-[10px] text-gray-500 font-semibold">
-                          <span>{msg.sender}</span>
-                          <span>{msg.time}</span>
-                        </div>
-                        <p className="text-slate-800">{msg.text}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <form onSubmit={handleSendPrivateChat} className="flex gap-1.5 pt-2 border-t border-gray-200">
-                    <input
-                      type="text"
-                      value={privateChatInput}
-                      onChange={(e) => setPrivateChatInput(e.target.value)}
-                      placeholder="Mensagem para os bastidores..."
-                      className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#0066ff] focus:outline-none"
-                    />
-                    <button
-                      type="submit"
-                      className="p-2 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white transition"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </aside>
         )}
 
