@@ -110,6 +110,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     lowerThird: { visible: boolean; name: string; role: string; company: string };
     ticker: { visible: boolean; text: string };
     banner: { visible: boolean; title: string; subtitle: string };
+    displayedComment?: { id: string; senderName: string; message: string } | null;
   }
   const [overlayState, setOverlayState] = useState<OverlayState | null>(null);
   // Ticker animation offset
@@ -823,6 +824,21 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       <span className="animate-ticker-marquee text-xs font-semibold text-slate-200">
                         {overlayState.ticker.text}
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Displayed Comment Banner (StreamYard Highlight) */}
+                {overlayState?.displayedComment && (
+                  <div className="absolute bottom-6 left-6 z-30 max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
+                    <div className="inline-flex items-center gap-2 bg-[#004bb5] text-white px-3.5 py-1.5 rounded-t-xl font-bold text-xs shadow-md">
+                      <div className="h-5 w-5 rounded bg-white text-[#004bb5] flex items-center justify-center text-[10px] font-black">
+                        {overlayState.displayedComment.senderName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <span>{overlayState.displayedComment.senderName}</span>
+                    </div>
+                    <div className="bg-white text-slate-900 px-5 py-3.5 rounded-b-2xl rounded-tr-2xl shadow-2xl border border-gray-100 text-xs sm:text-sm font-medium leading-relaxed">
+                      {overlayState.displayedComment.message}
                     </div>
                   </div>
                 )}
