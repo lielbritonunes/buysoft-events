@@ -111,6 +111,11 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     ticker: { visible: boolean; text: string };
     banner: { visible: boolean; title: string; subtitle: string };
     displayedComment?: { id: string; senderName: string; message: string } | null;
+    showCommentsOnStage?: boolean;
+    chatOverlaySettings?: {
+      size: "normal" | "tall" | "wide";
+      fontSize: "small" | "medium" | "large";
+    };
   }
   const [overlayState, setOverlayState] = useState<OverlayState | null>(null);
   // Ticker animation offset
@@ -839,6 +844,93 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     </div>
                     <div className="bg-white text-slate-900 px-5 py-3.5 rounded-b-2xl rounded-tr-2xl shadow-2xl border border-gray-100 text-xs sm:text-sm font-medium leading-relaxed">
                       {overlayState.displayedComment.message}
+                    </div>
+                  </div>
+                )}
+
+                {/* Chat Overlay Widget on Stage (Audience Spectator View) */}
+                {overlayState?.showCommentsOnStage && (
+                  <div
+                    className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-25 pointer-events-none transition-all duration-300 ${
+                      overlayState.chatOverlaySettings?.size === "tall"
+                        ? "w-64 sm:w-72 max-h-64 sm:max-h-80"
+                        : overlayState.chatOverlaySettings?.size === "wide"
+                        ? "w-80 sm:w-96 max-h-44 sm:max-h-52"
+                        : "w-64 sm:w-72 max-h-44 sm:max-h-52"
+                    }`}
+                  >
+                    <div className="bg-black/50 backdrop-blur-md border border-white/15 rounded-2xl p-3 shadow-2xl flex flex-col justify-end gap-2.5 overflow-hidden">
+                      {(() => {
+                        const count = overlayState.chatOverlaySettings?.size === "tall" ? 6 : 4;
+                        const messagesToDisplay = (roomState?.chatMessages || []).slice(-count);
+
+                        const fontSize = overlayState.chatOverlaySettings?.fontSize || "small";
+                        const authorSize =
+                          fontSize === "large"
+                            ? "text-sm"
+                            : fontSize === "medium"
+                            ? "text-xs"
+                            : "text-[11px]";
+                        const msgSize =
+                          fontSize === "large"
+                            ? "text-sm"
+                            : fontSize === "medium"
+                            ? "text-xs"
+                            : "text-[11px]";
+                        const timeSize =
+                          fontSize === "large"
+                            ? "text-[10px]"
+                            : fontSize === "medium"
+                            ? "text-[9px]"
+                            : "text-[8px]";
+                        const avatarSize =
+                          fontSize === "large"
+                            ? "h-7 w-7 text-xs"
+                            : fontSize === "medium"
+                            ? "h-6 w-6 text-[10px]"
+                            : "h-5 w-5 text-[9px]";
+
+                        if (messagesToDisplay.length === 0) return null;
+
+                        return messagesToDisplay.map((c: any) => {
+                          const timeStr = (() => {
+                            try {
+                              const d = new Date(c.createdAt || Date.now());
+                              return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                            } catch (_) {
+                              return "";
+                            }
+                          })();
+
+                          return (
+                            <div
+                              key={c.id}
+                              className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            >
+                              <div
+                                className={`rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
+                              >
+                                {c.senderName ? c.senderName.slice(0, 1).toUpperCase() : "U"}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className={`font-bold text-white tracking-tight truncate ${authorSize}`}>
+                                    {c.senderName}
+                                  </span>
+                                  {timeStr && (
+                                    <span className={`text-white/60 font-medium shrink-0 ${timeSize}`}>
+                                      {timeStr}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-white/95 font-medium leading-relaxed break-words ${msgSize}`}>
+                                  {c.message}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 )}

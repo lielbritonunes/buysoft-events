@@ -172,6 +172,10 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [starredCommentIds, setStarredCommentIds] = useState<string[]>([]);
   const [commentsSubTab, setCommentsSubTab] = useState<"live" | "starred">("live");
   const [showCommentsOnStage, setShowCommentsOnStage] = useState(true);
+  const [showChatOverlayConfig, setShowChatOverlayConfig] = useState(false);
+  const [chatOverlaySize, setChatOverlaySize] = useState<"normal" | "tall" | "wide">("normal");
+  const [chatOverlayFontSize, setChatOverlayFontSize] = useState<"small" | "medium" | "large">("small");
+  const [showChatOverlayHelp, setShowChatOverlayHelp] = useState(false);
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
 
   const [privateChatInput, setPrivateChatInput] = useState("");
@@ -403,6 +407,11 @@ export default function StudioPage({ params, searchParams }: Props) {
         ticker: { visible: tickerVisible, text: tickerText },
         banner: { visible: bannerVisible, title: bannerTitle, subtitle: bannerSubtitle },
         displayedComment: displayedComment && showCommentsOnStage ? displayedComment : null,
+        showCommentsOnStage,
+        chatOverlaySettings: {
+          size: chatOverlaySize,
+          fontSize: chatOverlayFontSize,
+        },
       });
       room.localParticipant.publishData(
         new TextEncoder().encode(payload),
@@ -431,6 +440,8 @@ export default function StudioPage({ params, searchParams }: Props) {
     bannerSubtitle,
     displayedComment,
     showCommentsOnStage,
+    chatOverlaySize,
+    chatOverlayFontSize,
   ]);
 
   // Re-broadcast overlay state whenever any layout property changes
@@ -1041,6 +1052,101 @@ export default function StudioPage({ params, searchParams }: Props) {
                 </div>
               )}
 
+              {/* Chat Overlay Widget on Stage (StreamYard exact replica: live comments streaming on stage) */}
+              {showCommentsOnStage && (
+                <div
+                  className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-25 pointer-events-none transition-all duration-300 ${
+                    chatOverlaySize === "tall"
+                      ? "w-64 sm:w-72 max-h-64 sm:max-h-80"
+                      : chatOverlaySize === "wide"
+                      ? "w-80 sm:w-96 max-h-44 sm:max-h-52"
+                      : "w-64 sm:w-72 max-h-44 sm:max-h-52"
+                  }`}
+                >
+                  <div className="bg-black/50 backdrop-blur-md border border-white/15 rounded-2xl p-3 shadow-2xl flex flex-col justify-end gap-2.5 overflow-hidden">
+                    {(() => {
+                      const count = chatOverlaySize === "tall" ? 6 : 4;
+                      const rawList =
+                        roomState?.chatMessages && roomState.chatMessages.length > 0
+                          ? roomState.chatMessages
+                          : [
+                              {
+                                id: "sample-widget-1",
+                                senderName: "Buysoft Events",
+                                message: "Os comentários ao vivo aparecem aqui no palco.",
+                                createdAt: new Date().toISOString(),
+                              },
+                            ];
+                      const messagesToDisplay = rawList.slice(-count);
+
+                      const authorSize =
+                        chatOverlayFontSize === "large"
+                          ? "text-sm"
+                          : chatOverlayFontSize === "medium"
+                          ? "text-xs"
+                          : "text-[11px]";
+                      const msgSize =
+                        chatOverlayFontSize === "large"
+                          ? "text-sm"
+                          : chatOverlayFontSize === "medium"
+                          ? "text-xs"
+                          : "text-[11px]";
+                      const timeSize =
+                        chatOverlayFontSize === "large"
+                          ? "text-[10px]"
+                          : chatOverlayFontSize === "medium"
+                          ? "text-[9px]"
+                          : "text-[8px]";
+                      const avatarSize =
+                        chatOverlayFontSize === "large"
+                          ? "h-7 w-7 text-xs"
+                          : chatOverlayFontSize === "medium"
+                          ? "h-6 w-6 text-[10px]"
+                          : "h-5 w-5 text-[9px]";
+
+                      return messagesToDisplay.map((c: any) => {
+                        const timeStr = (() => {
+                          try {
+                            const d = new Date(c.createdAt || Date.now());
+                            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                          } catch (_) {
+                            return "";
+                          }
+                        })();
+
+                        return (
+                          <div
+                            key={c.id}
+                            className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                          >
+                            <div
+                              className={`rounded-full bg-[#0066ff] text-white font-bold flex items-center justify-center shrink-0 shadow-xs ${avatarSize}`}
+                            >
+                              {c.senderName ? c.senderName.slice(0, 1).toUpperCase() : "U"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className={`font-bold text-white tracking-tight truncate ${authorSize}`}>
+                                  {c.senderName}
+                                </span>
+                                {timeStr && (
+                                  <span className={`text-white/60 font-medium shrink-0 ${timeSize}`}>
+                                    {timeStr}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-white/95 font-medium leading-relaxed break-words ${msgSize}`}>
+                                {c.message}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Backstage Overlay for presenter if off stage */}
               {!isOnStage && (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-center z-40">
@@ -1450,12 +1556,141 @@ export default function StudioPage({ params, searchParams }: Props) {
                             </span>
                           </label>
                           <div className="flex items-center gap-1.5 text-gray-400">
-                            <span title="Ao selecionar um comentário, ele é exibido em destaque no palco">
-                              <HelpCircle className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
-                            </span>
-                            <Sliders className="h-3.5 w-3.5 hover:text-gray-600 cursor-pointer" />
+                            {/* Help with tooltip (Image 3 exact replica) */}
+                            <div className="relative inline-flex items-center">
+                              <button
+                                type="button"
+                                onMouseEnter={() => setShowChatOverlayHelp(true)}
+                                onMouseLeave={() => setShowChatOverlayHelp(false)}
+                                onClick={() => setShowChatOverlayHelp(!showChatOverlayHelp)}
+                                className="p-0.5 text-[#0066ff] hover:text-blue-700 transition"
+                                aria-label="Ajuda sobre Chat Overlay"
+                              >
+                                <HelpCircle className="h-4 w-4" />
+                              </button>
+                              {showChatOverlayHelp && (
+                                <div className="absolute right-0 top-full mt-2 w-64 p-3.5 bg-[#1a1f2c] text-white rounded-xl shadow-2xl z-50 text-xs leading-relaxed pointer-events-none animate-in fade-in zoom-in-95 duration-150 border border-slate-700/60">
+                                  <div className="absolute -top-1.5 right-2 w-3 h-3 bg-[#1a1f2c] border-t border-l border-slate-700/60 rotate-45" />
+                                  <p className="relative z-10 text-white font-normal text-xs leading-relaxed">
+                                    O Chat Overlay permite que você exiba comentários ao vivo diretamente na sua transmissão.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Adjustments button (Image 2 exact replica) */}
+                            <button
+                              type="button"
+                              onClick={() => setShowChatOverlayConfig(!showChatOverlayConfig)}
+                              className={`p-1 rounded-md transition flex items-center gap-0.5 ${
+                                showChatOverlayConfig
+                                  ? "text-[#0066ff] bg-blue-50"
+                                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                              }`}
+                              title="Configurações do Chat Overlay"
+                            >
+                              <Sliders className="h-3.5 w-3.5" />
+                              {showChatOverlayConfig && (
+                                <ChevronUp className="h-3 w-3" />
+                              )}
+                            </button>
                           </div>
                         </div>
+
+                        {/* Adjustments Panel (Image 2 exact replica: Tamanho & Fonte) */}
+                        {showChatOverlayConfig && (
+                          <div className="pt-2.5 pb-1 space-y-2.5 border-t border-gray-100 animate-in fade-in slide-in-from-top-1 duration-150">
+                            {/* Tamanho */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-gray-600 w-14 shrink-0">
+                                Tamanho
+                              </span>
+                              <div className="grid grid-cols-3 gap-1.5 flex-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlaySize("normal")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlaySize === "normal"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="inline-block w-2.5 h-2.5 border border-current rounded-xs shrink-0" />
+                                  <span>NORMAL</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlaySize("tall")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlaySize === "tall"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="inline-block w-2 h-3 border border-current rounded-xs shrink-0" />
+                                  <span>ALTO</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlaySize("wide")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlaySize === "wide"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="inline-block w-3.5 h-2 border border-current rounded-xs shrink-0" />
+                                  <span>LARGO</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Fonte */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-gray-600 w-14 shrink-0">
+                                Fonte
+                              </span>
+                              <div className="grid grid-cols-3 gap-1.5 flex-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlayFontSize("small")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlayFontSize === "small"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="font-bold text-[10px] leading-none shrink-0">A</span>
+                                  <span>PEQUENA</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlayFontSize("medium")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlayFontSize === "medium"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="font-bold text-xs leading-none shrink-0">A</span>
+                                  <span>MÉDIA</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setChatOverlayFontSize("large")}
+                                  className={`flex items-center justify-center gap-1.5 py-1 px-1.5 rounded-md text-[10px] font-bold border transition ${
+                                    chatOverlayFontSize === "large"
+                                      ? "border-[#0066ff] bg-[#f0f6ff] text-[#0066ff]"
+                                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                                  }`}
+                                >
+                                  <span className="font-black text-sm leading-none shrink-0">A</span>
+                                  <span>GRANDE</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {starredCommentIds.length > 0 && (
                           <div className="flex items-center gap-4 pt-1 border-t border-gray-100 text-xs font-semibold">
