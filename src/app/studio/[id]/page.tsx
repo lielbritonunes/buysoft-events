@@ -407,7 +407,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         },
         ticker: { visible: tickerVisible, text: tickerText },
         banner: { visible: bannerVisible, title: bannerTitle, subtitle: bannerSubtitle },
-        displayedComment: displayedComment && showCommentsOnStage ? displayedComment : null,
+        displayedComment: displayedComment || null,
         showCommentsOnStage,
         chatOverlaySettings: {
           size: chatOverlaySize,
@@ -1039,7 +1039,7 @@ export default function StudioPage({ params, searchParams }: Props) {
               />
 
               {/* StreamYard On-Stage Displayed Comment Banner */}
-              {displayedComment && showCommentsOnStage && (
+              {displayedComment && (
                 <div className="absolute bottom-6 left-6 z-30 max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
                   <div className="inline-flex items-center gap-2 bg-[#004bb5] text-white px-3.5 py-1.5 rounded-t-xl font-bold text-xs shadow-md">
                     <div className="h-5 w-5 rounded bg-white text-[#004bb5] flex items-center justify-center text-[10px] font-black">
@@ -1728,7 +1728,7 @@ export default function StudioPage({ params, searchParams }: Props) {
                       <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-0">
                         {displayedList.length > 0 ? (
                           displayedList.map((msg: any) => {
-                            const isSelected = displayedComment?.id === msg.id && showCommentsOnStage;
+                            const isSelected = displayedComment?.id === msg.id;
                             const isStarred = starredCommentIds.includes(msg.id);
                             const isHovered = hoveredCommentId === msg.id;
 

@@ -33,9 +33,9 @@ import {
   User,
   X,
   Send,
+  Smile,
 } from "lucide-react";
 import LiveCtaBanner from "@/components/engagement/LiveCtaBanner";
-import FloatingReactions from "@/components/engagement/FloatingReactions";
 import { getLiveRoomState, sendChatMessage } from "@/lib/dbActions";
 import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
@@ -120,6 +120,47 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     hasCamera: false,
   });
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Dedicated Video Stage Ref for Fullscreen (so only video goes fullscreen)
+  const videoStageRef = useRef<HTMLDivElement>(null);
+
+  // Floating reactions state and emoji picker
+  interface FloatingReaction {
+    id: number;
+    emoji: string;
+    left: number;
+    duration: number;
+  }
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const triggerFloatingReaction = (emoji: string) => {
+    const id = Date.now() + Math.random();
+    const left = 25 + Math.random() * 55;
+    const duration = 2.2 + Math.random() * 0.6;
+    setFloatingReactions((prev) => [...prev.slice(-30), { id, emoji, left, duration }]);
+    setTimeout(() => {
+      setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
+    }, 2600);
+  };
+
+  const handleSendReaction = (emoji: string) => {
+    triggerFloatingReaction(emoji);
+    if (livekitRoomRef.current?.localParticipant) {
+      try {
+        const payload = JSON.stringify({
+          type: "reaction",
+          emoji,
+          timestamp: Date.now(),
+        });
+        livekitRoomRef.current.localParticipant.publishData(
+          new TextEncoder().encode(payload),
+          { reliable: false }
+        );
+      } catch (err) {
+        console.warn("Failed to publish reaction to LiveKit:", err);
+      }
+    }
+  };
 
   // Video & audio player state
   const [isMuted, setIsMuted] = useState(true); // Default to muted for guaranteed autoplay without browser blocking
@@ -128,10 +169,6 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
   const [soundTested, setSoundTested] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState<"chat" | "qa" | "polls">("chat");
   const [copiedLink, setCopiedLink] = useState(false);
-
-
-
-  // LiveKit Cloud Subscriber for Attendee
   const livekitRoomRef = useRef<Room | null>(null);
   const [hasLiveKitTracks, setHasLiveKitTracks] = useState(false);
 
@@ -257,12 +294,14 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           }
         });
 
-        // Receive overlay state from host via DataChannel
+        // Receive overlay state and real-time floating reactions from DataChannel
         room.on(RoomEvent.DataReceived, (data: Uint8Array) => {
           try {
             const msg = JSON.parse(new TextDecoder().decode(data));
             if (msg.type === "overlay") {
               setOverlayState(msg as OverlayState);
+            } else if (msg.type === "reaction" && msg.emoji) {
+              triggerFloatingReaction(msg.emoji);
             }
           } catch (_) {}
         });
@@ -453,15 +492,25 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
     setIsEditingName(false);
   };
 
-  // Fullscreen toggle
+  // Fullscreen toggle (Targets strictly the 16:9 video stage element)
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
+    const el = videoStageRef.current || containerRef.current;
+    if (!el) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
   };
+
+  // Sync fullscreen state with ESC / browser events
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   // Play audio test sound using Web Audio API
   const playSoundCheck = () => {
@@ -557,16 +606,24 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
             )}
 
             {/* Video / Stage Area (16:9 Aspect Ratio) */}
-            <div className="relative w-full aspect-video rounded-xl bg-black border border-gray-200 overflow-hidden shadow-xl flex items-center justify-center">
+            <div
+              ref={videoStageRef}
+              className={`relative w-full bg-black overflow-hidden flex items-center justify-center transition-all ${
+                isFullscreen
+                  ? "h-full rounded-none border-none shadow-none"
+                  : "aspect-video rounded-xl border border-gray-200 shadow-xl"
+              }`}
+            >
             {isLive ? (
               /* LIVE STAGE SCREEN WITH DUAL TRACKS (CAMERA + SCREEN) & HTML OVERLAYS */
               <div
                 className="relative h-full w-full flex items-center justify-center bg-black cursor-pointer select-none overflow-hidden"
                 onClick={() => {
                   if (isMuted) handleUnmute();
+                  if (showEmojiPicker) setShowEmojiPicker(false);
                 }}
               >
-                {/* Embedded CSS animations for ticker marquee and smooth transitions */}
+                {/* Embedded CSS animations for ticker marquee, reactions, and smooth transitions */}
                 <style dangerouslySetInnerHTML={{ __html: `
                   @keyframes tickerMarquee {
                     0% { transform: translate3d(100%, 0, 0); }
@@ -577,6 +634,24 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     white-space: nowrap;
                     animation: tickerMarquee 25s linear infinite;
                     will-change: transform;
+                  }
+                  @keyframes reactionFloatUp {
+                    0% {
+                      opacity: 0;
+                      transform: translateY(10px) scale(0.6) rotate(0deg);
+                    }
+                    15% {
+                      opacity: 1;
+                      transform: translateY(-30px) scale(1.25) rotate(-6deg);
+                    }
+                    65% {
+                      opacity: 0.95;
+                      transform: translateY(-180px) scale(1.1) rotate(8deg);
+                    }
+                    100% {
+                      opacity: 0;
+                      transform: translateY(-340px) scale(0.85) rotate(-12deg);
+                    }
                   }
                 `}} />
 
@@ -659,15 +734,15 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     <div className={`relative w-full h-full flex items-center justify-center transition-all duration-300 ${currentBg.className}`} style={backgroundStyle}>
                       {/* Mode 1: SPLIT LAYOUT (Screen Share + Presenter Sidebar) */}
                       {layoutMode === "split" && isScreenActive ? (
-                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center gap-3 sm:gap-4 transition-all duration-300">
-                          {/* Main Screen Share Tile */}
-                          <div className="relative flex-1 w-full h-full min-h-0 rounded-2xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                        <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300">
+                          {/* Main Screen Share Tile (strictly 16:9, no vertical letterbox) */}
+                          <div className="relative flex-1 aspect-video max-h-full max-w-full rounded-2xl border border-slate-800/80 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
                             <video
                               ref={screenVideoRef}
                               autoPlay
                               playsInline
                               muted
-                              className="h-full w-full object-contain pointer-events-none"
+                              className="h-full w-full object-contain aspect-video pointer-events-none"
                             />
                             <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                               <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
@@ -677,14 +752,14 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
                           {/* Presenter Sidebar */}
                           {isPresenterOnStage && (
-                            <div className="relative w-full lg:w-72 h-48 lg:h-full flex flex-col justify-center shrink-0">
-                              <div className="relative h-48 lg:h-56 w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+                            <div className="relative w-full lg:w-64 xl:w-72 aspect-video lg:aspect-auto max-h-full flex flex-col justify-center shrink-0">
+                              <div className="relative aspect-video w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
                                 <video
                                   ref={cameraVideoRef}
                                   autoPlay
                                   playsInline
                                   muted
-                                  className={`h-full w-full object-cover pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
+                                  className={`h-full w-full object-cover aspect-video pointer-events-none ${cameraTrack ? "block" : "hidden"}`}
                                 />
                                 {!cameraTrack && (
                                   <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
@@ -710,13 +785,13 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       ) : layoutMode === "pip" && isScreenActive ? (
                         /* Mode 2: PICTURE-IN-PICTURE (Screen Share Full + Floating Presenter) */
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300">
-                          <div className="relative h-full w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+                          <div className="relative aspect-video max-h-full max-w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
                             <video
                               ref={screenVideoRef}
                               autoPlay
                               playsInline
                               muted
-                              className="h-full w-full object-contain pointer-events-none"
+                              className="h-full w-full object-contain aspect-video pointer-events-none"
                             />
                             <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10 pointer-events-none">
                               <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
@@ -921,7 +996,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 )}
 
                 {/* Chat Overlay Widget on Stage (Audience Spectator View) */}
-                {(overlayState?.showCommentsOnStage ?? true) && (
+                {Boolean(overlayState?.showCommentsOnStage) && (
                   <div
                     className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-25 pointer-events-none transition-all duration-300 ${
                       overlayState?.chatOverlaySettings?.size === "tall"
@@ -1010,18 +1085,6 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   </div>
                 )}
 
-                {/* Direct Stream Watermark Overlay */}
-                <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
-                  <span className="flex items-center gap-1.5 rounded-lg bg-[#00b4fb] backdrop-blur-md px-2.5 py-1 text-xs font-bold text-white shadow-lg">
-                    <Zap className="h-3 w-3 fill-current" />
-                    TRANSMISSÃO DIRETA
-                  </span>
-                  <span className="rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700 flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>&lt;200ms Hardware Sync</span>
-                  </span>
-                </div>
-
                 {/* Floating Unmute Prompt if audio is muted */}
                 {(hasLiveKitTracks || cameraTrack || screenTrack || remoteStream) && isMuted && (
                   <button
@@ -1029,16 +1092,28 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       e.stopPropagation();
                       handleUnmute();
                     }}
-                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-[#00b4fb] hover:from-sky-400 hover:to-[#00a3e3] px-6 py-3 text-xs font-black text-white shadow-2xl shadow-sky-500/50 backdrop-blur-md transition transform hover:scale-105 active:scale-95 animate-bounce border border-white/20"
+                    className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-[#00b4fb] hover:from-sky-400 hover:to-[#00a3e3] px-6 py-3 text-xs font-black text-white shadow-2xl shadow-sky-500/50 backdrop-blur-md transition transform hover:scale-105 active:scale-95 animate-bounce border border-white/20 cursor-pointer"
                   >
                     <Volume2 className="h-4 w-4 fill-current" />
                     <span>Clique para Ativar Som 🔊</span>
                   </button>
                 )}
 
-                {/* Floating Reactions overlay */}
-                <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
-                  <FloatingReactions />
+                {/* Floating Reactions Particles (Broadcasted to all participants) */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
+                  {floatingReactions.map((r) => (
+                    <span
+                      key={r.id}
+                      className="absolute text-3xl sm:text-4xl select-none will-change-transform pointer-events-none"
+                      style={{
+                        left: `${r.left}%`,
+                        bottom: "10%",
+                        animation: `reactionFloatUp ${r.duration}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
+                      }}
+                    >
+                      {r.emoji}
+                    </span>
+                  ))}
                 </div>
               </div>
             ) : isCompleted ? (
@@ -1177,7 +1252,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                     }
                   }
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition cursor-pointer"
                 title={isMuted ? "Ativar som" : "Silenciar áudio"}
               >
                 {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4" />}
@@ -1185,7 +1260,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
               <button
                 onClick={() => setIsTheater(!isTheater)}
-                className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition"
+                className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition cursor-pointer"
                 title="Modo Teatro"
               >
                 <span>{isTheater ? "Normal" : "Teatro"}</span>
@@ -1193,12 +1268,55 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
               <button
                 onClick={toggleFullscreen}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900/80 backdrop-blur-md text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 transition cursor-pointer"
                 title="Tela Cheia"
               >
                 {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </button>
             </div>
+
+            {/* Minimized Emoji Reaction Trigger & Expandable Popover (Right) */}
+            {isLive && (
+              <div className="absolute bottom-3 right-3 z-30 flex items-center">
+                <div className="relative">
+                  {showEmojiPicker && (
+                    <div
+                      className="absolute bottom-full right-0 mb-2 p-2 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 shadow-2xl flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150 z-50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {["👏", "❤️", "🔥", "🎉", "💡", "🚀", "👍", "😂"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => handleSendReaction(emoji)}
+                          className="h-9 w-9 flex items-center justify-center rounded-xl text-xl hover:bg-white/15 active:scale-90 transition transform hover:scale-125 cursor-pointer select-none"
+                          title={`Reagir com ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEmojiPicker(!showEmojiPicker);
+                    }}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all shadow-lg backdrop-blur-md cursor-pointer select-none ${
+                      showEmojiPicker
+                        ? "bg-[#00b4fb] text-white border border-[#00b4fb] shadow-sky-500/30"
+                        : "bg-slate-900/85 text-slate-200 border border-slate-700 hover:bg-slate-800 hover:text-white"
+                    }`}
+                    title="Reações Rápidas"
+                  >
+                    <Smile className="h-4 w-4 text-amber-300" />
+                    <span className="hidden sm:inline">Reagir</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Video Footer Info (StreamYard Spectator Style) */}

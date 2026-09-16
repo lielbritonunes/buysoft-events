@@ -133,15 +133,15 @@ export default function StudioLayoutManager({
   if (layoutMode === "split" && screenShare) {
     return (
       <div
-        className={`relative h-full w-full rounded-2xl overflow-hidden p-4 flex flex-col lg:flex-row items-center gap-4 transition-all duration-300 ${currentBg.className}`}
+        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300 ${currentBg.className}`}
         style={backgroundStyle}
       >
-        {/* Main Content (Screen Share) */}
-        <div className="relative flex-1 h-full rounded-2xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+        {/* Main Content (Screen Share - strictly 16:9 aspect ratio, no vertical letterbox) */}
+        <div className="relative flex-1 aspect-video max-h-full max-w-full rounded-2xl border border-slate-800/80 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
           <VideoStreamTile
             videoRef={screenShare.videoRef}
             stream={screenShare.stream}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain aspect-video"
           />
           <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
             <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
@@ -150,13 +150,13 @@ export default function StudioLayoutManager({
         </div>
 
         {/* Presenter Sidebar */}
-        <div className="relative w-full lg:w-72 h-48 lg:h-full flex flex-col justify-center">
-          <div className="relative h-48 lg:h-56 w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
+        <div className="relative w-full lg:w-64 xl:w-72 aspect-video lg:aspect-auto max-h-full flex flex-col justify-center shrink-0">
+          <div className="relative aspect-video w-full rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center">
             <VideoStreamTile
               videoRef={presenter.videoRef}
               stream={presenter.stream}
               muted={true}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover aspect-video"
             />
             <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-bold text-white flex items-center gap-1 backdrop-blur-xs border border-white/10">
               <span>{presenter.name}</span>
@@ -179,12 +179,12 @@ export default function StudioLayoutManager({
         className={`relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300 ${currentBg.className}`}
         style={backgroundStyle}
       >
-        {/* Main Content */}
-        <div className="relative h-full w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
+        {/* Main Content (Strict 16:9 Screen Share, no black bars) */}
+        <div className="relative aspect-video max-h-full max-w-full rounded-xl border border-slate-800 bg-black overflow-hidden shadow-2xl flex items-center justify-center">
           <VideoStreamTile
             videoRef={screenShare.videoRef}
             stream={screenShare.stream}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain aspect-video"
           />
           <div className="absolute top-3 left-3 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-bold text-white flex items-center gap-1.5 backdrop-blur-xs border border-white/10">
             <Monitor className="h-3.5 w-3.5 text-[#00b4fb]" />
