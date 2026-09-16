@@ -53,5 +53,6 @@ updated: 2026-07-18
       - Eliminação de Dupla Codificação: P2P broadcaster totalmente parado (`stop()`) quando LiveKit Cloud está ativo, liberando 100% de CPU/GPU.
       - Buffer Mínimo de Jitter: `playoutDelayHint = 0.05` (50ms) e `jitterBufferTarget = 50` — absorve micro-variações de rede sem delay perceptível (vs. zero buffer anterior que causava micro-congelamentos).
       - Heartbeat de segundo plano a 30 FPS contínuos sem desvio de clock via visibilitychange handler.
+      - [Correção de Transição de Layouts]: Substituição de refs estáticas por componente auto-gerenciado `LiveTrackVideo` no `/live/[id]`, garantindo que câmera, tela compartilhada e microfone mantenham attach/playback ativo ao alternar entre Solo, Split, PiP e Grid. Suporte a áudio de tela compartilhada (`screen-audio`) e fallback visual de avatar quando câmera for desligada.
   - Próxima etapa: Refinamentos contínuos de UX, customizações adicionais do editor e homologação geral.
 
