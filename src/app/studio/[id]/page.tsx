@@ -124,8 +124,26 @@ export default function StudioPage({ params, searchParams }: Props) {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("solo");
   const [backgroundPresetId, setBackgroundPresetId] = useState<string>("streamyard-wave");
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string>("");
-  const [uploadedBackgrounds, setUploadedBackgrounds] = useState<string[]>([]);
+  const [uploadedBackgrounds, setUploadedBackgrounds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`studio_custom_bgs_${eventId}`);
+        return saved ? JSON.parse(saved) : [];
+      } catch (_) {}
+    }
+    return [];
+  });
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const publishOverlayStateRef = useRef<() => void>(() => {});
+
+  // Persist custom backgrounds in localStorage for convenience
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`studio_custom_bgs_${eventId}`, JSON.stringify(uploadedBackgrounds));
+      } catch (_) {}
+    }
+  }, [uploadedBackgrounds, eventId]);
 
   // Brand & Overlays
   const [brandColor, setBrandColor] = useState<string>("#00b4fb");
@@ -430,7 +448,7 @@ export default function StudioPage({ params, searchParams }: Props) {
         }
 
         room.on(RoomEvent.ParticipantConnected, () => {
-          publishOverlayState();
+          publishOverlayStateRef.current?.();
         });
 
         livekitRoomRef.current = room;
@@ -498,11 +516,18 @@ export default function StudioPage({ params, searchParams }: Props) {
           fontSize: chatOverlayFontSize,
         },
       });
+      const encoded = new TextEncoder().encode(payload);
+      if (encoded.byteLength > 60000) {
+        console.warn("publishOverlayState payload too large for DataChannel:", encoded.byteLength);
+        return;
+      }
       room.localParticipant.publishData(
-        new TextEncoder().encode(payload),
+        encoded,
         { reliable: true }
       );
-    } catch (_) {}
+    } catch (err) {
+      console.warn("publishOverlayState error:", err);
+    }
   }, [
     isLiveKitConnected,
     layoutMode,
@@ -533,17 +558,18 @@ export default function StudioPage({ params, searchParams }: Props) {
 
   // Re-broadcast overlay state whenever any layout property changes
   useEffect(() => {
+    publishOverlayStateRef.current = publishOverlayState;
     publishOverlayState();
   }, [publishOverlayState]);
 
   // Periodic heartbeat broadcast for late spectators
   useEffect(() => {
-    if (!isLiveKitConnected || !isWebinarLive) return;
+    if (!isLiveKitConnected) return;
     const interval = setInterval(() => {
       publishOverlayState();
-    }, 2500);
+    }, 2000);
     return () => clearInterval(interval);
-  }, [isLiveKitConnected, isWebinarLive, publishOverlayState]);
+  }, [isLiveKitConnected, publishOverlayState]);
 
   // Publish/unpublish native tracks directly to LiveKit
   // High-performance hardware encoding directly bypassing canvas
@@ -930,7 +956,7 @@ export default function StudioPage({ params, searchParams }: Props) {
   };
 
   // Custom Background Upload Handlers
-  const handleUploadBackground = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadBackground = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -939,17 +965,86 @@ export default function StudioPage({ params, searchParams }: Props) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setUploadedBackgrounds((prev) => [dataUrl, ...prev.filter((u) => u !== dataUrl)]);
-        setCustomBackgroundUrl(dataUrl);
-        showToast("Plano de fundo personalizado adicionado com sucesso!");
-      }
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+
+    // Client-side downscale & compression to ensure ultra-fast upload & safe fallback
+    const compressImage = (
+      imgFile: File,
+      maxDim = 1280,
+      quality = 0.75
+    ): Promise<{ blob: Blob; dataUrl: string }> => {
+      return new Promise((resolve) => {
+        const img = new window.Image();
+        const objectUrl = URL.createObjectURL(imgFile);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+            canvas.toBlob(
+              (b) => {
+                resolve({ blob: b || imgFile, dataUrl });
+              },
+              "image/jpeg",
+              quality
+            );
+          } else {
+            resolve({ blob: imgFile, dataUrl: "" });
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve({ blob: imgFile, dataUrl: "" });
+        };
+        img.src = objectUrl;
+      });
+    };
+
+    try {
+      const { blob, dataUrl } = await compressImage(file);
+
+      // Upload compressed image to server API to obtain a lightweight URL
+      const formData = new FormData();
+      formData.append("file", blob, file.name || "background.jpg");
+
+      const res = await fetch("/api/upload-background", {
+        method: "POST",
+        body: formData,
+      });
+
+      let finalUrl = "";
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) finalUrl = data.url;
+      }
+
+      // If server upload returned a public URL, use it; otherwise fallback to lightweight dataUrl (<20KB)
+      const activeBgUrl = finalUrl || dataUrl;
+      if (activeBgUrl) {
+        setUploadedBackgrounds((prev) => [activeBgUrl, ...prev.filter((u) => u !== activeBgUrl)]);
+        setCustomBackgroundUrl(activeBgUrl);
+        showToast("Plano de fundo personalizado adicionado com sucesso!");
+      } else {
+        showToast("Erro ao processar imagem de plano de fundo.");
+      }
+    } catch (err) {
+      console.error("Erro no upload de plano de fundo:", err);
+      showToast("Falha ao adicionar plano de fundo.");
+    }
   };
 
   const handleDeleteUploadedBackground = (urlToDelete: string, e: React.MouseEvent) => {

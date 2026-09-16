@@ -176,11 +176,13 @@ export default function StudioLayoutManager({
     BACKGROUND_PRESETS.find((p) => p.id === backgroundPresetId) ||
     BACKGROUND_PRESETS[0];
 
-  const backgroundStyle: React.CSSProperties = customBackgroundUrl
+  const isCustomBg = Boolean(customBackgroundUrl);
+  const backgroundStyle: React.CSSProperties = isCustomBg
     ? {
         backgroundImage: `url(${customBackgroundUrl})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }
     : currentBg.style || {};
 
@@ -188,7 +190,9 @@ export default function StudioLayoutManager({
   if (mediaVideoElement) {
     return (
       <div
-        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300 ${currentBg.className}`}
+        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300 ${
+          isCustomBg ? "bg-slate-950" : currentBg.className
+        }`}
         style={backgroundStyle}
       >
         <div className="relative h-full w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800">
@@ -202,7 +206,9 @@ export default function StudioLayoutManager({
   if (layoutMode === "split" && screenShare) {
     return (
       <div
-        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300 ${currentBg.className}`}
+        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300 ${
+          isCustomBg ? "bg-slate-950" : currentBg.className
+        }`}
         style={backgroundStyle}
       >
         {/* Main Content (Screen Share - strictly 16:9 aspect ratio, no vertical letterbox) */}
@@ -251,7 +257,9 @@ export default function StudioLayoutManager({
   if (layoutMode === "pip" && screenShare) {
     return (
       <div
-        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300 ${currentBg.className}`}
+        className={`relative h-full w-full rounded-2xl overflow-hidden p-3 flex items-center justify-center transition-all duration-300 ${
+          isCustomBg ? "bg-slate-950" : currentBg.className
+        }`}
         style={backgroundStyle}
       >
         {/* Main Content (Strict 16:9 Screen Share, no black bars) */}
@@ -303,7 +311,9 @@ export default function StudioLayoutManager({
 
     return (
       <div
-        className={`relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300 ${currentBg.className}`}
+        className={`relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300 ${
+          isCustomBg ? "bg-slate-950" : currentBg.className
+        }`}
         style={backgroundStyle}
       >
         <div className={`w-full h-full grid gap-4 items-center justify-center ${
@@ -351,7 +361,9 @@ export default function StudioLayoutManager({
   // 4. SOLO LAYOUT (Single Presenter in Full Glory)
   return (
     <div
-      className={`relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300 ${currentBg.className}`}
+      className={`relative h-full w-full rounded-2xl overflow-hidden p-4 flex items-center justify-center transition-all duration-300 ${
+        isCustomBg ? "bg-slate-950" : currentBg.className
+      }`}
       style={backgroundStyle}
     >
       <div className="relative h-full w-full max-w-4xl rounded-2xl border border-slate-800/80 bg-slate-900/90 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-xs">

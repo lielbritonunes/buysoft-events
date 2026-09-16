@@ -729,12 +729,14 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   const isPresenterOnStage = overlayState ? overlayState.isOnStage : true;
                   const presenterName = overlayState?.presenterName || roomState?.speakers?.[0]?.name || "Eliel Nunes (Host)";
                   const isMicOn = overlayState?.isMicOn ?? true;
+                  const isCustomBg = Boolean(overlayState?.customBackgroundUrl);
                   const currentBg = BACKGROUND_PRESETS.find((p) => p.id === overlayState?.backgroundPresetId) || BACKGROUND_PRESETS[0];
-                  const backgroundStyle: React.CSSProperties = overlayState?.customBackgroundUrl
+                  const backgroundStyle: React.CSSProperties = isCustomBg
                     ? {
-                        backgroundImage: `url(${overlayState.customBackgroundUrl})`,
+                        backgroundImage: `url(${overlayState?.customBackgroundUrl})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat",
                       }
                     : currentBg.style || {};
 
@@ -751,7 +753,13 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                       );
                     }
                     return (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40">
+                      <div
+                        className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${
+                          isCustomBg ? "bg-slate-950" : currentBg.className
+                        }`}
+                        style={backgroundStyle}
+                      >
+                        <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs pointer-events-none" />
                         <div className="text-center space-y-4 p-6 z-10">
                           <div className="relative inline-block">
                             <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gradient-to-tr from-[#00b4fb] to-sky-400 p-1 shadow-2xl shadow-sky-500/25 animate-pulse">
@@ -798,7 +806,12 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                   }
 
                   return (
-                    <div className={`relative w-full h-full flex items-center justify-center transition-all duration-300 ${currentBg.className}`} style={backgroundStyle}>
+                    <div
+                      className={`relative w-full h-full flex items-center justify-center transition-all duration-300 ${
+                        isCustomBg ? "bg-slate-950" : currentBg.className
+                      }`}
+                      style={backgroundStyle}
+                    >
                       {/* Mode 1: SPLIT LAYOUT (Screen Share + Presenter Sidebar) */}
                       {layoutMode === "split" && isScreenActive ? (
                         <div className="relative h-full w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 transition-all duration-300">
