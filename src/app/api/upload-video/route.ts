@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 120;
+
 // Supported video MIME types
 const ALLOWED_VIDEO_TYPES = [
   "video/mp4",

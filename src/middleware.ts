@@ -19,6 +19,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/stream") ||
     pathname.startsWith("/api/livekit") ||
+    pathname.startsWith("/api/upload-video") ||
+    pathname.startsWith("/api/upload-background") ||
     PUBLIC_FILE.test(pathname)
   ) {
     return NextResponse.next();
