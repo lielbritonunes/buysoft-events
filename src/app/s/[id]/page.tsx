@@ -142,7 +142,7 @@ export default function PublicSeriesPage({ params }: Props) {
             <Image
               src="/logo.png"
               alt="Buysoft Events"
-              width={140}
+              width={300}
               height={42}
               className="h-8 w-auto object-contain"
               priority

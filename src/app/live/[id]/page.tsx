@@ -754,7 +754,7 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
           <Image
             src="/logo.png"
             alt="Buysoft Events"
-            width={140}
+            width={300}
             height={42}
             className="h-7 sm:h-8 w-auto object-contain"
             priority

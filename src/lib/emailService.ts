@@ -73,7 +73,7 @@ export function buildConfirmationHtml(params: {
                     ${
                       logoUrl
                         ? `<img src="${logoUrl}" alt="Logo" style="height: 32px; max-width: 140px; object-fit: contain;">`
-                        : `<div style="display: inline-block; font-size: 18px; font-weight: 800; color: #00b4fb; letter-spacing: -0.5px;">Buysoft <span style="color: #0f172a;">Events</span></div>`
+                        : `<div style="display: inline-block; font-size: 18px; font-weight: 800; color: #090d16; letter-spacing: -0.5px;">Buysoft <span style="display: inline-block; width: 6px; height: 6px; background-color: #00b4fb; border-radius: 1px; vertical-align: 2px; margin: 0 3px;"></span> Events</div>`
                     }
                   </td>
                   <td align="right">

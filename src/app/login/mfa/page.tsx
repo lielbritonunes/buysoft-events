@@ -82,8 +82,8 @@ function MfaChallengeContent() {
           <Image
             src="/logo.png"
             alt="Buysoft Events"
-            width={160}
-            height={48}
+            width={300}
+            height={42}
             className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-105"
             priority
           />

@@ -146,8 +146,8 @@ export default function PreflightLobby({
             <Image
               src="/logo.png"
               alt="Buysoft Events"
-              width={160}
-              height={48}
+              width={300}
+              height={42}
               className="h-8 sm:h-9 w-auto object-contain"
               priority
             />
