@@ -5,11 +5,21 @@ import { Play, Pause, Volume2, VolumeX, X, Film, RotateCcw } from "lucide-react"
 
 interface Props {
   videoUrl: string | null;
+  title?: string;
+  loop?: boolean;
   onClose: () => void;
+  onEnded?: () => void;
   onStreamReady?: (stream: MediaStream) => void;
 }
 
-export default function MediaAssetPlayer({ videoUrl, onClose, onStreamReady }: Props) {
+export default function MediaAssetPlayer({
+  videoUrl,
+  title,
+  loop = false,
+  onClose,
+  onEnded,
+  onStreamReady,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -18,6 +28,7 @@ export default function MediaAssetPlayer({ videoUrl, onClose, onStreamReady }: P
   useEffect(() => {
     if (videoRef.current && videoUrl) {
       videoRef.current.src = videoUrl;
+      videoRef.current.loop = loop;
       videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
 
       // Extract canvas stream if available
@@ -35,7 +46,14 @@ export default function MediaAssetPlayer({ videoUrl, onClose, onStreamReady }: P
         console.warn("Could not capture video stream:", e);
       }
     }
-  }, [videoUrl, onStreamReady]);
+  }, [videoUrl, loop, onStreamReady]);
+
+  // Keep loop attribute in sync when toggled while playing
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.loop = loop;
+    }
+  }, [loop]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -76,14 +94,26 @@ export default function MediaAssetPlayer({ videoUrl, onClose, onStreamReady }: P
         ref={videoRef}
         playsInline
         onTimeUpdate={handleTimeUpdate}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (!loop && onEnded) {
+            onEnded();
+          }
+        }}
         className="h-full w-full object-contain"
       />
 
       {/* Media Overlay Badge */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/80 px-3 py-1.5 backdrop-blur-md border border-slate-700">
         <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
-        <span className="text-xs font-bold text-white">Vídeo do Estúdio</span>
+        <span className="text-xs font-bold text-white max-w-[200px] truncate">
+          {title || "Vídeo do Estúdio"}
+        </span>
+        {loop && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#00b4fb]/20 text-[#38bdf8] font-semibold border border-[#00b4fb]/30">
+            Loop
+          </span>
+        )}
       </div>
 
       {/* Floating Control Bar */}

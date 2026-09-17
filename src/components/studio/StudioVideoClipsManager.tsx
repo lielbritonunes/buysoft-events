@@ -1,0 +1,879 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Film,
+  Plus,
+  HelpCircle,
+  ChevronUp,
+  ChevronDown,
+  Upload,
+  X,
+  Clapperboard,
+  Play,
+  Square,
+  Trash2,
+  Check,
+  Video,
+  Layers,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+
+export interface VideoClipItem {
+  id: string;
+  title: string;
+  durationFormatted: string;
+  durationSeconds: number;
+  url: string;
+  previewLabel?: string;
+  isDefault?: boolean;
+}
+
+// Initial corporate default video clips matching the StreamYard screenshot
+const INITIAL_DEFAULT_CLIPS: VideoClipItem[] = [
+  {
+    id: "default-timer-10s",
+    title: "Temporizador 10s",
+    durationFormatted: "0:10",
+    durationSeconds: 10,
+    previewLabel: "00:10",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
+    isDefault: true,
+  },
+  {
+    id: "default-timer-30s",
+    title: "Temporizador 30s",
+    durationFormatted: "0:30",
+    durationSeconds: 30,
+    previewLabel: "00:30",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    isDefault: true,
+  },
+  {
+    id: "default-thank-you",
+    title: "Obrigado",
+    durationFormatted: "0:15",
+    durationSeconds: 15,
+    previewLabel: "THANK YOU!",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4",
+    isDefault: true,
+  },
+  {
+    id: "default-starting-soon",
+    title: "Transmissão começando em breve",
+    durationFormatted: "0:15",
+    durationSeconds: 15,
+    previewLabel: "STARTING SOON",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    isDefault: true,
+  },
+  {
+    id: "default-be-right-back",
+    title: "Volto Já",
+    durationFormatted: "0:15",
+    durationSeconds: 15,
+    previewLabel: "VOLTO JÁ",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    isDefault: true,
+  },
+];
+
+interface Props {
+  eventId: string;
+  activeVideoUrl: string | null;
+  repeatVideo: boolean;
+  onToggleRepeat: (repeat: boolean) => void;
+  onPlayVideo: (clip: VideoClipItem) => void;
+  onStopVideo: () => void;
+  introClip: VideoClipItem | null;
+  outroClip: VideoClipItem | null;
+  onSetIntroClip: (clip: VideoClipItem | null) => void;
+  onSetOutroClip: (clip: VideoClipItem | null) => void;
+}
+
+export default function StudioVideoClipsManager({
+  eventId,
+  activeVideoUrl,
+  repeatVideo,
+  onToggleRepeat,
+  onPlayVideo,
+  onStopVideo,
+  introClip,
+  outroClip,
+  onSetIntroClip,
+  onSetOutroClip,
+}: Props) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [clips, setClips] = useState<VideoClipItem[]>(INITIAL_DEFAULT_CLIPS);
+
+  // Modals
+  const [showIntroModal, setShowIntroModal] = useState(false);
+  const [showOutroModal, setShowOutroModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Temp selection inside modals
+  const [selectedIntroId, setSelectedIntroId] = useState<string | null>(
+    introClip?.id || null
+  );
+  const [selectedOutroId, setSelectedOutroId] = useState<string | null>(
+    outroClip?.id || null
+  );
+
+  // Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load saved clips from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(`buysoft_clips_${eventId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setClips(parsed);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load saved videoclips:", e);
+    }
+  }, [eventId]);
+
+  // Persist custom clips to localStorage
+  const saveClips = (updated: VideoClipItem[]) => {
+    setClips(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`buysoft_clips_${eventId}`, JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Could not save videoclips:", e);
+      }
+    }
+  };
+
+  // Helper to format seconds to M:SS
+  const formatDuration = (sec: number): string => {
+    const mins = Math.floor(sec / 60);
+    const secs = Math.floor(sec % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // Handle video upload from local computer
+  const handleUploadFile = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("video/") && !file.name.match(/\.(mp4|webm|mov|mkv)$/i)) {
+      setUploadError("Por favor, selecione um arquivo de vídeo válido (MP4, WebM, MOV).");
+      return;
+    }
+
+    setUploadError(null);
+    setIsUploading(true);
+
+    try {
+      // 1. Extract duration locally using video element metadata
+      const objectUrl = URL.createObjectURL(file);
+      const tempVideo = document.createElement("video");
+      tempVideo.preload = "metadata";
+      tempVideo.src = objectUrl;
+
+      const duration: number = await new Promise((resolve) => {
+        tempVideo.onloadedmetadata = () => {
+          resolve(tempVideo.duration || 15);
+        };
+        tempVideo.onerror = () => {
+          resolve(15);
+        };
+      });
+
+      URL.revokeObjectURL(objectUrl);
+
+      // 2. Upload file to backend
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload-video", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erro ao fazer upload do vídeo.");
+      }
+
+      // 3. Create clip item
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+      const newClip: VideoClipItem = {
+        id: `custom_${Date.now()}`,
+        title: cleanTitle,
+        durationFormatted: formatDuration(duration),
+        durationSeconds: Math.round(duration),
+        previewLabel: cleanTitle.slice(0, 10).toUpperCase(),
+        url: data.url,
+        isDefault: false,
+      };
+
+      const updated = [...clips, newClip];
+      saveClips(updated);
+      setIsUploading(false);
+      setShowUploadModal(false);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setUploadError(err.message || "Falha no envio do arquivo. Tente novamente.");
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteClip = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const target = clips.find((c) => c.id === id);
+    if (!target) return;
+
+    if (activeVideoUrl === target.url) {
+      onStopVideo();
+    }
+    if (introClip?.id === id) {
+      onSetIntroClip(null);
+    }
+    if (outroClip?.id === id) {
+      onSetOutroClip(null);
+    }
+
+    const updated = clips.filter((c) => c.id !== id);
+    saveClips(updated);
+  };
+
+  return (
+    <div className="space-y-3 pt-2 border-t border-gray-100 select-none">
+      {/* 1. Header with Collapse and Help */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+          <span>Videoclipes</span>
+          <span
+            title="Reproduza videoclipes, vinhetas e contagens regressivas durante sua transmissão com som sincronizado para os espectadores."
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {activeVideoUrl && (
+            <button
+              onClick={onStopVideo}
+              className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Square className="h-3 w-3 fill-rose-600" />
+              <span>Parar vídeo</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer transition"
+            title={isCollapsed ? "Expandir videoclipes" : "Recolher videoclipes"}
+          >
+            {isCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {!isCollapsed && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          {/* 2. Top 2 Dashed Cards: Vídeo de introdução / Vídeo de encerramento */}
+          <div className="grid grid-cols-2 gap-2">
+            {/* Card 1: Vídeo de introdução */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIntroId(introClip?.id || null);
+                setShowIntroModal(true);
+              }}
+              className={`p-3 rounded-xl border-2 border-dashed text-left transition flex flex-col justify-between min-h-[72px] cursor-pointer group ${
+                introClip
+                  ? "border-[#00b4fb] bg-sky-50/40 hover:bg-sky-50/70"
+                  : "border-slate-200 hover:border-[#00b4fb] hover:bg-slate-50/80"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="relative">
+                  <Film className={`h-4 w-4 ${introClip ? "text-[#00b4fb]" : "text-slate-600 group-hover:text-[#00b4fb]"}`} />
+                  <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#00b4fb] text-[8px] font-bold text-white leading-none">
+                    +
+                  </span>
+                </div>
+
+                {introClip && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#00b4fb]/15 text-[#0084be]">
+                    Ativo
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2">
+                <span className="text-[11px] font-bold text-slate-800 block leading-tight">
+                  Vídeo de introdução
+                </span>
+                {introClip ? (
+                  <span className="text-[9px] text-[#0084be] font-medium block truncate max-w-[120px]">
+                    {introClip.title} ({introClip.durationFormatted})
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-slate-400 block">
+                    Não definido
+                  </span>
+                )}
+              </div>
+            </button>
+
+            {/* Card 2: Vídeo de encerramento */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedOutroId(outroClip?.id || null);
+                setShowOutroModal(true);
+              }}
+              className={`p-3 rounded-xl border-2 border-dashed text-left transition flex flex-col justify-between min-h-[72px] cursor-pointer group ${
+                outroClip
+                  ? "border-[#00b4fb] bg-sky-50/40 hover:bg-sky-50/70"
+                  : "border-slate-200 hover:border-[#00b4fb] hover:bg-slate-50/80"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="relative">
+                  <Film className={`h-4 w-4 ${outroClip ? "text-[#00b4fb]" : "text-slate-600 group-hover:text-[#00b4fb]"}`} />
+                  <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#00b4fb] text-[8px] font-bold text-white leading-none">
+                    +
+                  </span>
+                </div>
+
+                {outroClip && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-[#00b4fb]/15 text-[#0084be]">
+                    Ativo
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2">
+                <span className="text-[11px] font-bold text-slate-800 block leading-tight">
+                  Vídeo de encerramento
+                </span>
+                {outroClip ? (
+                  <span className="text-[9px] text-[#0084be] font-medium block truncate max-w-[120px]">
+                    {outroClip.title} ({outroClip.durationFormatted})
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-slate-400 block">
+                    Não definido
+                  </span>
+                )}
+              </div>
+            </button>
+          </div>
+
+          <div className="h-px bg-slate-100" />
+
+          {/* 3. Checkbox "Repetir" with Help (?) */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={repeatVideo}
+                onChange={(e) => onToggleRepeat(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[#00b4fb] focus:ring-[#00b4fb]/30 cursor-pointer accent-[#00b4fb]"
+              />
+              <span>Repetir</span>
+            </label>
+            <span
+              title="Quando ativado, o vídeo que estiver sendo exibido no palco ficará em loop contínuo até ser pausado ou removido."
+              className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </span>
+          </div>
+
+          {/* 4. 3-Column Video Clips Grid */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {clips.map((clip) => {
+              const isPlaying = activeVideoUrl === clip.url;
+
+              return (
+                <div key={clip.id} className="flex flex-col group relative">
+                  {/* Video Tile Card */}
+                  <div
+                    onClick={() => {
+                      if (isPlaying) {
+                        onStopVideo();
+                      } else {
+                        onPlayVideo(clip);
+                      }
+                    }}
+                    className={`relative aspect-[16/10] w-full rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border flex items-center justify-center ${
+                      isPlaying
+                        ? "border-[#00b4fb] ring-2 ring-[#00b4fb]/40 bg-slate-950 shadow-md shadow-[#00b4fb]/20"
+                        : "border-slate-800 bg-[#171b26] hover:border-[#00b4fb]/80 hover:shadow-sm"
+                    }`}
+                  >
+                    {/* Visual Center Preview Graphic */}
+                    <div className="flex flex-col items-center justify-center p-1 text-center select-none pointer-events-none">
+                      {clip.previewLabel?.includes("THANK") ? (
+                        <div className="bg-rose-600/90 text-white text-[7px] font-black px-1.5 py-0.5 rounded-xs tracking-tight uppercase shadow-xs">
+                          ❤️ THANK YOU!
+                        </div>
+                      ) : clip.previewLabel?.includes("STARTING") ? (
+                        <div className="space-y-0.5">
+                          <div className="bg-[#00b4fb] text-[6px] font-black text-white px-1 py-0.2 rounded-2xs">
+                            STREAMING
+                          </div>
+                          <div className="bg-rose-500 text-[6px] font-black text-white px-1 py-0.2 rounded-2xs">
+                            STARTING
+                          </div>
+                          <div className="bg-sky-600 text-[6px] font-black text-white px-1 py-0.2 rounded-2xs">
+                            SOON..
+                          </div>
+                        </div>
+                      ) : clip.previewLabel?.includes("VOLTO") ? (
+                        <div className="space-y-0.5">
+                          <div className="bg-[#00b4fb] text-[6px] font-black text-white px-1 py-0.2 rounded-2xs">
+                            VOLTO
+                          </div>
+                          <div className="bg-rose-500 text-[6px] font-black text-white px-1 py-0.2 rounded-2xs">
+                            JÁ
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] font-mono font-bold text-slate-300 tracking-wider">
+                          {clip.previewLabel || "00:15"}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Duration Badge: Bottom-left */}
+                    <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[9px] font-mono font-bold text-white pointer-events-none">
+                      {clip.durationFormatted}
+                    </div>
+
+                    {/* Active on stage indicator */}
+                    {isPlaying && (
+                      <div className="absolute top-1 right-1 flex items-center gap-1 rounded bg-[#00b4fb] px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider shadow-sm animate-pulse">
+                        Ao Vivo
+                      </div>
+                    )}
+
+                    {/* Hover Overlay with Action */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
+                      {isPlaying ? (
+                        <div className="flex items-center gap-1 text-[9px] font-bold text-rose-300 bg-rose-950/80 px-2 py-1 rounded-lg border border-rose-600/40 shadow-xs">
+                          <Square className="h-2.5 w-2.5 fill-rose-400" />
+                          <span>Remover</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-[9px] font-bold text-white bg-[#00b4fb] px-2 py-1 rounded-lg shadow-sm">
+                          <Play className="h-2.5 w-2.5 fill-white" />
+                          <span>Exibir</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Delete button on hover for custom uploaded clips */}
+                    {!clip.isDefault && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteClip(clip.id, e)}
+                        className="absolute top-1 right-1 p-1 rounded bg-black/70 text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                        title="Excluir videoclipe"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Title Below Tile */}
+                  <span
+                    className="text-[10px] font-medium text-slate-700 truncate mt-1 text-left px-0.5"
+                    title={clip.title}
+                  >
+                    {clip.title}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* "+ Mais" Card Button */}
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => setShowUploadModal(true)}
+                className="aspect-[16/10] w-full rounded-xl border border-slate-300 hover:border-[#00b4fb] bg-white hover:bg-sky-50/30 flex items-center justify-center gap-1.5 text-slate-700 hover:text-[#0084be] transition cursor-pointer group shadow-2xs"
+                title="Importar videoclipes do computador"
+              >
+                <div className="relative">
+                  <Layers className="h-4 w-4 text-slate-500 group-hover:text-[#00b4fb] transition" />
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-slate-700 group-hover:bg-[#00b4fb] text-[7px] font-bold text-white leading-none">
+                    +
+                  </span>
+                </div>
+                <span className="text-xs font-bold">Mais</span>
+              </button>
+              <span className="text-[10px] text-transparent mt-1 select-none">.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 1: Definir Vídeo de Introdução (Exact Replica Screenshot 2)
+          ───────────────────────────────────────────────────────────── */}
+      {showIntroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 pb-3 flex items-start justify-between border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                  Definir vídeo de introdução
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  O vídeo de introdução é reproduzido automaticamente quando você transmite ao vivo ou começa a gravar.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowIntroModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Video List */}
+            <div className="p-6 pt-4 max-h-[340px] overflow-y-auto space-y-2.5">
+              {clips.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs">
+                  Nenhum vídeo importado ainda. Clique em "+ Mais" para importar.
+                </div>
+              ) : (
+                clips.map((clip) => {
+                  const isSelected = selectedIntroId === clip.id;
+
+                  return (
+                    <div
+                      key={clip.id}
+                      onClick={() => setSelectedIntroId(clip.id)}
+                      className={`flex items-center gap-3.5 p-2 rounded-xl border transition cursor-pointer ${
+                        isSelected
+                          ? "border-[#00b4fb] bg-sky-50/50 shadow-2xs"
+                          : "border-slate-100 hover:border-slate-300 hover:bg-slate-50/60"
+                      }`}
+                    >
+                      {/* Left Thumbnail Tile */}
+                      <div className="w-24 aspect-[16/10] rounded-lg bg-slate-950 border border-slate-800 shrink-0 relative flex items-center justify-center overflow-hidden">
+                        <span className="text-[9px] font-mono font-bold text-slate-400">
+                          {clip.previewLabel || "00:15"}
+                        </span>
+                        <Clapperboard className="absolute bottom-1 left-1.5 h-3 w-3 text-white/70" />
+                      </div>
+
+                      {/* Right Details */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">
+                          {clip.title}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 block mt-0.5">
+                          {clip.durationFormatted}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <div className="h-5 w-5 rounded-full bg-[#00b4fb] text-white flex items-center justify-center shrink-0">
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50/80 border-t border-gray-100 flex items-center justify-between">
+              {introClip ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetIntroClip(null);
+                    setShowIntroModal(false);
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                >
+                  Remover introdução
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowIntroModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!selectedIntroId}
+                  onClick={() => {
+                    const found = clips.find((c) => c.id === selectedIntroId);
+                    onSetIntroClip(found || null);
+                    setShowIntroModal(false);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#00b4fb] hover:bg-[#009edc] disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition cursor-pointer"
+                >
+                  Definir como vídeo de introdução
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 2: Definir Vídeo de Encerramento
+          ───────────────────────────────────────────────────────────── */}
+      {showOutroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 pb-3 flex items-start justify-between border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                  Definir vídeo de encerramento
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  O vídeo de encerramento é reproduzido automaticamente antes do final da transmissão ou gravação.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowOutroModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Video List */}
+            <div className="p-6 pt-4 max-h-[340px] overflow-y-auto space-y-2.5">
+              {clips.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs">
+                  Nenhum vídeo importado ainda. Clique em "+ Mais" para importar.
+                </div>
+              ) : (
+                clips.map((clip) => {
+                  const isSelected = selectedOutroId === clip.id;
+
+                  return (
+                    <div
+                      key={clip.id}
+                      onClick={() => setSelectedOutroId(clip.id)}
+                      className={`flex items-center gap-3.5 p-2 rounded-xl border transition cursor-pointer ${
+                        isSelected
+                          ? "border-[#00b4fb] bg-sky-50/50 shadow-2xs"
+                          : "border-slate-100 hover:border-slate-300 hover:bg-slate-50/60"
+                      }`}
+                    >
+                      {/* Left Thumbnail Tile */}
+                      <div className="w-24 aspect-[16/10] rounded-lg bg-slate-950 border border-slate-800 shrink-0 relative flex items-center justify-center overflow-hidden">
+                        <span className="text-[9px] font-mono font-bold text-slate-400">
+                          {clip.previewLabel || "00:15"}
+                        </span>
+                        <Clapperboard className="absolute bottom-1 left-1.5 h-3 w-3 text-white/70" />
+                      </div>
+
+                      {/* Right Details */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">
+                          {clip.title}
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400 block mt-0.5">
+                          {clip.durationFormatted}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <div className="h-5 w-5 rounded-full bg-[#00b4fb] text-white flex items-center justify-center shrink-0">
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50/80 border-t border-gray-100 flex items-center justify-between">
+              {outroClip ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetOutroClip(null);
+                    setShowOutroModal(false);
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                >
+                  Remover encerramento
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOutroModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!selectedOutroId}
+                  onClick={() => {
+                    const found = clips.find((c) => c.id === selectedOutroId);
+                    onSetOutroClip(found || null);
+                    setShowOutroModal(false);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#00b4fb] hover:bg-[#009edc] disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition cursor-pointer"
+                >
+                  Definir como vídeo de encerramento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 3: Videoclipes Upload Modal (Exact Replica Screenshot 3)
+          ───────────────────────────────────────────────────────────── */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-gray-100">
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                Videoclipes
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isUploading) {
+                    setShowUploadModal(false);
+                    setUploadError(null);
+                  }
+                }}
+                disabled={isUploading}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Large Dashed Dropzone */}
+            <div className="p-6">
+              {uploadError && (
+                <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4, video/webm, video/quicktime, video/x-matroska, video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUploadFile(file);
+                }}
+              />
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handleUploadFile(file);
+                }}
+                className={`rounded-2xl border-2 border-dashed p-10 flex flex-col items-center justify-center text-center transition ${
+                  isDragOver
+                    ? "border-[#00b4fb] bg-sky-50/50"
+                    : "border-slate-300 hover:border-slate-400 bg-slate-50/50"
+                }`}
+              >
+                {isUploading ? (
+                  <div className="py-4 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="h-8 w-8 text-[#00b4fb] animate-spin" />
+                    <span className="text-xs font-bold text-slate-700">
+                      Enviando e processando vídeo...
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Extraindo metadados de áudio e resolução...
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-slate-600 mb-3" />
+
+                    <p className="text-sm font-semibold text-slate-700 mb-1.5">
+                      Arraste e solte um arquivo para enviar
+                    </p>
+
+                    <p className="text-xs text-slate-400 mb-3">ou</p>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-5 py-2 rounded-xl border-2 border-[#00b4fb] text-[#0084be] font-bold text-xs hover:bg-[#00b4fb] hover:text-white transition shadow-2xs cursor-pointer"
+                    >
+                      Adicionar arquivo
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Bottom Recommended Size Note */}
+              <p className="text-xs text-center text-slate-400 mt-4">
+                Tamanho recomendado: 1280 x 720
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

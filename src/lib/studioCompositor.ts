@@ -118,6 +118,7 @@ export class StudioCompositor {
   private internalScreenVideo: HTMLVideoElement;
   private localVideoEl: HTMLVideoElement | null = null;
   private screenVideoEl: HTMLVideoElement | null = null;
+  private mediaVideoEl: HTMLVideoElement | null = null;
 
   // Audio Context & Mixer
   private audioCtx: AudioContext | null = null;
@@ -297,6 +298,10 @@ export class StudioCompositor {
     }
   }
 
+  public setMediaVideo(el: HTMLVideoElement | null) {
+    this.mediaVideoEl = el;
+  }
+
   public getAudioTrack(): MediaStreamTrack | null {
     if (this.audioDest) {
       return this.audioDest.stream.getAudioTracks()[0] || null;
@@ -341,6 +346,13 @@ export class StudioCompositor {
 
   private renderFrame() {
     const ctx = this.ctx;
+
+    // 0. If a media videoclip is playing on stage, it takes stage priority
+    if (this.mediaVideoEl && !this.mediaVideoEl.paused && this.mediaVideoEl.readyState >= 2) {
+      drawVideoFill(ctx, this.mediaVideoEl, 0, 0, W, H);
+      return;
+    }
+
     const {
       layoutMode,
       isOnStage,

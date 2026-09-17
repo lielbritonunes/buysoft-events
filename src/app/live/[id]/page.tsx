@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Play,
+  Film,
   Download,
   Star,
   Flame,
@@ -284,6 +285,9 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
       size: "normal" | "tall" | "wide";
       fontSize: "small" | "medium" | "large";
     };
+    videoAssetUrl?: string | null;
+    videoAssetName?: string | null;
+    videoLoop?: boolean;
   }
   const [overlayState, setOverlayState] = useState<OverlayState | null>(null);
   // Ticker animation offset
@@ -843,6 +847,36 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
 
                 {/* --- VIDEO LAYER (CSS COMPOSITION) --- */}
                 {(() => {
+                  // Priority 0: Videoclip active on stage (Intro, Outro or Custom Media Clip)
+                  if (overlayState?.videoAssetUrl) {
+                    return (
+                      <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden select-none">
+                        <video
+                          key={overlayState.videoAssetUrl}
+                          src={overlayState.videoAssetUrl}
+                          autoPlay
+                          playsInline
+                          muted={isMuted}
+                          loop={Boolean(overlayState.videoLoop)}
+                          className="h-full w-full object-contain pointer-events-none"
+                        />
+
+                        {/* Studio Clip Badge */}
+                        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/80 px-3 py-1.5 backdrop-blur-md border border-slate-700">
+                          <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
+                          <span className="text-xs font-bold text-white max-w-[200px] truncate">
+                            {overlayState.videoAssetName || "Vídeo da Transmissão"}
+                          </span>
+                          {overlayState.videoLoop && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#00b4fb]/20 text-[#38bdf8] font-semibold border border-[#00b4fb]/30">
+                              Loop
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   const layoutMode = overlayState?.layoutMode || (screenTrack && cameraTrack ? "split" : "solo");
                   const isScreenActive = Boolean(screenTrack);
                   const isPresenterOnStage = overlayState ? overlayState.isOnStage : true;

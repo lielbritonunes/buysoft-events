@@ -75,6 +75,7 @@ import {
   FixedBanner,
 } from "@/components/studio/LowerThirdsOverlay";
 import MediaAssetPlayer from "@/components/studio/MediaAssetPlayer";
+import StudioVideoClipsManager, { VideoClipItem } from "@/components/studio/StudioVideoClipsManager";
 import {
   getLiveRoomState,
   updateEvent,
@@ -227,6 +228,12 @@ export default function StudioPage({ params, searchParams }: Props) {
 
   // Video Asset Player (Direct studio media clip)
   const [videoAssetUrl, setVideoAssetUrl] = useState<string | null>(null);
+  const [videoAssetName, setVideoAssetName] = useState<string | null>(null);
+  const [repeatVideo, setRepeatVideo] = useState(false);
+  const [introClip, setIntroClip] = useState<VideoClipItem | null>(null);
+  const [outroClip, setOutroClip] = useState<VideoClipItem | null>(null);
+  const [isPlayingIntro, setIsPlayingIntro] = useState(false);
+  const [isPlayingOutro, setIsPlayingOutro] = useState(false);
   const [customVideoInput, setCustomVideoInput] = useState("");
 
   // Broadcast & Live Status
@@ -470,6 +477,52 @@ export default function StudioPage({ params, searchParams }: Props) {
     };
   }, [hasJoinedLobby, eventId, userRole]);
 
+  // Load saved intro/outro clips and repeat preference from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedIntro = localStorage.getItem(`buysoft_intro_${eventId}`);
+      if (savedIntro) setIntroClip(JSON.parse(savedIntro));
+      const savedOutro = localStorage.getItem(`buysoft_outro_${eventId}`);
+      if (savedOutro) setOutroClip(JSON.parse(savedOutro));
+      const savedRepeat = localStorage.getItem(`buysoft_repeat_${eventId}`);
+      if (savedRepeat) setRepeatVideo(savedRepeat === "true");
+    } catch (e) {
+      console.warn("Could not load intro/outro clip preference:", e);
+    }
+  }, [eventId]);
+
+  const handleSetIntroClip = (clip: VideoClipItem | null) => {
+    setIntroClip(clip);
+    if (typeof window !== "undefined") {
+      if (clip) {
+        localStorage.setItem(`buysoft_intro_${eventId}`, JSON.stringify(clip));
+      } else {
+        localStorage.removeItem(`buysoft_intro_${eventId}`);
+      }
+    }
+    showToast(clip ? `Vídeo de introdução definido: "${clip.title}"` : "Vídeo de introdução removido");
+  };
+
+  const handleSetOutroClip = (clip: VideoClipItem | null) => {
+    setOutroClip(clip);
+    if (typeof window !== "undefined") {
+      if (clip) {
+        localStorage.setItem(`buysoft_outro_${eventId}`, JSON.stringify(clip));
+      } else {
+        localStorage.removeItem(`buysoft_outro_${eventId}`);
+      }
+    }
+    showToast(clip ? `Vídeo de encerramento definido: "${clip.title}"` : "Vídeo de encerramento removido");
+  };
+
+  const handleToggleRepeat = (repeat: boolean) => {
+    setRepeatVideo(repeat);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`buysoft_repeat_${eventId}`, String(repeat));
+    }
+  };
+
   const currentFolder =
     bannerFolders.find((f) => f.id === currentBannerFolderId) || null;
   const allBanners = bannerFolders.flatMap((f) => f.banners);
@@ -492,6 +545,9 @@ export default function StudioPage({ params, searchParams }: Props) {
         presenterName,
         presenterHeadline,
         brandColor,
+        videoAssetUrl: videoAssetUrl || null,
+        videoAssetName: videoAssetName || null,
+        videoLoop: repeatVideo,
         activeBanner: activeBanner
           ? {
               id: activeBanner.id,
@@ -540,6 +596,9 @@ export default function StudioPage({ params, searchParams }: Props) {
     presenterName,
     presenterHeadline,
     brandColor,
+    videoAssetUrl,
+    videoAssetName,
+    repeatVideo,
     activeBanner,
     lowerThirdVisible,
     lowerThirdName,
@@ -856,11 +915,25 @@ export default function StudioPage({ params, searchParams }: Props) {
 
   // Toggle 1-Click Native Transmission (Transmitir ao vivo)
   const handleToggleGoLive = async () => {
-    setIsStartingBroadcast(true);
     const isCurrentlyLive = roomState?.status === "live" || isBroadcastingLive;
 
     if (isCurrentlyLive) {
+      // If an outro video clip is configured and not yet playing, play it before ending
+      if (outroClip && !isPlayingOutro) {
+        setVideoAssetUrl(outroClip.url);
+        setVideoAssetName(outroClip.title);
+        setIsPlayingOutro(true);
+        showToast(`Reproduzindo vídeo de encerramento: "${outroClip.title}". A transmissão será encerrada ao término.`);
+        return;
+      }
+
+      setIsStartingBroadcast(true);
       try {
+        setVideoAssetUrl(null);
+        setVideoAssetName(null);
+        setIsPlayingIntro(false);
+        setIsPlayingOutro(false);
+
         if (livekitRoomRef.current) {
           const room = livekitRoomRef.current;
           const pubs = Array.from(room.localParticipant.trackPublications.values());
@@ -881,16 +954,31 @@ export default function StudioPage({ params, searchParams }: Props) {
         setIsStartingBroadcast(false);
       }
     } else {
+      setIsStartingBroadcast(true);
       try {
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
         showToast("Você está AO VIVO na plataforma Buysoft!");
+
+        // If an intro video clip is configured, auto-play it on stage
+        if (introClip) {
+          setVideoAssetUrl(introClip.url);
+          setVideoAssetName(introClip.title);
+          setIsPlayingIntro(true);
+          showToast(`Reproduzindo vídeo de introdução: "${introClip.title}"`);
+        }
       } catch (err: any) {
         console.error("Error starting broadcast:", err);
         await updateEvent(eventId, { status: "live" });
         setIsBroadcastingLive(true);
         fetchState();
+
+        if (introClip) {
+          setVideoAssetUrl(introClip.url);
+          setVideoAssetName(introClip.title);
+          setIsPlayingIntro(true);
+        }
       } finally {
         setIsStartingBroadcast(false);
       }
@@ -1405,7 +1493,30 @@ export default function StudioPage({ params, searchParams }: Props) {
                   videoAssetUrl ? (
                     <MediaAssetPlayer
                       videoUrl={videoAssetUrl}
-                      onClose={() => setVideoAssetUrl(null)}
+                      title={videoAssetName || undefined}
+                      loop={repeatVideo}
+                      onEnded={() => {
+                        if (isPlayingIntro) {
+                          setIsPlayingIntro(false);
+                          setVideoAssetUrl(null);
+                          setVideoAssetName(null);
+                          showToast("Vídeo de introdução finalizado! Entrando ao vivo no palco.");
+                        } else if (isPlayingOutro) {
+                          setIsPlayingOutro(false);
+                          setVideoAssetUrl(null);
+                          setVideoAssetName(null);
+                          handleToggleGoLive();
+                        } else if (!repeatVideo) {
+                          setVideoAssetUrl(null);
+                          setVideoAssetName(null);
+                        }
+                      }}
+                      onClose={() => {
+                        setVideoAssetUrl(null);
+                        setVideoAssetName(null);
+                        setIsPlayingIntro(false);
+                        setIsPlayingOutro(false);
+                      }}
                     />
                   ) : null
                 }
@@ -2461,74 +2572,31 @@ export default function StudioPage({ params, searchParams }: Props) {
                     </div>
                   </div>
 
-                  {/* Videoclipes Section */}
-                  <div className="space-y-2.5 pt-2 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Videoclipes</span>
-                      {videoAssetUrl && (
-                        <button
-                          onClick={() => setVideoAssetUrl(null)}
-                          className="text-[10px] font-bold text-red-600 hover:underline"
-                        >
-                          Parar vídeo
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() =>
-                          setVideoAssetUrl(
-                            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-                          )
-                        }
-                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition flex flex-col justify-between"
-                      >
-                        <Film className="h-4 w-4 text-[#00b4fb] mb-1" />
-                        <div>
-                          <span className="font-bold text-slate-800 block text-[11px]">Vídeo Intro</span>
-                          <span className="text-[9px] text-gray-500">15s com áudio</span>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          setVideoAssetUrl(
-                            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                          )
-                        }
-                        className="p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-[#e6f7fe]/40 hover:border-[#bae6fd] text-left transition flex flex-col justify-between"
-                      >
-                        <Tv className="h-4 w-4 text-purple-600 mb-1" />
-                        <div>
-                          <span className="font-bold text-slate-800 block text-[11px]">Demonstração</span>
-                          <span className="text-[9px] text-gray-500">Vídeo Full HD</span>
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Custom Video input */}
-                    <div className="pt-1">
-                      <div className="flex gap-1.5">
-                        <input
-                          type="text"
-                          value={customVideoInput}
-                          onChange={(e) => setCustomVideoInput(e.target.value)}
-                          placeholder="URL de vídeo MP4..."
-                          className="flex-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-slate-800 focus:border-[#00b4fb] focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (customVideoInput) setVideoAssetUrl(customVideoInput);
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-[#00b4fb] text-white font-semibold text-xs hover:bg-[#009ce0] transition"
-                        >
-                          Tocar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Videoclipes Section (StreamYard style) */}
+                  <StudioVideoClipsManager
+                    eventId={eventId}
+                    activeVideoUrl={videoAssetUrl}
+                    repeatVideo={repeatVideo}
+                    onToggleRepeat={handleToggleRepeat}
+                    onPlayVideo={(clip) => {
+                      setVideoAssetUrl(clip.url);
+                      setVideoAssetName(clip.title);
+                      setIsPlayingIntro(false);
+                      setIsPlayingOutro(false);
+                      showToast(`Exibindo "${clip.title}" no palco`);
+                    }}
+                    onStopVideo={() => {
+                      setVideoAssetUrl(null);
+                      setVideoAssetName(null);
+                      setIsPlayingIntro(false);
+                      setIsPlayingOutro(false);
+                      showToast("Vídeo removido do palco");
+                    }}
+                    introClip={introClip}
+                    outroClip={outroClip}
+                    onSetIntroClip={handleSetIntroClip}
+                    onSetOutroClip={handleSetOutroClip}
+                  />
 
                   {/* Plano de Fundo (Backgrounds) Section */}
                   <div className="space-y-2.5 pt-2 border-t border-gray-100">
