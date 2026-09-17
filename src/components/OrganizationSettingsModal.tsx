@@ -24,6 +24,8 @@ import {
   RefreshCw,
   Server
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { springs } from "./ui/motion-primitives";
 import { Organization, OrganizationMember, UserSession } from "@/types";
 import {
   setupMfaAction,
@@ -129,8 +131,6 @@ export default function OrganizationSettingsModal({
       setLoadingTeam(false);
     }
   };
-
-  if (!isOpen) return null;
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,38 +334,59 @@ export default function OrganizationSettingsModal({
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-6 overflow-y-auto font-sans">
-      <div className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:min-h-[580px] my-auto">
-        {/* Top bar with back navigation */}
-        <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4 sm:px-6 bg-slate-50/50 shrink-0">
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 overflow-y-auto font-sans">
+          {/* Backdrop with blur */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-            className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="truncate max-w-[200px] sm:max-w-none">Voltar para {organization.name}</span>
-          </button>
-          <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 hidden xs:block">
-            Gerenciamento
-          </div>
-        </div>
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-md"
+          />
 
-        {/* Content Layout: Sidebar + Main Area */}
-        <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
-          {/* Left Sidebar Tabs */}
-          <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/40 p-2 sm:p-4 shrink-0">
-            <nav className="flex md:flex-col gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-              <button
-                onClick={() => setActiveTab("profile")}
-                className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
-                  activeTab === "profile"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={springs.snappy}
+            className="relative w-full max-w-4xl rounded-3xl border border-white/80 bg-white/90 shadow-[0_25px_70px_rgba(15,23,42,0.18),0_0_0_1px_rgba(15,23,42,0.04)] backdrop-blur-2xl overflow-hidden flex flex-col max-h-[92vh] sm:min-h-[580px] my-auto z-10"
+          >
+            {/* Ambient top light */}
+            <div className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-32 w-80 rounded-full bg-[#00b4fb]/10 blur-3xl" />
+
+            {/* Top bar with back navigation */}
+            <div className="relative flex h-14 items-center justify-between border-b border-slate-100/80 px-4 sm:px-6 bg-white/50 backdrop-blur-md shrink-0">
+              <motion.button
+                whileHover={{ x: -2 }}
+                onClick={onClose}
+                className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
               >
-                <Building className="h-4 w-4" />
-                <span>Perfil da Empresa</span>
-              </button>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="truncate max-w-[200px] sm:max-w-none">Voltar para {organization.name}</span>
+              </motion.button>
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 hidden xs:block">
+                Gerenciamento
+              </div>
+            </div>
+
+            {/* Content Layout: Sidebar + Main Area */}
+            <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
+              {/* Left Sidebar Tabs */}
+              <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-100/80 bg-slate-50/60 backdrop-blur-md p-2 sm:p-4 shrink-0">
+                <nav className="flex md:flex-col gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                  <button
+                    onClick={() => setActiveTab("profile")}
+                    className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
+                      activeTab === "profile"
+                        ? "bg-[#00b4fb]/12 text-[#0084be] font-bold shadow-2xs"
+                        : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                    }`}
+                  >
+                    <Building className="h-4 w-4" />
+                    <span>Perfil da Empresa</span>
+                  </button>
 
               {/* YouTube Integration removed for MVP native priority */}
 
@@ -373,8 +394,8 @@ export default function OrganizationSettingsModal({
                 onClick={() => setActiveTab("smtp")}
                 className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
                   activeTab === "smtp"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/12 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`}
               >
                 <Mail className="h-4 w-4 text-blue-500" />
@@ -390,8 +411,8 @@ export default function OrganizationSettingsModal({
                 onClick={() => setActiveTab("security")}
                 className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
                   activeTab === "security"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/12 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`}
               >
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
@@ -405,13 +426,13 @@ export default function OrganizationSettingsModal({
                 onClick={() => setActiveTab("team")}
                 className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
                   activeTab === "team"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/12 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`}
               >
                 <Users className="h-4 w-4" />
                 <span>Equipe & Membros</span>
-                <span className="ml-1.5 sm:ml-auto rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                <span className="ml-1.5 sm:ml-auto rounded-full bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
                   {teamUsers.length || organization.members.length}
                 </span>
               </button>
@@ -420,8 +441,8 @@ export default function OrganizationSettingsModal({
                 onClick={() => setActiveTab("billing")}
                 className={`flex items-center gap-2 sm:gap-2.5 rounded-xl px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition cursor-pointer ${
                   activeTab === "billing"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/12 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`}
               >
                 <CreditCard className="h-4 w-4" />
@@ -1159,7 +1180,9 @@ export default function OrganizationSettingsModal({
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
+  )}
+</AnimatePresence>
   );
 }

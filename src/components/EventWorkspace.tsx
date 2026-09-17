@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import NextImage from "next/image";
+import { motion, AnimatePresence } from "motion/react";
+import { springs } from "./ui/motion-primitives";
 import {
   ArrowLeft,
   ExternalLink,
@@ -525,18 +527,20 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-[#00b4fb] selection:text-white">
-      {/* Top Bar matching RingCentral Events */}
-      <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+      {/* Top Bar with Liquid Glass */}
+      <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-slate-200/70 bg-white/80 backdrop-blur-xl px-4 sm:px-6 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div className="flex items-center gap-3">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onBack}
-            className="flex items-center gap-1.5 rounded-lg p-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200/60 bg-white/60 p-1.5 px-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Voltar para Eventos</span>
-          </button>
+          </motion.button>
 
-          <div className="h-4 w-[1px] bg-slate-200" />
+          <div className="h-4 w-px bg-slate-200/70" />
 
           {/* Logo Buysoft */}
           <div className="flex items-center">
@@ -568,60 +572,72 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
         {/* Top Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2.5">
-          <a
+          <motion.a
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springs.snappy}
             href={hostStudioUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-600 hover:from-[#009ce0] hover:to-sky-700 px-3 sm:px-3.5 py-1.5 text-xs font-bold text-white shadow-xs shadow-sky-500/25 transition"
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00b4fb] to-sky-600 hover:from-[#009ce0] hover:to-sky-700 px-3 sm:px-3.5 py-1.5 text-xs font-bold text-white shadow-xs shadow-sky-500/25 transition cursor-pointer"
           >
             <Radio className="h-3.5 w-3.5 animate-pulse" />
             <span className="hidden xs:inline">Abrir Estúdio (Host)</span>
             <span className="xs:hidden">Estúdio</span>
-          </a>
+          </motion.a>
 
-          <a
+          <motion.a
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springs.snappy}
             href={registrationUrl}
             target="_blank"
             rel="noreferrer"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
             <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
             <span>Pré-visualizar inscrição</span>
-          </a>
+          </motion.a>
 
-          <a
+          <motion.a
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springs.snappy}
             href={liveUrl}
             target="_blank"
             rel="noreferrer"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
             <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
             <span>Pré-visualizar evento</span>
-          </a>
+          </motion.a>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springs.snappy}
             onClick={handleTogglePublish}
-            className={`rounded-xl px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs transition ${
+            className={`rounded-xl px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs transition cursor-pointer ${
               event.status === "published"
-                ? "bg-slate-700 hover:bg-slate-800"
+                ? "bg-slate-800 hover:bg-slate-900"
                 : "bg-[#ff6d00] hover:bg-[#e66200]"
             }`}
           >
             <span className="hidden sm:inline">{event.status === "published" ? "Despublicar evento" : "Atualizar para publicar"}</span>
             <span className="sm:hidden">{event.status === "published" ? "Despublicar" : "Publicar"}</span>
-          </button>
+          </motion.button>
         </div>
       </header>
 
       {/* Main Workspace Layout with Left Sidebar */}
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Left Sidebar Menu */}
-        <aside className="w-full lg:w-60 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-2.5 sm:p-4 flex flex-col lg:justify-between shrink-0">
+        <aside className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-slate-200/70 bg-white/75 backdrop-blur-xl p-3 sm:p-4 flex flex-col lg:justify-between shrink-0">
           <div className="space-y-2 lg:space-y-6">
             {/* Event Name & Time Info (Desktop only) */}
-            <div className="hidden lg:block pb-3 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900 truncate">{event.title}</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+            <div className="hidden lg:block pb-3 border-b border-slate-100/80">
+              <h2 className="text-sm font-bold text-slate-900 truncate tracking-tight">{event.title}</h2>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
                 {new Date(event.startDate).toLocaleDateString("pt-BR", {
                   weekday: "short",
                   day: "2-digit",
@@ -636,10 +652,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
             <nav className="flex lg:flex-col overflow-x-auto gap-1 py-1 lg:space-y-1 text-xs font-semibold scrollbar-none">
               <button
                 onClick={() => setActiveTab("overview")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "overview"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <div className="h-4 w-4 grid grid-cols-2 gap-0.5">
@@ -653,10 +669,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("registration")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "registration"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <FileText className="h-4 w-4" />
@@ -665,10 +681,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("settings")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "settings"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <Settings className="h-4 w-4" />
@@ -680,10 +696,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                 <div className="hidden lg:block pl-6 pt-1 pb-2 space-y-1">
                   <button
                     onClick={() => setSettingsSubTab("basic")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
+                    className={`block w-full text-left py-1.5 px-2 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                       settingsSubTab === "basic"
-                        ? "text-[#00b4fb] font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-[#0084be] bg-[#00b4fb]/8 font-bold"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                   >
                     Básico
@@ -691,10 +707,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("branding")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
+                    className={`block w-full text-left py-1.5 px-2 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                       settingsSubTab === "branding"
-                        ? "text-[#00b4fb] font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-[#0084be] bg-[#00b4fb]/8 font-bold"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                   >
                     Branding
@@ -702,10 +718,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("agenda")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
+                    className={`block w-full text-left py-1.5 px-2 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                       settingsSubTab === "agenda"
-                        ? "text-[#00b4fb] font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-[#0084be] bg-[#00b4fb]/8 font-bold"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                   >
                     Agenda
@@ -713,10 +729,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("sponsors")}
-                    className={`block w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
+                    className={`block w-full text-left py-1.5 px-2 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                       settingsSubTab === "sponsors"
-                        ? "text-[#00b4fb] font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-[#0084be] bg-[#00b4fb]/8 font-bold"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                   >
                     Patrocinadores
@@ -724,10 +740,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
                   <button
                     onClick={() => setSettingsSubTab("speakers")}
-                    className={`flex items-center justify-between w-full text-left py-1 px-2 rounded text-[11px] font-medium transition cursor-pointer ${
+                    className={`flex items-center justify-between w-full text-left py-1.5 px-2 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                       settingsSubTab === "speakers"
-                        ? "text-[#00b4fb] font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        ? "text-[#0084be] bg-[#00b4fb]/8 font-bold"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                   >
                     <span>Orador</span>
@@ -738,10 +754,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("marketing")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "marketing"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <Mail className="h-4 w-4" />
@@ -750,10 +766,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("analytics")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "analytics"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <BarChart3 className="h-4 w-4" />
@@ -762,10 +778,10 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
               <button
                 onClick={() => setActiveTab("recordings")}
-                className={`flex items-center gap-2 lg:gap-2.5 rounded-lg px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 lg:gap-2.5 rounded-xl px-3 py-2 lg:py-2.5 transition shrink-0 whitespace-nowrap cursor-pointer ${
                   activeTab === "recordings"
-                    ? "bg-[#e6f7fe] text-[#0084be]"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-[#00b4fb]/10 text-[#0084be] font-bold shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <Video className="h-4 w-4" />
@@ -843,50 +859,55 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
 
           {/* TAB 1: VISÃO GERAL */}
           {activeTab === "overview" && (
-            <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={springs.gentle}
+              className="space-y-6"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Guia Rápido */}
-                <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <div className="lg:col-span-4 rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-xs backdrop-blur-xs flex flex-col justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 mb-3">Guia de configuração rápida</h3>
-                    <ul className="space-y-2.5 text-xs">
+                    <h3 className="text-sm font-bold text-slate-900 mb-3 tracking-tight">Guia de configuração rápida</h3>
+                    <ul className="space-y-2 text-xs">
                       <li
                         onClick={() => setActiveTab("registration")}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-slate-700 transition"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100/70 cursor-pointer text-slate-700 transition"
                       >
-                        <span>1. Layout e página de inscrição</span>
-                        <span className="text-slate-400">›</span>
+                        <span className="font-semibold">1. Layout e página de inscrição</span>
+                        <span className="text-slate-400 font-bold">›</span>
                       </li>
                       <li
                         onClick={() => {
                           setActiveTab("settings");
                           setSettingsSubTab("branding");
                         }}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-slate-700 transition"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100/70 cursor-pointer text-slate-700 transition"
                       >
-                        <span>2. Logo, banner e cores</span>
-                        <span className="text-slate-400">›</span>
+                        <span className="font-semibold">2. Logo, banner e cores</span>
+                        <span className="text-slate-400 font-bold">›</span>
                       </li>
                       <li
                         onClick={() => {
                           setActiveTab("settings");
                           setSettingsSubTab("speakers");
                         }}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-slate-700 transition"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100/70 cursor-pointer text-slate-700 transition"
                       >
-                        <span>3. Oradores ({event.speakers?.length || 0})</span>
-                        <span className="text-slate-400">›</span>
+                        <span className="font-semibold">3. Oradores ({event.speakers?.length || 0})</span>
+                        <span className="text-slate-400 font-bold">›</span>
                       </li>
                     </ul>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-slate-500">Status</span>
+                  <div className="mt-5 pt-3 border-t border-slate-100/80 flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-medium">Status</span>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                         event.status === "published"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                          : "bg-slate-100 text-slate-600 border border-slate-200/60"
                       }`}
                     >
                       {event.status === "published" ? "Publicado" : "Rascunho"}
@@ -895,7 +916,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                 </div>
 
                 {/* Event Card com Links */}
-                <div className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
+                <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-xs backdrop-blur-xs space-y-5">
                   <div className="flex items-start gap-4">
                     {bannerUrl ? (
                       <div className="h-16 w-24 rounded-xl overflow-hidden border border-slate-200 shadow-xs">
@@ -1037,7 +1058,7 @@ export default function EventWorkspace({ event, onBack, onUpdateEvent }: Props) 
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* TAB 2: PÁGINA DE INSCRIÇÕES (ORGANIZADO EM DUAS ABAS: PÁGINA INICIAL & FORMULÁRIO) */}

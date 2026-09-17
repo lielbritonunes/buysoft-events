@@ -6,6 +6,8 @@ import EventsTable from "@/components/EventsTable";
 import CreateEventWizard from "@/components/CreateEventWizard";
 import OrganizationSettingsModal from "@/components/OrganizationSettingsModal";
 import EventWorkspace from "@/components/EventWorkspace";
+import { StaticGradientBg } from "@/components/ui/shader-gradient";
+import { FadeIn, Skeleton } from "@/components/ui/motion-primitives";
 import { getEvents, createEvent, getOrCreateOrganization, getSeries } from "@/lib/dbActions";
 import { getCurrentUserAction } from "@/lib/authActions";
 import { initialOrganization } from "@/lib/mockData";
@@ -115,8 +117,8 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f8fe] flex flex-col font-sans selection:bg-[#00b4fb] selection:text-white">
-      {/* Top Header with Buysoft Events Branding */}
+    <StaticGradientBg className="min-h-screen flex flex-col font-sans">
+      {/* Glass Header */}
       <Header
         organization={organization}
         onOpenOrgSettings={() => setIsOrgSettingsOpen(true)}
@@ -129,19 +131,18 @@ export default function Home() {
       {/* Main Dashboard Container */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-10 py-4 sm:py-7">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#00b4fb] border-t-transparent" />
-            <p className="text-xs font-semibold text-slate-500">Carregando painel...</p>
-          </div>
+          <DashboardSkeleton />
         ) : (
-          <EventsTable
-            events={events}
-            seriesList={seriesList}
-            organizationMembers={organization.members || []}
-            onSelectEvent={(ev) => setSelectedEvent(ev)}
-            onOpenCreateWizard={() => setIsCreateWizardOpen(true)}
-            onRefreshData={loadData}
-          />
+          <FadeIn direction="up" distance={20}>
+            <EventsTable
+              events={events}
+              seriesList={seriesList}
+              organizationMembers={organization.members || []}
+              onSelectEvent={(ev) => setSelectedEvent(ev)}
+              onOpenCreateWizard={() => setIsCreateWizardOpen(true)}
+              onRefreshData={loadData}
+            />
+          </FadeIn>
         )}
       </main>
 
@@ -161,6 +162,43 @@ export default function Home() {
         currentUser={currentUser}
         onUpdateCurrentUser={setCurrentUser}
       />
+    </StaticGradientBg>
+  );
+}
+
+/* ─── Skeleton Loader — matches dashboard layout ─── */
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 py-4">
+      {/* Header row skeleton */}
+      <div className="flex items-center justify-between">
+        <Skeleton className="w-48 h-8" />
+        <div className="flex gap-3">
+          <Skeleton className="w-28 h-10" variant="rectangular" />
+          <Skeleton className="w-36 h-10" variant="rectangular" />
+        </div>
+      </div>
+
+      {/* Tabs skeleton */}
+      <Skeleton className="w-64 h-10" variant="rectangular" />
+
+      {/* Event cards skeleton */}
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="glass-card p-4 flex items-center gap-4"
+            style={{ opacity: 1 - i * 0.15 }}
+          >
+            <Skeleton className="w-12 h-12" variant="rectangular" />
+            <div className="flex-1 flex flex-col gap-2">
+              <Skeleton className="w-3/4 h-5" />
+              <Skeleton className="w-1/2 h-3" />
+            </div>
+            <Skeleton className="w-20 h-6" variant="rectangular" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

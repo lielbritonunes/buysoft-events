@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
   ChevronDown,
@@ -21,6 +22,7 @@ import {
   Calendar,
   Clock
 } from "lucide-react";
+import { springs } from "@/components/ui/motion-primitives";
 import { duplicateEvent, deleteEvent, addEventToSeries, createSeries, deleteSeries } from "@/lib/dbActions";
 
 interface Props {
@@ -181,9 +183,16 @@ export default function EventsTable({
 
     return (
       <div
-        className={`absolute z-50 mt-1 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-xl text-left divide-y divide-slate-100 animate-in fade-in zoom-in-95 ${
+        className={`absolute z-50 mt-1 w-48 rounded-xl py-1 text-left divide-y divide-slate-100/50 ${
           alignRight ? "right-0" : "left-0"
         }`}
+        style={{
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(20px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
+          border: '1px solid rgba(255,255,255,0.25)',
+          boxShadow: '0 12px 40px -8px rgba(0,0,0,0.12), 0 4px 12px -2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.3)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="py-1">
@@ -273,37 +282,41 @@ export default function EventsTable({
         {/* Top Row on mobile: Tabs & Create Event CTA */}
         <div className="flex items-center justify-between gap-2.5">
           {/* Tabs: Eventos | Séries */}
-          <div className="flex items-center gap-1.5 bg-slate-200/50 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab("events")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
-                activeTab === "events"
-                  ? "bg-white text-[#0084be] shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Eventos
-            </button>
-            <button
-              onClick={() => setActiveTab("series")}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
-                activeTab === "series"
-                  ? "bg-white text-[#0084be] shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Séries
-            </button>
+          <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(226,232,240,0.4)', backdropFilter: 'blur(8px)' }}>
+            {[{ id: 'events' as const, label: 'Eventos' }, { id: 'series' as const, label: 'Séries' }].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors ${
+                  activeTab === tab.id
+                    ? "text-[#0084be]"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="events-tab-indicator"
+                    className="absolute inset-0 rounded-lg"
+                    style={{ background: 'rgba(255,255,255,0.85)', boxShadow: '0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)' }}
+                    transition={springs.snappy}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            ))}
           </div>
 
           {/* Criar Evento Button on Top Right */}
-          <button
+          <motion.button
             onClick={onOpenCreateWizard}
-            className="flex items-center gap-1.5 rounded-xl bg-[#00b4fb] hover:bg-[#009ce0] px-3.5 sm:px-4 py-2 text-xs font-bold text-white shadow-xs shadow-sky-300/30 transition shrink-0"
+            className="btn-buysoft-primary flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs shrink-0"
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            transition={springs.snappy}
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Criar evento</span>
-          </button>
+          </motion.button>
         </div>
 
         {/* Second Row: Search, Filter, and Nova Série */}
@@ -316,7 +329,7 @@ export default function EventsTable({
               placeholder="Pesquisar"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00b4fb] focus:outline-none focus:ring-1 focus:ring-[#00b4fb] shadow-2xs transition"
+              className="glass-input pl-8 pr-3 py-2 text-xs"
             />
           </div>
 
@@ -419,8 +432,10 @@ export default function EventsTable({
       {activeTab === "events" && (
         <>
           {filteredEvents.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-10 text-center text-slate-400 space-y-3 shadow-xs">
-              <Video className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+            <div className="glass-card p-10 text-center text-slate-400 space-y-3">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100/80">
+                <Video className="h-6 w-6 text-slate-300" />
+              </div>
               <p className="font-semibold text-slate-600 text-sm">Nenhum evento encontrado</p>
               <p className="text-xs text-slate-400">
                 Clique em &quot;Criar evento&quot; para agendar seu primeiro webinar.
@@ -437,7 +452,7 @@ export default function EventsTable({
                     <div
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs active:scale-[0.99] transition cursor-pointer relative"
+                      className="glass-card p-4 active:scale-[0.99] transition cursor-pointer relative"
                     >
                       {/* Top Row: Thumbnail + Title + Options Menu */}
                       <div className="flex items-start justify-between gap-3">
@@ -520,9 +535,9 @@ export default function EventsTable({
               </div>
 
               {/* DESKTOP VIEW (>= md): Full RingCentral Clean Table */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+              <div className="hidden md:block overflow-x-auto glass-card" style={{ padding: 0 }}>
                 <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="border-b border-slate-100 bg-white text-[12px] font-semibold text-slate-500">
+                  <thead className="border-b border-slate-100/50 text-[12px] font-semibold text-slate-500" style={{ background: 'rgba(248,250,252,0.5)' }}>
                     <tr>
                       <th scope="col" className="px-6 py-4 font-semibold">Nome</th>
                       <th scope="col" className="px-4 py-4 font-semibold">Tipo</th>

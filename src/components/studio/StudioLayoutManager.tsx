@@ -62,7 +62,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   {
     id: "streamyard-wave",
     name: "Buysoft Blue Wave",
-    className: "bg-gradient-to-br from-blue-900 via-indigo-950 to-blue-950",
+    className: "bg-gradient-to-br from-slate-950 via-sky-950 to-slate-900",
     style: {
       backgroundImage: `radial-gradient(ellipse at 70% 30%, rgba(0, 102, 255, 0.45) 0%, transparent 60%), radial-gradient(ellipse at 20% 75%, rgba(0, 180, 251, 0.35) 0%, transparent 55%), linear-gradient(135deg, #071530 0%, #0a2558 50%, #071c3d 100%)`,
     },
@@ -79,8 +79,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   },
   {
     id: "midnight",
-    name: "Midnight Purple",
-    className: "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950",
+    name: "Midnight Slate",
+    className: "bg-gradient-to-br from-slate-950 via-slate-900 to-sky-900",
   },
   {
     id: "corporate-slate",
@@ -116,10 +116,11 @@ function PresenterLowerThird({
   return (
     <div
       className={`absolute ${
-        compact ? "bottom-1.5 left-1.5 px-2 py-0.5" : "bottom-3 left-3 px-3 py-1.5"
-      } max-w-[85%] rounded-lg bg-black/85 backdrop-blur-md text-white border-l-4 border-[#00b4fb] shadow-xl flex flex-col justify-center animate-in fade-in duration-200 z-20 pointer-events-none`}
+        compact ? "bottom-2 left-2 px-2.5 py-1" : "bottom-3 left-3 px-3.5 py-2"
+      } max-w-[85%] rounded-xl bg-slate-950/75 backdrop-blur-xl text-white border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] flex flex-col justify-center animate-in fade-in duration-200 z-20 pointer-events-none ring-1 ring-white/5`}
     >
       <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#00b4fb] shadow-[0_0_8px_rgba(0,180,251,0.8)]" />
         {isScreen ? (
           <Monitor className="h-3.5 w-3.5 text-[#00b4fb] shrink-0" />
         ) : (
@@ -142,7 +143,7 @@ function PresenterLowerThird({
       </div>
       {headline && !isScreen && (
         <span
-          className={`font-medium text-slate-300 tracking-normal leading-tight mt-0.5 truncate ${
+          className={`font-medium text-slate-300 tracking-normal leading-tight mt-0.5 truncate pl-3 ${
             compact ? "text-[8px]" : "text-[10px] sm:text-[11px]"
           }`}
         >
