@@ -43,6 +43,12 @@ import { ViewerReceiver } from "@/lib/webrtcStreamManager";
 import { Room, RoomEvent, Track, RemoteTrack, RemoteTrackPublication, RemoteParticipant } from "livekit-client";
 import { BACKGROUND_PRESETS } from "@/components/studio/StudioLayoutManager";
 import { FixedBanner, TickerTape } from "@/components/studio/LowerThirdsOverlay";
+import {
+  getYouTubeVideoId,
+  getVimeoVideoId,
+  getYouTubeEmbedUrl,
+  getVimeoEmbedUrl,
+} from "@/lib/videoUrlHelper";
 
 export interface AttendeeProfile {
   firstName: string;
@@ -849,6 +855,75 @@ export default function AttendeeLivePage({ params, searchParams }: Props) {
                 {(() => {
                   // Priority 0: Videoclip active on stage (Intro, Outro or Custom Media Clip)
                   if (overlayState?.videoAssetUrl) {
+                    const ytId = getYouTubeVideoId(overlayState.videoAssetUrl);
+                    const vimeoId = getVimeoVideoId(overlayState.videoAssetUrl);
+
+                    if (ytId) {
+                      const embedUrl = getYouTubeEmbedUrl(ytId, {
+                        autoplay: true,
+                        mute: isMuted,
+                        loop: Boolean(overlayState.videoLoop),
+                        controls: true,
+                      });
+
+                      return (
+                        <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden select-none">
+                          <iframe
+                            key={embedUrl}
+                            src={embedUrl}
+                            title={overlayState.videoAssetName || "Vídeo da Transmissão"}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                            className="h-full w-full border-0"
+                          />
+
+                          {/* Studio Clip Badge */}
+                          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/80 px-3 py-1.5 backdrop-blur-md border border-slate-700 pointer-events-none">
+                            <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
+                            <span className="text-xs font-bold text-white max-w-[200px] truncate">
+                              {overlayState.videoAssetName || "Vídeo YouTube"}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-600/90 text-white font-bold uppercase tracking-wider">
+                              YouTube
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (vimeoId) {
+                      const embedUrl = getVimeoEmbedUrl(vimeoId, {
+                        autoplay: true,
+                        mute: isMuted,
+                        loop: Boolean(overlayState.videoLoop),
+                        controls: true,
+                      });
+
+                      return (
+                        <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden select-none">
+                          <iframe
+                            key={embedUrl}
+                            src={embedUrl}
+                            title={overlayState.videoAssetName || "Vídeo da Transmissão"}
+                            allow="accelerometer; autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                            className="h-full w-full border-0"
+                          />
+
+                          {/* Studio Clip Badge */}
+                          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/80 px-3 py-1.5 backdrop-blur-md border border-slate-700 pointer-events-none">
+                            <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
+                            <span className="text-xs font-bold text-white max-w-[200px] truncate">
+                              {overlayState.videoAssetName || "Vídeo Vimeo"}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-600/90 text-white font-bold uppercase tracking-wider">
+                              Vimeo
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden select-none">
                         <video

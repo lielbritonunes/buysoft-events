@@ -22,7 +22,13 @@ import {
   AlertCircle,
   Link2,
   HardDrive,
+  ExternalLink,
 } from "lucide-react";
+import {
+  getYouTubeVideoId,
+  getVimeoVideoId,
+  getVideoThumbnail,
+} from "@/lib/videoUrlHelper";
 
 export interface VideoClipItem {
   id: string;
@@ -30,11 +36,12 @@ export interface VideoClipItem {
   durationFormatted: string;
   durationSeconds: number;
   url: string;
+  thumbnailUrl?: string | null;
   previewLabel?: string;
   isDefault?: boolean;
 }
 
-// Initial empty clips list as requested by user (removing pre-configured timer/greeting clips)
+// Initial empty clips list as requested by user
 const INITIAL_DEFAULT_CLIPS: VideoClipItem[] = [];
 
 interface Props {
@@ -71,8 +78,8 @@ export default function StudioVideoClipsManager({
   const [showOutroModal, setShowOutroModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  // Upload modal tab: 'file' | 'url'
-  const [uploadTab, setUploadTab] = useState<"file" | "url">("file");
+  // Upload modal tab: default to 'url' per user request
+  const [uploadTab, setUploadTab] = useState<"url" | "file">("url");
   const [urlInput, setUrlInput] = useState("");
   const [urlTitleInput, setUrlTitleInput] = useState("");
 
@@ -96,7 +103,7 @@ export default function StudioVideoClipsManager({
     setMounted(true);
   }, []);
 
-  // Load saved clips from localStorage and purge old pre-configured default clips
+  // Load saved clips from localStorage and enrich with thumbnails
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -104,10 +111,24 @@ export default function StudioVideoClipsManager({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Filter out legacy default clips (Temporizador, Obrigado, Volto Já, etc.)
-          const userOnlyClips = parsed.filter(
-            (c: VideoClipItem) => !c.isDefault && !c.id?.startsWith("default-")
-          );
+          // Filter out legacy default clips and enrich any YouTube clips with thumbnails
+          const userOnlyClips = parsed
+            .filter(
+              (c: VideoClipItem) => !c.isDefault && !c.id?.startsWith("default-")
+            )
+            .map((c: VideoClipItem) => {
+              const ytId = getYouTubeVideoId(c.url);
+              const vimeoId = getVimeoVideoId(c.url);
+              return {
+                ...c,
+                thumbnailUrl:
+                  c.thumbnailUrl ||
+                  (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null),
+                previewLabel:
+                  c.previewLabel || (ytId ? "YOUTUBE" : vimeoId ? "VIMEO" : undefined),
+              };
+            });
+
           setClips(userOnlyClips);
           localStorage.setItem(`buysoft_clips_${eventId}`, JSON.stringify(userOnlyClips));
           return;
@@ -202,7 +223,7 @@ export default function StudioVideoClipsManager({
           ) {
             setFallbackFile(file);
             errorMsg =
-              "O arquivo excedeu o limite máximo do servidor (4.5MB na Vercel). Você pode usá-lo localmente agora clicando no botão abaixo ou cadastrar um link de vídeo.";
+              "O arquivo excedeu o limite do servidor de hospedagem (Vercel Serverless). Recomendamos usar a aba 'Link de vídeo (URL)' com links do YouTube, ou clicar no botão abaixo para usar localmente no estúdio.";
           } else {
             errorMsg =
               text.slice(0, 120) || `Falha no envio do vídeo (Status HTTP ${res.status}).`;
@@ -259,19 +280,38 @@ export default function StudioVideoClipsManager({
     }
   };
 
-  // Add clip via direct video link
+  // Add clip via direct video link (YouTube, Vimeo, MP4, WebM)
   const handleAddClipViaUrl = () => {
     if (!urlInput.trim()) return;
-    const cleanTitle = urlTitleInput.trim() || `Videoclipe ${clips.length + 1}`;
+    const url = urlInput.trim();
+    const ytId = getYouTubeVideoId(url);
+    const vimeoId = getVimeoVideoId(url);
+
+    let thumbnail: string | null = null;
+    let label = "URL";
+
+    if (ytId) {
+      thumbnail = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+      label = "YOUTUBE";
+    } else if (vimeoId) {
+      label = "VIMEO";
+    }
+
+    const cleanTitle =
+      urlTitleInput.trim() ||
+      (ytId ? "Vídeo YouTube" : vimeoId ? "Vídeo Vimeo" : `Videoclipe ${clips.length + 1}`);
+
     const newClip: VideoClipItem = {
       id: `url_${Date.now()}`,
       title: cleanTitle,
-      durationFormatted: "0:30",
-      durationSeconds: 30,
-      previewLabel: cleanTitle.slice(0, 10).toUpperCase(),
-      url: urlInput.trim(),
+      durationFormatted: "Vídeo",
+      durationSeconds: 60,
+      previewLabel: label,
+      thumbnailUrl: thumbnail,
+      url: url,
       isDefault: false,
     };
+
     const updated = [...clips, newClip];
     saveClips(updated);
     setUrlInput("");
@@ -297,6 +337,9 @@ export default function StudioVideoClipsManager({
     const updated = clips.filter((c) => c.id !== id);
     saveClips(updated);
   };
+
+  // Active detected YouTube ID inside modal for live preview
+  const activeYtId = getYouTubeVideoId(urlInput);
 
   return (
     <div className="space-y-3 pt-2 border-t border-gray-100">
@@ -441,15 +484,30 @@ export default function StudioVideoClipsManager({
                         : "border-slate-800 bg-[#171b26] hover:border-[#00b4fb]/80 hover:shadow-sm"
                     }`}
                   >
-                    {/* Visual Center Preview Graphic */}
-                    <div className="flex flex-col items-center justify-center p-1 text-center select-none pointer-events-none">
-                      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800/80 text-white/80 group-hover:text-[#00b4fb] group-hover:scale-105 transition">
-                        <Clapperboard className="h-4 w-4 text-[#00b4fb]" />
+                    {/* Visual Center Preview Graphic or Real Thumbnail */}
+                    {clip.thumbnailUrl ? (
+                      <img
+                        src={clip.thumbnailUrl}
+                        alt={clip.title}
+                        className="h-full w-full object-cover pointer-events-none"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-1 text-center select-none pointer-events-none">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-slate-800/80 text-white/80 group-hover:text-[#00b4fb] group-hover:scale-105 transition">
+                          <Clapperboard className="h-4 w-4 text-[#00b4fb]" />
+                        </div>
+                        <span className="text-[9px] font-mono font-bold text-slate-300 tracking-wider mt-1 truncate max-w-[80px]">
+                          {clip.previewLabel || clip.title.slice(0, 10).toUpperCase()}
+                        </span>
                       </div>
-                      <span className="text-[9px] font-mono font-bold text-slate-300 tracking-wider mt-1 truncate max-w-[80px]">
-                        {clip.previewLabel || clip.title.slice(0, 10).toUpperCase()}
-                      </span>
-                    </div>
+                    )}
+
+                    {/* YouTube/Video Type Badge: Top-left if YouTube */}
+                    {clip.previewLabel === "YOUTUBE" && (
+                      <div className="absolute top-1 left-1 px-1 py-0.5 rounded bg-red-600/90 text-[7px] font-black text-white uppercase tracking-tight pointer-events-none">
+                        YouTube
+                      </div>
+                    )}
 
                     {/* Duration Badge: Bottom-left */}
                     <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[9px] font-mono font-bold text-white pointer-events-none">
@@ -458,13 +516,13 @@ export default function StudioVideoClipsManager({
 
                     {/* Active on stage indicator */}
                     {isPlaying && (
-                      <div className="absolute top-1 right-1 flex items-center gap-1 rounded bg-[#00b4fb] px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider shadow-sm animate-pulse">
+                      <div className="absolute top-1 right-1 flex items-center gap-1 rounded bg-[#00b4fb] px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-wider shadow-sm animate-pulse z-10">
                         Ao Vivo
                       </div>
                     )}
 
                     {/* Hover Overlay with Action */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1 z-10">
                       {isPlaying ? (
                         <div className="flex items-center gap-1 text-[9px] font-bold text-rose-300 bg-rose-950/80 px-2 py-1 rounded-lg border border-rose-600/40 shadow-xs">
                           <Square className="h-2.5 w-2.5 fill-rose-400" />
@@ -482,7 +540,7 @@ export default function StudioVideoClipsManager({
                     <button
                       type="button"
                       onClick={(e) => handleDeleteClip(clip.id, e)}
-                      className="absolute top-1 right-1 p-1 rounded bg-black/70 text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer z-10"
+                      className="absolute top-1 right-1 p-1 rounded bg-black/70 text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer z-20"
                       title="Excluir videoclipe"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -507,10 +565,11 @@ export default function StudioVideoClipsManager({
                 onClick={() => {
                   setUploadError(null);
                   setFallbackFile(null);
+                  setUploadTab("url");
                   setShowUploadModal(true);
                 }}
                 className="aspect-[16/10] w-full rounded-xl border border-slate-300 hover:border-[#00b4fb] bg-white hover:bg-sky-50/30 flex items-center justify-center gap-1.5 text-slate-700 hover:text-[#0084be] transition cursor-pointer group shadow-2xs"
-                title="Importar videoclipes do computador"
+                title="Importar ou adicionar videoclipes"
               >
                 <div className="relative">
                   <Layers className="h-4 w-4 text-slate-500 group-hover:text-[#00b4fb] transition" />
@@ -556,7 +615,7 @@ export default function StudioVideoClipsManager({
             <div className="p-6 pt-4 max-h-[340px] overflow-y-auto space-y-2.5">
               {clips.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 text-xs">
-                  Nenhum vídeo importado ainda. Clique em &quot;+ Mais&quot; para importar do seu computador.
+                  Nenhum vídeo importado ainda. Clique em &quot;+ Mais&quot; para adicionar um vídeo.
                 </div>
               ) : (
                 clips.map((clip) => {
@@ -574,9 +633,17 @@ export default function StudioVideoClipsManager({
                     >
                       {/* Left Thumbnail Tile */}
                       <div className="w-24 aspect-[16/10] rounded-lg bg-slate-950 border border-slate-800 shrink-0 relative flex items-center justify-center overflow-hidden">
-                        <span className="text-[9px] font-mono font-bold text-slate-400">
-                          {clip.previewLabel || "00:15"}
-                        </span>
+                        {clip.thumbnailUrl ? (
+                          <img
+                            src={clip.thumbnailUrl}
+                            alt={clip.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[9px] font-mono font-bold text-slate-400">
+                            {clip.previewLabel || "00:15"}
+                          </span>
+                        )}
                         <Clapperboard className="absolute bottom-1 left-1.5 h-3 w-3 text-white/70" />
                       </div>
 
@@ -676,7 +743,7 @@ export default function StudioVideoClipsManager({
             <div className="p-6 pt-4 max-h-[340px] overflow-y-auto space-y-2.5">
               {clips.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 text-xs">
-                  Nenhum vídeo importado ainda. Clique em &quot;+ Mais&quot; para importar do seu computador.
+                  Nenhum vídeo importado ainda. Clique em &quot;+ Mais&quot; para adicionar um vídeo.
                 </div>
               ) : (
                 clips.map((clip) => {
@@ -694,9 +761,17 @@ export default function StudioVideoClipsManager({
                     >
                       {/* Left Thumbnail Tile */}
                       <div className="w-24 aspect-[16/10] rounded-lg bg-slate-950 border border-slate-800 shrink-0 relative flex items-center justify-center overflow-hidden">
-                        <span className="text-[9px] font-mono font-bold text-slate-400">
-                          {clip.previewLabel || "00:15"}
-                        </span>
+                        {clip.thumbnailUrl ? (
+                          <img
+                            src={clip.thumbnailUrl}
+                            alt={clip.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[9px] font-mono font-bold text-slate-400">
+                            {clip.previewLabel || "00:15"}
+                          </span>
+                        )}
                         <Clapperboard className="absolute bottom-1 left-1.5 h-3 w-3 text-white/70" />
                       </div>
 
@@ -767,7 +842,7 @@ export default function StudioVideoClipsManager({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          MODAL 3: Videoclipes Upload Modal (Mounted via React Portal)
+          MODAL 3: Videoclipes Upload / URL Modal (Mounted via React Portal)
           ───────────────────────────────────────────────────────────── */}
       {mounted && showUploadModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -798,19 +873,6 @@ export default function StudioVideoClipsManager({
             <div className="flex border-b border-gray-100 px-6 pt-2 bg-slate-50/50">
               <button
                 type="button"
-                onClick={() => setUploadTab("file")}
-                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
-                  uploadTab === "file"
-                    ? "border-[#00b4fb] text-[#0084be]"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                <span>Arquivo do computador</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setUploadTab("url")}
                 className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
                   uploadTab === "url"
@@ -820,6 +882,19 @@ export default function StudioVideoClipsManager({
               >
                 <Link2 className="h-3.5 w-3.5" />
                 <span>Link de vídeo (URL)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadTab("file")}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+                  uploadTab === "file"
+                    ? "border-[#00b4fb] text-[#0084be]"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Arquivo do computador</span>
               </button>
             </div>
 
@@ -834,13 +909,13 @@ export default function StudioVideoClipsManager({
 
                   {fallbackFile && (
                     <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between">
-                      <span className="text-[11px] text-rose-700 font-medium">
-                        Arquivo carregado: {fallbackFile.name}
+                      <span className="text-[11px] text-rose-700 font-medium truncate max-w-[200px]">
+                        {fallbackFile.name}
                       </span>
                       <button
                         type="button"
                         onClick={handleUseFileLocally}
-                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center gap-1 shrink-0"
                       >
                         <HardDrive className="h-3 w-3" />
                         <span>Usar localmente no estúdio</span>
@@ -850,7 +925,81 @@ export default function StudioVideoClipsManager({
                 </div>
               )}
 
-              {uploadTab === "file" ? (
+              {uploadTab === "url" ? (
+                <div className="space-y-4">
+                  {/* Supported Badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200">
+                      YouTube
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
+                      Vimeo
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      MP4 / WebM
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Título do videoclipe
+                    </label>
+                    <input
+                      type="text"
+                      value={urlTitleInput}
+                      onChange={(e) => setUrlTitleInput(e.target.value)}
+                      placeholder="Ex: Copilot, Demonstração do Produto..."
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      URL do vídeo
+                    </label>
+                    <input
+                      type="url"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none font-mono"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Cole links de vídeos do YouTube, Vimeo ou link direto MP4.
+                    </p>
+                  </div>
+
+                  {/* YouTube Detected Preview Box */}
+                  {activeYtId && (
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-red-200 bg-red-50/50 animate-in fade-in duration-200">
+                      <div className="w-20 aspect-video rounded-lg overflow-hidden shrink-0 border border-red-200 relative bg-black">
+                        <img
+                          src={`https://img.youtube.com/vi/${activeYtId}/mqdefault.jpg`}
+                          alt="Prévia YouTube"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-red-900 block flex items-center gap-1">
+                          <span>✓ Vídeo do YouTube detectado</span>
+                        </span>
+                        <span className="text-[10px] text-red-700 font-mono truncate block mt-0.5">
+                          ID: {activeYtId}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!urlInput.trim()}
+                    onClick={handleAddClipViaUrl}
+                    className="w-full py-2.5 rounded-xl bg-[#00b4fb] hover:bg-[#009edc] text-white font-bold text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Adicionar videoclipe
+                  </button>
+                </div>
+              ) : (
                 <>
                   <input
                     ref={fileInputRef}
@@ -912,51 +1061,10 @@ export default function StudioVideoClipsManager({
                     )}
                   </div>
 
-                  {/* Bottom Recommended Size Note */}
                   <p className="text-xs text-center text-slate-400 mt-4">
                     Tamanho recomendado: 1280 x 720
                   </p>
                 </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 block">
-                      Título do videoclipe
-                    </label>
-                    <input
-                      type="text"
-                      value={urlTitleInput}
-                      onChange={(e) => setUrlTitleInput(e.target.value)}
-                      placeholder="Ex: Introdução Oficial 2026"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 block">
-                      URL direta do arquivo de vídeo (MP4 ou WebM)
-                    </label>
-                    <input
-                      type="url"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      placeholder="https://exemplo.com/videos/introducao.mp4"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 text-xs text-slate-800 placeholder:text-gray-400 focus:border-[#00b4fb] focus:outline-none font-mono"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Aceita links públicos de CDNs, AWS S3, Cloudinary, Vimeo Direct ou qualquer servidor web.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={!urlInput.trim()}
-                    onClick={handleAddClipViaUrl}
-                    className="w-full py-2.5 rounded-xl bg-[#00b4fb] hover:bg-[#009edc] text-white font-bold text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    Adicionar videoclipe
-                  </button>
-                </div>
               )}
             </div>
           </div>

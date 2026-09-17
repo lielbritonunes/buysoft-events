@@ -2,6 +2,12 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { Play, Pause, Volume2, VolumeX, X, Film, RotateCcw } from "lucide-react";
+import {
+  getYouTubeVideoId,
+  getVimeoVideoId,
+  getYouTubeEmbedUrl,
+  getVimeoEmbedUrl,
+} from "@/lib/videoUrlHelper";
 
 interface Props {
   videoUrl: string | null;
@@ -25,7 +31,13 @@ export default function MediaAssetPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  const ytId = getYouTubeVideoId(videoUrl);
+  const vimeoId = getVimeoVideoId(videoUrl);
+
+  // Standard HTML5 video playback
   useEffect(() => {
+    if (ytId || vimeoId) return;
+
     if (videoRef.current && videoUrl) {
       videoRef.current.src = videoUrl;
       videoRef.current.loop = loop;
@@ -46,14 +58,14 @@ export default function MediaAssetPlayer({
         console.warn("Could not capture video stream:", e);
       }
     }
-  }, [videoUrl, loop, onStreamReady]);
+  }, [videoUrl, loop, onStreamReady, ytId, vimeoId]);
 
   // Keep loop attribute in sync when toggled while playing
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && !ytId && !vimeoId) {
       videoRef.current.loop = loop;
     }
-  }, [loop]);
+  }, [loop, ytId, vimeoId]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -88,6 +100,107 @@ export default function MediaAssetPlayer({
 
   if (!videoUrl) return null;
 
+  // 1. YouTube Player
+  if (ytId) {
+    const embedSrc = getYouTubeEmbedUrl(ytId, {
+      autoplay: true,
+      mute: isMuted,
+      loop: loop,
+      controls: true,
+    });
+
+    return (
+      <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden group">
+        <iframe
+          key={embedSrc}
+          src={embedSrc}
+          title={title || "Vídeo do Estúdio"}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+
+        {/* Media Overlay Badge: Top Left */}
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/90 px-3 py-1.5 backdrop-blur-md border border-slate-700 pointer-events-none shadow-lg">
+          <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
+          <span className="text-xs font-bold text-white max-w-[200px] truncate">
+            {title || "Vídeo YouTube"}
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-600/90 text-white font-bold uppercase tracking-wider">
+            YouTube
+          </span>
+          {loop && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#00b4fb]/20 text-[#38bdf8] font-semibold border border-[#00b4fb]/30">
+              Loop
+            </span>
+          )}
+        </div>
+
+        {/* Quick Close Button: Top Right */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 flex items-center gap-1.5 text-xs font-bold text-white bg-slate-900/90 hover:bg-rose-600 px-3 py-1.5 rounded-xl backdrop-blur-md border border-slate-700 hover:border-rose-500 transition shadow-lg cursor-pointer group-hover:opacity-100"
+          title="Remover vídeo do palco"
+        >
+          <X className="h-3.5 w-3.5" />
+          <span>Remover do Palco</span>
+        </button>
+      </div>
+    );
+  }
+
+  // 2. Vimeo Player
+  if (vimeoId) {
+    const embedSrc = getVimeoEmbedUrl(vimeoId, {
+      autoplay: true,
+      mute: isMuted,
+      loop: loop,
+      controls: true,
+    });
+
+    return (
+      <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden group">
+        <iframe
+          key={embedSrc}
+          src={embedSrc}
+          title={title || "Vídeo Vimeo"}
+          allow="accelerometer; autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+
+        {/* Media Overlay Badge: Top Left */}
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl bg-slate-900/90 px-3 py-1.5 backdrop-blur-md border border-slate-700 pointer-events-none shadow-lg">
+          <Film className="h-3.5 w-3.5 text-[#00b4fb]" />
+          <span className="text-xs font-bold text-white max-w-[200px] truncate">
+            {title || "Vídeo Vimeo"}
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-600/90 text-white font-bold uppercase tracking-wider">
+            Vimeo
+          </span>
+          {loop && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#00b4fb]/20 text-[#38bdf8] font-semibold border border-[#00b4fb]/30">
+              Loop
+            </span>
+          )}
+        </div>
+
+        {/* Quick Close Button: Top Right */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 flex items-center gap-1.5 text-xs font-bold text-white bg-slate-900/90 hover:bg-rose-600 px-3 py-1.5 rounded-xl backdrop-blur-md border border-slate-700 hover:border-rose-500 transition shadow-lg cursor-pointer"
+          title="Remover vídeo do palco"
+        >
+          <X className="h-3.5 w-3.5" />
+          <span>Remover do Palco</span>
+        </button>
+      </div>
+    );
+  }
+
+  // 3. Direct HTML5 Video File Player
   return (
     <div className="relative h-full w-full flex items-center justify-center bg-black overflow-hidden group">
       <video
@@ -129,24 +242,27 @@ export default function MediaAssetPlayer({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={togglePlay}
-              className="p-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition"
+              className="p-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition cursor-pointer"
               title={isPlaying ? "Pausar" : "Reproduzir"}
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
 
             <button
+              type="button"
               onClick={handleRestart}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition"
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
               title="Reiniciar"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
 
             <button
+              type="button"
               onClick={toggleMute}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition"
+              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
               title={isMuted ? "Ativar som" : "Silenciar"}
             >
               {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4" />}
@@ -154,8 +270,9 @@ export default function MediaAssetPlayer({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-slate-800 transition"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="h-3.5 w-3.5" />
             <span>Remover Vídeo do Palco</span>
